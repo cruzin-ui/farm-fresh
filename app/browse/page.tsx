@@ -17,9 +17,11 @@ export default function BrowsePage() {
 
   const fetchListings = async () => {
     setLoading(true);
+
+    // Using left join syntax on seller_profiles so listings appear even before profile setup
     const { data, error } = await supabase
       .from('produce_listings')
-      .select('*, seller_profiles(id, farm_name, location)')
+      .select('*, seller_profiles!left(id, farm_name, location)')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
@@ -30,9 +32,10 @@ export default function BrowsePage() {
   };
 
   const filteredListings = listings.filter((item) => {
-    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.location_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.zip_code?.includes(searchTerm);
+    const matchesSearch =
+      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.location_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.zip_code?.includes(searchTerm);
     const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -45,7 +48,9 @@ export default function BrowsePage() {
           <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-2">
             <Sprout className="w-8 h-8 text-green-600" /> Browse Local Harvests
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Connect directly with growers in your neighborhood for farm-fresh produce.</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Connect directly with growers in your neighborhood for farm-fresh produce.
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -91,7 +96,10 @@ export default function BrowsePage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {filteredListings.map((item) => (
-            <div key={item.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div
+              key={item.id}
+              className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow"
+            >
               <div>
                 {item.image_url ? (
                   <img src={item.image_url} alt={item.title} className="w-full h-48 object-cover" />
@@ -111,14 +119,16 @@ export default function BrowsePage() {
                   </div>
 
                   <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
-                  
-                  {item.seller_profiles?.farm_name && (
+
+                  {item.seller_profiles?.farm_name ? (
                     <Link
                       href={`/sellers/${item.seller_profiles.id}`}
                       className="text-xs text-green-700 font-semibold hover:underline flex items-center gap-1 mt-0.5 mb-2"
                     >
                       <User className="w-3 h-3" /> {item.seller_profiles.farm_name}
                     </Link>
+                  ) : (
+                    <p className="text-xs text-gray-400 mt-0.5 mb-2">Local Grower</p>
                   )}
 
                   <div className="flex items-baseline justify-between mt-4">

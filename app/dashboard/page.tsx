@@ -18,9 +18,6 @@ import {
   ShoppingBag,
   History,
   Settings,
-  Clock,
-  DollarSign,
-  ChevronRight,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -90,7 +87,7 @@ export default function SellerDashboardPage() {
 
     if (listings) setMyListings(listings);
 
-    // 2. Fetch Incoming Orders (Pending / Active)
+    // 2. Fetch Orders
     const { data: orders } = await supabase
       .from('orders')
       .select('*, produce_listings(title, unit_type)')
@@ -438,7 +435,7 @@ export default function SellerDashboardPage() {
           </div>
         </aside>
 
-        {/* MAIN DASHBOARD CONTENT AREA */}
+        {/* MAIN DASHBOARD CONTENT */}
         <main className="flex-1 bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 shadow-sm">
           {successMsg && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-800 rounded-xl flex items-center justify-between text-sm">

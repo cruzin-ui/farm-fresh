@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Sprout, MapPin, Star, Calendar, ShoppingBag, CheckCircle2, User } from 'lucide-react';
+import { Sprout, MapPin, Star, Calendar, ShoppingBag, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
@@ -16,9 +16,10 @@ export default function PublicSellerProfilePage() {
   const [loading, setLoading] = useState(true);
 
   // Average Rating Calculation
-  const avgRating = reviews.length > 0
-    ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
-    : 'New';
+  const avgRating =
+    reviews.length > 0
+      ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
+      : 'New';
 
   useEffect(() => {
     if (sellerId) {
@@ -29,21 +30,22 @@ export default function PublicSellerProfilePage() {
   const fetchSellerData = async () => {
     setLoading(true);
 
-    // Fetch Profile
+    // Fetch Seller Profile
     const { data: profileData } = await supabase
       .from('seller_profiles')
       .select('*')
       .eq('id', sellerId)
-      .single();
+      .maybeSingle();
 
-    // Fetch Seller Active Listings
+    // Fetch Seller Active Produce Listings
     const { data: listingsData } = await supabase
       .from('produce_listings')
       .select('*')
       .eq('farmer_id', sellerId)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
 
-    // Fetch Reviews
+    // Fetch Seller Reviews
     const { data: reviewsData } = await supabase
       .from('seller_reviews')
       .select('*')
@@ -105,9 +107,9 @@ export default function PublicSellerProfilePage() {
             )}
           </div>
 
-          {/* Farm Bio */}
+          {/* Farm Story / Bio */}
           <div className="py-4">
-            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-1">About the Farm</h2>
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">About the Farm</h2>
             <p className="text-sm text-gray-600 leading-relaxed">
               {profile?.bio || 'This grower has not added a detailed bio yet, but produces fresh local crops for pickup!'}
             </p>
@@ -116,14 +118,14 @@ export default function PublicSellerProfilePage() {
           {/* Farm Photos Gallery */}
           {profile?.gallery_urls && profile.gallery_urls.length > 0 && (
             <div className="pt-4 border-t border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Farm Photos</h2>
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Farm & Harvest Photos</h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {profile.gallery_urls.map((url: string, index: number) => (
                   <img
                     key={index}
                     src={url}
                     alt={`Farm photo ${index + 1}`}
-                    className="h-28 w-full object-cover rounded-lg border border-gray-200"
+                    className="h-28 w-full object-cover rounded-xl border border-gray-200"
                   />
                 ))}
               </div>
@@ -139,18 +141,22 @@ export default function PublicSellerProfilePage() {
         </h2>
 
         {listings.length === 0 ? (
-          <div className="p-8 bg-white text-center rounded-xl border border-dashed border-gray-300 text-gray-500 text-sm">
+          <div className="p-8 bg-white text-center rounded-2xl border border-dashed border-gray-200 text-gray-500 text-sm">
             No active produce listings available at this moment. Check back soon for upcoming harvests!
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {listings.map((item) => (
-              <div key={item.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col justify-between">
-                {item.image_url && (
+              <div key={item.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col justify-between">
+                {item.image_url ? (
                   <img src={item.image_url} alt={item.title} className="h-40 w-full object-cover" />
+                ) : (
+                  <div className="h-40 w-full bg-green-50 flex items-center justify-center text-green-700">
+                    <Sprout className="w-10 h-10 opacity-50" />
+                  </div>
                 )}
-                <div className="p-4">
-                  <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded">
+                <div className="p-5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-green-800 bg-green-100 px-2.5 py-0.5 rounded-full">
                     {item.category}
                   </span>
                   <h3 className="text-lg font-bold text-gray-900 mt-2">{item.title}</h3>
@@ -161,12 +167,12 @@ export default function PublicSellerProfilePage() {
                     <Calendar className="w-3.5 h-3.5" /> Ready: {item.harvest_ready_date}
                   </p>
                 </div>
-                <div className="p-4 pt-0">
+                <div className="p-5 pt-0">
                   <Link
-                    href={`/browse?item=${item.id}`}
-                    className="w-full inline-block text-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg text-xs transition-colors"
+                    href={`/checkout?item=${item.id}`}
+                    className="w-full inline-block text-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-xl text-xs transition-colors shadow-sm"
                   >
-                    Reserve Produce
+                    Buy Produce
                   </Link>
                 </div>
               </div>
@@ -182,7 +188,7 @@ export default function PublicSellerProfilePage() {
         </h2>
 
         {reviews.length === 0 ? (
-          <p className="text-sm text-gray-500 py-4">No reviews yet for this seller.</p>
+          <p className="text-sm text-gray-500 py-4">No customer reviews written yet for this seller.</p>
         ) : (
           <div className="space-y-4 divide-y divide-gray-100">
             {reviews.map((rev) => (
