@@ -18,6 +18,8 @@ export default function NewListingPage() {
   const [availableQuantity, setAvailableQuantity] = useState('');
   const [harvestReadyDate, setHarvestReadyDate] = useState('');
   const [harvestEndDate, setHarvestEndDate] = useState('');
+  const [locationName, setLocationName] = useState('');
+  const [zipCode, setZipCode] = useState('');
   const [pickupInstructions, setPickupInstructions] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -74,6 +76,8 @@ export default function NewListingPage() {
             available_quantity: parseFloat(availableQuantity),
             harvest_ready_date: harvestReadyDate,
             harvest_end_date: harvestEndDate || null,
+            location_name: locationName,
+            zip_code: zipCode,
             pickup_instructions: pickupInstructions,
             image_url: imageUrl,
             status: 'active',
@@ -89,6 +93,8 @@ export default function NewListingPage() {
       setAvailableQuantity('');
       setHarvestReadyDate('');
       setHarvestEndDate('');
+      setLocationName('');
+      setZipCode('');
       setPickupInstructions('');
       setImageFile(null);
       setImagePreview(null);
@@ -198,6 +204,31 @@ export default function NewListingPage() {
               value={availableQuantity}
               onChange={(e) => setAvailableQuantity(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">City / Area *</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g., Phoenix, AZ"
+              value={locationName}
+              onChange={(e) => setLocationName(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Zip Code *</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g., 85001"
+              value={zipCode}
+              onChange={(e) => setZipCode(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
             />
           </div>
         </div>

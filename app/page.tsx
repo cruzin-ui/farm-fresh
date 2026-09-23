@@ -1,287 +1,116 @@
-'use client';
+import Link from 'next/link';
+import { Sprout, ShoppingBag, ArrowRight, ShieldCheck, HeartHandshake, MapPin } from 'lucide-react';
 
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import { Search, Filter, Calendar, Tag, Sprout, ChevronRight, AlertCircle } from 'lucide-react';
-
-interface ProduceListing {
-  id: string;
-  farmer_id: string;
-  title: string;
-  category: string;
-  description: string;
-  unit_type: string;
-  price_per_unit: number;
-  available_quantity: number;
-  harvest_ready_date: string;
-  harvest_end_date?: string;
-  pickup_instructions: string;
-  image_url?: string;
-  status: string;
-  created_at: string;
-}
-
-export default function BuyerFeed() {
-  const [listings, setListings] = useState<ProduceListing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [maxPrice, setMaxPrice] = useState<string>('');
-  const [readyFilter, setReadyFilter] = useState<'all' | 'today' | 'upcoming'>('all');
-
-  const categories = [
-    'All',
-    'Vegetables',
-    'Fruits & Berries',
-    'Herbs & Spices',
-    'Microgreens',
-    'Honey & Jam',
-    'Eggs & Dairy',
-  ];
-
-  useEffect(() => {
-    fetchListings();
-  }, []);
-
-  const fetchListings = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const { data, error: supabaseError } = await supabase
-        .from('produce_listings')
-        .select('*')
-        .eq('status', 'active')
-        .order('harvest_ready_date', { ascending: true });
-
-      if (supabaseError) throw supabaseError;
-
-      setListings(data || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load produce listings.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getHarvestBadge = (readyDateStr: string) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const readyDate = new Date(readyDateStr + 'T00:00:00');
-
-    if (readyDate.getTime() === today.getTime()) {
-      return (
-        <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-full border border-emerald-200">
-          Ready Today
-        </span>
-      );
-    } else if (readyDate < today) {
-      return (
-        <span className="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-1 rounded-full border border-green-200">
-          Freshly Harvested
-        </span>
-      );
-    } else {
-      return (
-        <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-200">
-          Ready {readyDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-        </span>
-      );
-    }
-  };
-
-  const filteredListings = listings.filter((item) => {
-    const matchesSearch = 
-      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
-    const matchesPrice = maxPrice === '' || item.price_per_unit <= parseFloat(maxPrice);
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const itemReadyDate = new Date(item.harvest_ready_date + 'T00:00:00');
-
-    let matchesReady = true;
-    if (readyFilter === 'today') {
-      matchesReady = itemReadyDate <= today;
-    } else if (readyFilter === 'upcoming') {
-      matchesReady = itemReadyDate > today;
-    }
-
-    return matchesSearch && matchesCategory && matchesPrice && matchesReady;
-  });
-
+export default function SplashLandingPage() {
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8 text-center md:text-left">
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-          Farm Fresh Direct Marketplace
+    <div className="min-h-screen bg-emerald-50/50 flex flex-col justify-between">
+      {/* Header Navigation */}
+      <header className="max-w-7xl mx-auto w-full px-6 py-6 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-green-600 text-white rounded-lg">
+            <Sprout className="w-6 h-6" />
+          </div>
+          <span className="text-xl font-bold text-gray-900 tracking-tight">Farm Fresh Direct</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <Link href="/about" className="text-sm font-medium text-gray-600 hover:text-green-700">
+            Our Mission
+          </Link>
+          <Link
+            href="/browse"
+            className="text-sm font-semibold text-green-700 bg-white border border-green-200 px-4 py-2 rounded-lg shadow-sm hover:bg-green-50 transition-colors"
+          >
+            Browse Food
+          </Link>
+        </div>
+      </header>
+
+      {/* Main Hero Section */}
+      <main className="max-w-5xl mx-auto px-6 py-12 text-center">
+        <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
+          <MapPin className="w-3.5 h-3.5" /> Direct From Neighbor Gardens & Small Local Farms
+        </div>
+
+        <h1 className="text-4xl sm:text-6xl font-extrabold text-gray-900 tracking-tight leading-tight">
+          Connect directly with <span className="text-green-600">local growers</span> in your neighborhood.
         </h1>
-        <p className="mt-2 text-gray-600">
-          Discover locally grown produce harvested straight from neighbor gardens and small farms.
+
+        <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
+          Buy ultra-fresh produce harvested at peak flavor, or sell surplus crops from your home garden or small farm with zero setup friction.
         </p>
-      </div>
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-8 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="md:col-span-2 relative">
-            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search heirloom tomatoes, honey, berries..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-            />
-          </div>
-
-          <div className="relative">
-            <span className="absolute left-3 top-2.5 text-gray-400">$</span>
-            <input
-              type="number"
-              placeholder="Max price per unit"
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
-              className="w-full pl-8 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <select
-              value={readyFilter}
-              onChange={(e: any) => setReadyFilter(e.target.value)}
-              className="w-full py-2 px-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none bg-white text-gray-700"
-            >
-              <option value="all">All Harvest Dates</option>
-              <option value="today">Ready Now / Today</option>
-              <option value="upcoming">Pre-Orders (Upcoming Harvest)</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-2">
-          <Filter className="w-4 h-4 text-gray-400 shrink-0 mr-1" />
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${
-                selectedCategory === cat
-                  ? 'bg-green-700 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {error && (
-        <div className="p-4 mb-6 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-red-500" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {[1, 2, 3, 4, 5, 6].map((n) => (
-            <div key={n} className="bg-gray-100 animate-pulse h-80 rounded-xl"></div>
-          ))}
-        </div>
-      )}
-
-      {!loading && filteredListings.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-          <Sprout className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-          <h3 className="text-lg font-semibold text-gray-900">No Produce Listings Found</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            Try adjusting your category, price range, or search keywords.
-          </p>
-        </div>
-      )}
-
-      {!loading && filteredListings.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredListings.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col justify-between"
-            >
-              <div>
-                <div className="relative h-48 bg-gray-100 w-full overflow-hidden">
-                  {item.image_url ? (
-                    <img
-                      src={item.image_url}
-                      alt={item.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
-                      <Sprout className="w-10 h-10 mb-1" />
-                      <span className="text-xs">No Photo Available</span>
-                    </div>
-                  )}
-                  <div className="absolute top-3 left-3">
-                    {getHarvestBadge(item.harvest_ready_date)}
-                  </div>
-                </div>
-
-                <div className="p-4">
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="text-xs font-semibold text-green-700 uppercase tracking-wider">
-                      {item.category}
-                    </span>
-                    <span className="text-xs text-gray-500 flex items-center gap-1">
-                      <Tag className="w-3 h-3" /> {item.available_quantity} {item.unit_type} left
-                    </span>
-                  </div>
-
-                  <h2 className="text-lg font-bold text-gray-900 line-clamp-1">{item.title}</h2>
-
-                  <p className="text-sm text-gray-600 mt-1 line-clamp-2 min-h-[2.5rem]">
-                    {item.description || 'Freshly grown produce available for local pickup.'}
-                  </p>
-
-                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
-                    <div>
-                      <span className="text-xl font-extrabold text-gray-900">
-                        ${item.price_per_unit.toFixed(2)}
-                      </span>
-                      <span className="text-xs text-gray-500"> / {item.unit_type}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs text-gray-500 block flex items-center gap-1 justify-end">
-                        <Calendar className="w-3 h-3" /> Ready
-                      </span>
-                      <span className="text-xs font-medium text-gray-700">
-                        {new Date(item.harvest_ready_date + 'T00:00:00').toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+        {/* Dual Buyer / Seller Action Cards */}
+        <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          {/* Buyer Choice */}
+          <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all text-left flex flex-col justify-between">
+            <div>
+              <div className="w-12 h-12 bg-green-100 text-green-700 rounded-xl flex items-center justify-center mb-4">
+                <ShoppingBag className="w-6 h-6" />
               </div>
-
-              <div className="p-4 pt-0">
-                <a
-                  href={`/sell`}
-                  className="w-full mt-2 inline-flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2.5 px-4 rounded-lg transition-colors"
-                >
-                  Reserve Produce
-                  <ChevronRight className="w-4 h-4" />
-                </a>
-              </div>
+              <h2 className="text-2xl font-bold text-gray-900">I Want to Buy</h2>
+              <p className="text-sm text-gray-500 mt-2">
+                Discover homegrown produce, eggs, berries, and honey available for local pickup near your zip code.
+              </p>
             </div>
-          ))}
+            <Link
+              href="/browse"
+              className="mt-6 inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors shadow-sm"
+            >
+              Browse Produce Nearby
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {/* Seller Choice */}
+          <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all text-left flex flex-col justify-between">
+            <div>
+              <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center mb-4">
+                <Sprout className="w-6 h-6" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900">I Want to Sell</h2>
+              <p className="text-sm text-gray-500 mt-2">
+                List your upcoming or harvested crops, set custom unit prices, and earn money from your surplus.
+              </p>
+            </div>
+            <Link
+              href="/sell"
+              className="mt-6 inline-flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-xl transition-colors shadow-sm"
+            >
+              Post Harvest Listing
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
-      )}
+
+        {/* Value Props */}
+        <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left border-t border-gray-200/60 pt-10">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-gray-900 text-sm">Verified at Pickup</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Pay only after inspecting items in person with adjustable weights.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <HeartHandshake className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-gray-900 text-sm">Support Local Growers</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Keep food dollars within your local community and neighborhood economy.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Sprout className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-gray-900 text-sm">Peak Harvest Quality</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Skip long grocery store supply chains and eat food picked fresh today.</p>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer className="border-t border-gray-200 py-6 text-center text-xs text-gray-500">
+        © {new Date().getFullYear()} Farm Fresh Direct. Connecting local food communities.
+      </footer>
     </div>
   );
 }
