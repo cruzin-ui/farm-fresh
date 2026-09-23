@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirectTo') || '/dashboard';
+  const redirectTo = searchParams.get('redirectTo') || '/browse';
 
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -72,7 +72,6 @@ function LoginForm() {
         </div>
       )}
 
-      {/* Social Logins */}
       <button
         type="button"
         onClick={handleGoogleLogin}
@@ -96,7 +95,6 @@ function LoginForm() {
         </div>
       </div>
 
-      {/* Email Magic Link Form */}
       <form onSubmit={handleEmailLogin} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
