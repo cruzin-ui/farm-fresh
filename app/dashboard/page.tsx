@@ -49,7 +49,6 @@ export default function SellerDashboardPage() {
   const [zipCode, setZipCode] = useState('');
   const [pickupInstructions, setPickupInstructions] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Profile Form State
   const [farmName, setFarmName] = useState('');
@@ -57,10 +56,6 @@ export default function SellerDashboardPage() {
   const [profileLocation, setProfileLocation] = useState('');
   const [profileZip, setProfileZip] = useState('');
   const [growingPractices, setGrowingPractices] = useState('No Synthetic Pesticides');
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
-  const [uploadingGallery, setUploadingGallery] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -78,7 +73,7 @@ export default function SellerDashboardPage() {
     const currentUserId = session.user.id;
     setUser(session.user);
 
-    // 1. Fetch Seller Listings
+    // Fetch Seller Listings
     const { data: listings } = await supabase
       .from('produce_listings')
       .select('*')
@@ -87,7 +82,7 @@ export default function SellerDashboardPage() {
 
     if (listings) setMyListings(listings);
 
-    // 2. Fetch Orders
+    // Fetch Orders
     const { data: orders } = await supabase
       .from('orders')
       .select('*, produce_listings(title, unit_type)')
@@ -98,7 +93,7 @@ export default function SellerDashboardPage() {
       setSalesHistory(orders.filter((o) => o.status === 'completed'));
     }
 
-    // 3. Fetch Seller Profile
+    // Fetch Seller Profile
     const { data: profile } = await supabase
       .from('seller_profiles')
       .select('*')
@@ -111,8 +106,6 @@ export default function SellerDashboardPage() {
       setProfileLocation(profile.location || '');
       setProfileZip(profile.zip_code || '');
       setGrowingPractices(profile.growing_practices || 'No Synthetic Pesticides');
-      setCoverPreview(profile.cover_image_url || null);
-      setGalleryUrls(profile.gallery_urls || []);
     }
 
     setAuthChecking(false);
@@ -121,64 +114,6 @@ export default function SellerDashboardPage() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/');
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
-  };
-
-  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setCoverFile(file);
-      setCoverPreview(URL.createObjectURL(file));
-    }
-  };
-
-  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0 || !user) return;
-    setUploadingGallery(true);
-    setErrorMsg(null);
-
-    try {
-      const files = Array.from(e.target.files);
-      const newUrls: string[] = [];
-
-      for (const file of files) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/gallery_${Date.now()}_${Math.random()
-          .toString(36)
-          .substring(2, 7)}.${fileExt}`;
-
-        const { error: uploadErr } = await supabase.storage
-          .from('produce-images')
-          .upload(fileName, file);
-
-        if (uploadErr) throw uploadErr;
-
-        const { data: publicData } = supabase.storage
-          .from('produce-images')
-          .getPublicUrl(fileName);
-
-        if (publicData?.publicUrl) {
-          newUrls.push(publicData.publicUrl);
-        }
-      }
-
-      setGalleryUrls((prev) => [...prev, ...newUrls]);
-    } catch (err: any) {
-      setErrorMsg(`Failed uploading gallery photos: ${err.message}`);
-    } finally {
-      setUploadingGallery(false);
-    }
-  };
-
-  const removeGalleryImage = (indexToRemove: number) => {
-    setGalleryUrls((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   const handleDeleteListing = async (id: string) => {
@@ -258,7 +193,6 @@ export default function SellerDashboardPage() {
       setZipCode('');
       setPickupInstructions('');
       setImageFile(null);
-      setImagePreview(null);
 
       await fetchDashboardData();
       setActiveTab('listings');
@@ -278,25 +212,6 @@ export default function SellerDashboardPage() {
     try {
       if (!user) throw new Error('Authentication required.');
 
-      let coverUrl = coverPreview;
-
-      if (coverFile) {
-        const fileExt = coverFile.name.split('.').pop();
-        const fileName = `${user.id}/cover_${Date.now()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('produce-images')
-          .upload(fileName, coverFile);
-
-        if (uploadError) throw uploadError;
-
-        const { data: publicUrlData } = supabase.storage
-          .from('produce-images')
-          .getPublicUrl(fileName);
-
-        coverUrl = publicUrlData.publicUrl;
-      }
-
       const profilePayload = {
         id: user.id,
         farm_name: farmName,
@@ -304,8 +219,6 @@ export default function SellerDashboardPage() {
         location: profileLocation,
         zip_code: profileZip,
         growing_practices: growingPractices,
-        cover_image_url: coverUrl,
-        gallery_urls: galleryUrls,
       };
 
       const { error: upsertError } = await supabase
@@ -717,7 +630,7 @@ export default function SellerDashboardPage() {
             <form onSubmit={handleProfileSubmit} className="space-y-6">
               <div className="pb-4 border-b border-gray-100">
                 <h1 className="text-2xl font-bold text-gray-900">Your Farm Profile</h1>
-                <p className="text-xs text-gray-500 mt-0.5">Edit public farm details, bio, and gallery pictures for buyers.</p>
+                <p className="text-xs text-gray-500 mt-0.5">Edit public farm details and bio for buyers.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
