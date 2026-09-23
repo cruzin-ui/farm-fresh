@@ -14,15 +14,20 @@ import {
   LogOut,
   User,
   Image as ImageIcon,
-  MapPin,
   ExternalLink,
+  ShoppingBag,
+  History,
+  Settings,
+  Clock,
+  DollarSign,
+  ChevronRight,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function SellerDashboardPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'listings' | 'new' | 'profile'>('listings');
+  const [activeTab, setActiveTab] = useState<'listings' | 'new' | 'orders' | 'history' | 'profile' | 'settings'>('listings');
   const [loading, setLoading] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -31,6 +36,8 @@ export default function SellerDashboardPage() {
   // User & Seller Data State
   const [user, setUser] = useState<any>(null);
   const [myListings, setMyListings] = useState<any[]>([]);
+  const [incomingOrders, setIncomingOrders] = useState<any[]>([]);
+  const [salesHistory, setSalesHistory] = useState<any[]>([]);
 
   // Listing Form State
   const [title, setTitle] = useState('');
@@ -83,7 +90,18 @@ export default function SellerDashboardPage() {
 
     if (listings) setMyListings(listings);
 
-    // 2. Fetch Seller Profile
+    // 2. Fetch Incoming Orders (Pending / Active)
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('*, produce_listings(title, unit_type)')
+      .order('created_at', { ascending: false });
+
+    if (orders) {
+      setIncomingOrders(orders.filter((o) => o.status !== 'completed'));
+      setSalesHistory(orders.filter((o) => o.status === 'completed'));
+    }
+
+    // 3. Fetch Seller Profile
     const { data: profile } = await supabase
       .from('seller_profiles')
       .select('*')
@@ -181,7 +199,6 @@ export default function SellerDashboardPage() {
     }
   };
 
-  // Submit Listing Form
   const handleListingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -255,7 +272,6 @@ export default function SellerDashboardPage() {
     }
   };
 
-  // Submit Profile Form
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -318,500 +334,491 @@ export default function SellerDashboardPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6 bg-white shadow-md rounded-xl my-10 border border-green-100">
-      {/* Top Title Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-green-100 text-green-700 rounded-lg">
-            <Sprout className="w-6 h-6" />
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row gap-8">
+        {/* SIDEBAR NAVIGATION */}
+        <aside className="w-full md:w-64 bg-white p-5 rounded-2xl border border-gray-200 shadow-sm shrink-0 self-start">
+          <div className="flex items-center gap-3 pb-6 mb-6 border-b border-gray-100">
+            <div className="p-2.5 bg-green-100 text-green-700 rounded-xl">
+              <Sprout className="w-6 h-6" />
+            </div>
+            <div className="overflow-hidden">
+              <h2 className="font-extrabold text-gray-900 text-base truncate">{farmName || 'My Farm'}</h2>
+              <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Seller Dashboard</h1>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Logged in as <span className="font-semibold text-gray-700">{user?.email}</span>
-            </p>
-          </div>
-        </div>
 
-        {/* Tab & Auth Controls */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+          <nav className="space-y-1">
             <button
-              onClick={() => {
-                setActiveTab('listings');
-                setSuccessMsg(null);
-                setErrorMsg(null);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-                activeTab === 'listings'
-                  ? 'bg-white text-green-700 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+              onClick={() => { setActiveTab('listings'); setSuccessMsg(null); setErrorMsg(null); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                activeTab === 'listings' || activeTab === 'new'
+                  ? 'bg-green-50 text-green-700 font-bold'
+                  : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
-              <LayoutDashboard className="w-3.5 h-3.5" /> My Posts ({myListings.length})
+              <span className="flex items-center gap-2.5">
+                <LayoutDashboard className="w-4 h-4" /> Your Listings
+              </span>
+              <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px]">
+                {myListings.length}
+              </span>
             </button>
+
             <button
-              onClick={() => {
-                setActiveTab('new');
-                setSuccessMsg(null);
-                setErrorMsg(null);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-                activeTab === 'new'
-                  ? 'bg-green-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+              onClick={() => { setActiveTab('orders'); setSuccessMsg(null); setErrorMsg(null); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                activeTab === 'orders'
+                  ? 'bg-green-50 text-green-700 font-bold'
+                  : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
-              <PlusCircle className="w-3.5 h-3.5" /> Post New Harvest
+              <span className="flex items-center gap-2.5">
+                <ShoppingBag className="w-4 h-4" /> Orders & Pickups
+              </span>
+              {incomingOrders.length > 0 && (
+                <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full text-[10px]">
+                  {incomingOrders.length}
+                </span>
+              )}
             </button>
+
             <button
-              onClick={() => {
-                setActiveTab('profile');
-                setSuccessMsg(null);
-                setErrorMsg(null);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+              onClick={() => { setActiveTab('history'); setSuccessMsg(null); setErrorMsg(null); }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                activeTab === 'history'
+                  ? 'bg-green-50 text-green-700 font-bold'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <History className="w-4 h-4" /> Order History
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('profile'); setSuccessMsg(null); setErrorMsg(null); }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'profile'
-                  ? 'bg-white text-green-700 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-green-50 text-green-700 font-bold'
+                  : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
-              <User className="w-3.5 h-3.5" /> Farm Profile
+              <User className="w-4 h-4" /> Your Profile
             </button>
-          </div>
 
-          <button
-            onClick={handleSignOut}
-            className="p-2 border border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            title="Sign Out"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {successMsg && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-800 rounded-lg flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-          {user?.id && activeTab === 'profile' && (
-            <Link
-              href={`/sellers/${user.id}`}
-              target="_blank"
-              className="text-xs text-green-700 font-bold hover:underline inline-flex items-center gap-1"
+            <button
+              onClick={() => { setActiveTab('settings'); setSuccessMsg(null); setErrorMsg(null); }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                activeTab === 'settings'
+                  ? 'bg-green-50 text-green-700 font-bold'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
             >
-              View Public Profile <ExternalLink className="w-3 h-3" />
-            </Link>
-          )}
-        </div>
-      )}
+              <Settings className="w-4 h-4" /> Settings & Payouts
+            </button>
+          </nav>
 
-      {errorMsg && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2 text-sm">
-          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
-
-      {/* TAB 1: MANAGE POSTS */}
-      {activeTab === 'listings' && (
-        <div>
-          {myListings.length === 0 ? (
-            <div className="text-center py-16 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-              <Sprout className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-              <h3 className="text-base font-semibold text-gray-900">No Harvest Listings Posted Yet</h3>
-              <p className="text-xs text-gray-500 mt-1 mb-6">
-                Turn your extra garden yields or farm crops into income.
-              </p>
-              <button
-                onClick={() => setActiveTab('new')}
-                className="inline-flex items-center gap-2 bg-green-600 text-white font-semibold py-2.5 px-5 rounded-lg text-xs shadow-sm hover:bg-green-700"
-              >
-                <PlusCircle className="w-4 h-4" /> Create Your First Produce Post
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {myListings.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-4 border rounded-xl border-gray-200 shadow-sm bg-white flex justify-between items-start"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-green-800 bg-green-100 px-2 py-0.5 rounded">
-                        {item.category}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {item.location_name} ({item.zip_code})
-                      </span>
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
-                    <p className="text-sm font-semibold text-gray-700">
-                      ${item.price_per_unit.toFixed(2)} / {item.unit_type}
-                    </p>
-                    <p className="text-xs text-gray-500 flex items-center gap-1 pt-1">
-                      <Calendar className="w-3.5 h-3.5" /> Ready: {item.harvest_ready_date}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteListing(item.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete Post"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 2: POST NEW HARVEST */}
-      {activeTab === 'new' && (
-        <form onSubmit={handleListingSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Crop / Product Name *</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g., Organic Heirloom Tomatoes"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none bg-white"
-              >
-                <option>Vegetables</option>
-                <option>Fruits & Berries</option>
-                <option>Herbs & Spices</option>
-                <option>Microgreens</option>
-                <option>Honey & Jam</option>
-                <option>Eggs & Dairy</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Unit Type *</label>
-              <select
-                value={unitType}
-                onChange={(e) => setUnitType(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 bg-white"
-              >
-                <option value="lbs">lbs (Pounds)</option>
-                <option value="bunches">Bunches</option>
-                <option value="flats">Flats / Trays</option>
-                <option value="pints">Pints / Quart</option>
-                <option value="pieces">Individual Pieces</option>
-                <option value="bag">Bag</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Price per {unitType} ($) *</label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-gray-400">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  placeholder="3.50"
-                  value={pricePerUnit}
-                  onChange={(e) => setPricePerUnit(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Est. Total {unitType} *</label>
-              <input
-                type="number"
-                step="0.1"
-                required
-                placeholder="25"
-                value={availableQuantity}
-                onChange={(e) => setAvailableQuantity(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">City / Area *</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g., Phoenix, AZ"
-                value={locationName}
-                onChange={(e) => setLocationName(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Zip Code *</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g., 85001"
-                value={zipCode}
-                onChange={(e) => setZipCode(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ready for Pickup Date *</label>
-              <input
-                type="date"
-                required
-                value={harvestReadyDate}
-                onChange={(e) => setHarvestReadyDate(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Available Until (Optional)</label>
-              <input
-                type="date"
-                value={harvestEndDate}
-                onChange={(e) => setHarvestEndDate(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description / Growing Methods</label>
-            <textarea
-              rows={3}
-              placeholder="Tell buyers how it was grown (e.g., pesticide-free, no chemical fertilizers)..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Pickup Instructions & Location *</label>
-            <textarea
-              rows={2}
-              required
-              placeholder="e.g., Porch pickup at driveway, or meet at Farm Stand on Saturday 8am-12pm."
-              value={pickupInstructions}
-              onChange={(e) => setPickupInstructions(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Produce Photo</label>
-            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-green-400 transition-colors">
-              <div className="space-y-1 text-center">
-                {imagePreview ? (
-                  <div className="flex flex-col items-center">
-                    <img src={imagePreview} alt="Preview" className="h-32 object-cover rounded-lg mb-2" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setImageFile(null);
-                        setImagePreview(null);
-                      }}
-                      className="text-xs text-red-600 underline"
-                    >
-                      Remove image
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <Upload className="mx-auto h-10 w-10 text-gray-400" />
-                    <div className="flex text-sm text-gray-600">
-                      <label className="relative cursor-pointer bg-white rounded-md font-medium text-green-600 hover:text-green-500">
-                        <span>Upload a file</span>
-                        <input type="file" accept="image/*" className="sr-only" onChange={handleImageChange} />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
-                    </div>
-                    <p className="text-xs text-gray-500">PNG, JPG, WEBP up to 5MB</p>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md disabled:bg-gray-400"
-          >
-            {loading ? 'Publishing Listing...' : 'Publish Produce Listing'}
-          </button>
-        </form>
-      )}
-
-      {/* TAB 3: EDIT FARM PROFILE & PHOTOS */}
-      {activeTab === 'profile' && (
-        <form onSubmit={handleProfileSubmit} className="space-y-6">
-          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Farm & Grower Details</h2>
-              <p className="text-xs text-gray-500">This information will be publicly visible to local buyers on your farm profile.</p>
-            </div>
+          <div className="pt-6 mt-6 border-t border-gray-100 space-y-2">
             {user?.id && (
               <Link
                 href={`/sellers/${user.id}`}
                 target="_blank"
-                className="text-xs font-semibold text-green-700 bg-green-50 px-3 py-1.5 rounded-lg hover:bg-green-100 inline-flex items-center gap-1"
+                className="w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold text-green-700 bg-green-50/50 hover:bg-green-50 rounded-lg transition-colors"
               >
-                View Public Page <ExternalLink className="w-3.5 h-3.5" />
+                <span>View Public Page</span>
+                <ExternalLink className="w-3.5 h-3.5" />
               </Link>
             )}
+
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              <LogOut className="w-4 h-4" /> Sign Out
+            </button>
           </div>
+        </aside>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Farm / Stand Name *</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g., Sunrise Acres Garden"
-                value={farmName}
-                onChange={(e) => setFarmName(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Growing Practices</label>
-              <select
-                value={growingPractices}
-                onChange={(e) => setGrowingPractices(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 bg-white"
-              >
-                <option value="No Synthetic Pesticides">No Synthetic Pesticides</option>
-                <option value="Certified Organic">Certified Organic</option>
-                <option value="Hydroponic / Aquaponic">Hydroponic / Aquaponic</option>
-                <option value="Regenerative / Soil-First">Regenerative / Soil-First</option>
-                <option value="Home Garden Surplus">Home Garden Surplus</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Location / City *</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g., Phoenix, AZ"
-                value={profileLocation}
-                onChange={(e) => setProfileLocation(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Zip Code *</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g., 85001"
-                value={profileZip}
-                onChange={(e) => setProfileZip(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">About Your Farm & Story</label>
-            <textarea
-              rows={4}
-              placeholder="Share how long you've been growing, what crops you specialize in, and your philosophy..."
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-
-          {/* Cover Photo */}
-          <div className="pt-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Farm Cover Banner</label>
-            {coverPreview && (
-              <img src={coverPreview} alt="Cover Preview" className="w-full h-36 object-cover rounded-xl mb-3 border border-gray-200" />
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleCoverChange}
-              className="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
-            />
-          </div>
-
-          {/* Farm Gallery Photos */}
-          <div className="pt-2">
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">Farm & Garden Gallery Photos</label>
-              <span className="text-xs text-gray-400">{galleryUrls.length} photos uploaded</span>
-            </div>
-
-            {galleryUrls.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                {galleryUrls.map((url, index) => (
-                  <div key={index} className="relative group rounded-lg overflow-hidden border border-gray-200">
-                    <img src={url} alt={`Gallery ${index}`} className="h-24 w-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => removeGalleryImage(index)}
-                      className="absolute top-1 right-1 bg-black/60 hover:bg-red-600 text-white p-1 rounded-full text-xs transition-colors"
-                      title="Remove image"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
+        {/* MAIN DASHBOARD CONTENT AREA */}
+        <main className="flex-1 bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 shadow-sm">
+          {successMsg && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-800 rounded-xl flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+                <span>{successMsg}</span>
               </div>
-            )}
-
-            <div className="p-4 border-2 border-dashed border-gray-200 rounded-lg text-center bg-gray-50">
-              <ImageIcon className="mx-auto h-8 w-8 text-gray-400 mb-1" />
-              <label className="cursor-pointer text-xs font-semibold text-green-700 hover:underline">
-                <span>{uploadingGallery ? 'Uploading photos...' : '+ Upload Garden / Farm Photos'}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  disabled={uploadingGallery}
-                  onChange={handleGalleryUpload}
-                  className="sr-only"
-                />
-              </label>
-              <p className="text-[10px] text-gray-400 mt-0.5">Upload multiple photos showing your fields, greenhouse, or harvest setup.</p>
             </div>
-          </div>
+          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md disabled:bg-gray-400"
-          >
-            {loading ? 'Saving Profile...' : 'Save Farm Profile'}
-          </button>
-        </form>
-      )}
+          {errorMsg && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-2 text-sm">
+              <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* TAB 1: YOUR LISTINGS */}
+          {(activeTab === 'listings' || activeTab === 'new') && (
+            <div>
+              <div className="flex items-center justify-between pb-6 mb-6 border-b border-gray-100">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Your Harvest Listings</h1>
+                  <p className="text-xs text-gray-500 mt-0.5">Manage active produce posts or publish a new crop yield.</p>
+                </div>
+                {activeTab === 'listings' && (
+                  <button
+                    onClick={() => setActiveTab('new')}
+                    className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-xl text-xs transition-colors shadow-sm"
+                  >
+                    <PlusCircle className="w-4 h-4" /> Post New Harvest
+                  </button>
+                )}
+              </div>
+
+              {activeTab === 'listings' && myListings.length === 0 && (
+                <div className="text-center py-16 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  <Sprout className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+                  <h3 className="text-base font-semibold text-gray-900">No Active Posts Yet</h3>
+                  <p className="text-xs text-gray-500 mt-1 mb-6">Start selling your surplus produce locally.</p>
+                  <button
+                    onClick={() => setActiveTab('new')}
+                    className="inline-flex items-center gap-2 bg-green-600 text-white font-semibold py-2.5 px-5 rounded-lg text-xs shadow-sm hover:bg-green-700"
+                  >
+                    <PlusCircle className="w-4 h-4" /> Post Your First Produce Item
+                  </button>
+                </div>
+              )}
+
+              {activeTab === 'listings' && myListings.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {myListings.map((item) => (
+                    <div key={item.id} className="p-4 border rounded-xl border-gray-200 shadow-sm bg-white flex justify-between items-start">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-green-800 bg-green-100 px-2 py-0.5 rounded">
+                            {item.category}
+                          </span>
+                          <span className="text-xs text-gray-400">{item.location_name}</span>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
+                        <p className="text-sm font-semibold text-gray-700">
+                          ${item.price_per_unit.toFixed(2)} / {item.unit_type}
+                        </p>
+                        <p className="text-xs text-gray-500 flex items-center gap-1 pt-1">
+                          <Calendar className="w-3.5 h-3.5" /> Stock: {item.available_quantity} {item.unit_type} remaining
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteListing(item.id)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete Listing"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* POST NEW HARVEST FORM */}
+              {activeTab === 'new' && (
+                <form onSubmit={handleListingSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Crop Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g., Organic Heirloom Tomatoes"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Category</label>
+                      <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg text-sm bg-white"
+                      >
+                        <option>Vegetables</option>
+                        <option>Fruits & Berries</option>
+                        <option>Herbs & Spices</option>
+                        <option>Honey & Jam</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Unit Type *</label>
+                      <select
+                        value={unitType}
+                        onChange={(e) => setUnitType(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+                      >
+                        <option value="lbs">lbs (Pounds)</option>
+                        <option value="bunches">Bunches</option>
+                        <option value="flats">Flats</option>
+                        <option value="pints">Pints</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Price per {unitType} ($) *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        placeholder="3.50"
+                        value={pricePerUnit}
+                        onChange={(e) => setPricePerUnit(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Est. Total {unitType} *</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        required
+                        placeholder="25"
+                        value={availableQuantity}
+                        onChange={(e) => setAvailableQuantity(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">City / Area *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g., Phoenix, AZ"
+                        value={locationName}
+                        onChange={(e) => setLocationName(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Zip Code *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g., 85001"
+                        value={zipCode}
+                        onChange={(e) => setZipCode(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Ready for Pickup Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={harvestReadyDate}
+                        onChange={(e) => setHarvestReadyDate(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Pickup Instructions *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g., Porch pickup at driveway"
+                        value={pickupInstructions}
+                        onChange={(e) => setPickupInstructions(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl text-sm transition-colors shadow-md disabled:bg-gray-400"
+                  >
+                    {loading ? 'Publishing...' : 'Publish Produce Listing'}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: ORDERS & PICKUPS */}
+          {activeTab === 'orders' && (
+            <div>
+              <div className="pb-6 mb-6 border-b border-gray-100">
+                <h1 className="text-2xl font-bold text-gray-900">Incoming Buyer Reservations</h1>
+                <p className="text-xs text-gray-500 mt-0.5">Manage pending pickups and verify orders from local buyers.</p>
+              </div>
+
+              {incomingOrders.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-xl text-gray-500 text-sm">
+                  No pending pickup reservations at this moment.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {incomingOrders.map((order) => (
+                    <div key={order.id} className="p-4 border rounded-xl border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full uppercase">
+                          {order.status || 'Pending Pickup'}
+                        </span>
+                        <h3 className="font-bold text-gray-900 mt-1">{order.produce_listings?.title}</h3>
+                        <p className="text-xs text-gray-500">
+                          Reserved: {order.reserved_quantity} {order.produce_listings?.unit_type}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-lg font-extrabold text-gray-900">${order.authorized_amount}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: ORDER HISTORY */}
+          {activeTab === 'history' && (
+            <div>
+              <div className="pb-6 mb-6 border-b border-gray-100">
+                <h1 className="text-2xl font-bold text-gray-900">Completed Order History</h1>
+                <p className="text-xs text-gray-500 mt-0.5">Log of all completed sales and fulfilled buyer pickups.</p>
+              </div>
+
+              {salesHistory.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-xl text-gray-500 text-sm">
+                  No completed transactions recorded in your history yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {salesHistory.map((item) => (
+                    <div key={item.id} className="p-4 border border-gray-100 rounded-xl flex justify-between items-center text-sm">
+                      <div>
+                        <h4 className="font-bold text-gray-900">{item.produce_listings?.title}</h4>
+                        <p className="text-xs text-gray-400">{new Date(item.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <span className="font-bold text-green-700">+${item.authorized_amount}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: FARM PROFILE */}
+          {activeTab === 'profile' && (
+            <form onSubmit={handleProfileSubmit} className="space-y-6">
+              <div className="pb-4 border-b border-gray-100">
+                <h1 className="text-2xl font-bold text-gray-900">Your Farm Profile</h1>
+                <p className="text-xs text-gray-500 mt-0.5">Edit public farm details, bio, and gallery pictures for buyers.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Farm / Stand Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., Sunrise Acres Garden"
+                    value={farmName}
+                    onChange={(e) => setFarmName(e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Growing Practices</label>
+                  <select
+                    value={growingPractices}
+                    onChange={(e) => setGrowingPractices(e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg text-sm bg-white"
+                  >
+                    <option value="No Synthetic Pesticides">No Synthetic Pesticides</option>
+                    <option value="Certified Organic">Certified Organic</option>
+                    <option value="Hydroponic">Hydroponic</option>
+                    <option value="Home Garden Surplus">Home Garden Surplus</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">City / Location *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., Phoenix, AZ"
+                    value={profileLocation}
+                    onChange={(e) => setProfileLocation(e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Zip Code *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., 85001"
+                    value={profileZip}
+                    onChange={(e) => setProfileZip(e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Farm Story / Bio</label>
+                <textarea
+                  rows={3}
+                  placeholder="Tell buyers about your growing setup and history..."
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg text-sm"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl text-sm transition-colors shadow-md disabled:bg-gray-400"
+              >
+                {loading ? 'Saving Profile...' : 'Save Profile Changes'}
+              </button>
+            </form>
+          )}
+
+          {/* TAB 5: SETTINGS & PAYOUTS */}
+          {activeTab === 'settings' && (
+            <div>
+              <div className="pb-6 mb-6 border-b border-gray-100">
+                <h1 className="text-2xl font-bold text-gray-900">Settings & Payout Preferences</h1>
+                <p className="text-xs text-gray-500 mt-0.5">Manage how you receive payments from local buyers.</p>
+              </div>
+
+              <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-sm">Direct Local Payouts</h3>
+                    <p className="text-xs text-gray-500">Collect payment via cash or preferred digital methods at pickup.</p>
+                  </div>
+                  <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1 rounded-full">
+                    Enabled
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
