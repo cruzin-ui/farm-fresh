@@ -27,18 +27,28 @@ export default function NewListingPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  // Check authentication status on page load
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        // Redirect unauthenticated sellers to login page
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         router.push('/login?redirectTo=/sell');
       } else {
         setAuthChecking(false);
       }
     };
+
     checkAuth();
+
+    // Listen for auth state change (e.g. hash token exchange)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setAuthChecking(false);
+      } else {
+        router.push('/login?redirectTo=/sell');
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [router]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,7 +65,6 @@ export default function NewListingPage() {
     setErrorMsg(null);
 
     try {
-      // Check authentication status before allowing submission
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
