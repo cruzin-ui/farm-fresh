@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Search, MapPin, Calendar, ShoppingBag, Sprout } from 'lucide-react';
+import { Search, MapPin, Calendar, ShoppingBag, Sprout, User } from 'lucide-react';
 import Link from 'next/link';
 
 export default function BrowsePage() {
@@ -18,16 +18,14 @@ export default function BrowsePage() {
   const fetchListings = async () => {
     setLoading(true);
 
-    // Fetch all listings without restrictive filters to verify database connection
     const { data, error } = await supabase
       .from('produce_listings')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Supabase Fetch Error:', error.message, error.details);
+      console.error('Supabase Fetch Error:', error.message);
     } else {
-      console.log('Fetched produce listings:', data);
       setListings(data || []);
     }
 
@@ -37,7 +35,8 @@ export default function BrowsePage() {
   const filteredListings = listings.filter((item) => {
     const matchesSearch =
       item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.location_name?.toLowerCase().includes(searchQuery.toLowerCase());
+      item.location_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.farm_name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory =
       selectedCategory === 'All' || item.category === selectedCategory;
 
@@ -52,7 +51,7 @@ export default function BrowsePage() {
           <Search className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search fresh crops or location (e.g., Tomatoes, Phoenix)..."
+            placeholder="Search fresh crops, farm name, or location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -118,13 +117,29 @@ export default function BrowsePage() {
 
               <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                 <div>
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className="font-extrabold text-gray-900 text-lg leading-snug">
-                      {item.title}
-                    </h3>
+                  {/* FARMER BRANDING BADGE */}
+                  <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100">
+                    {item.farmer_avatar_url ? (
+                      <img
+                        src={item.farmer_avatar_url}
+                        alt={item.farm_name}
+                        className="w-6 h-6 rounded-full object-cover border border-emerald-300"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                    )}
+                    <span className="text-xs font-bold text-gray-700 truncate">
+                      {item.farm_name || 'Local Farm'}
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                  <h3 className="font-extrabold text-gray-900 text-lg leading-snug">
+                    {item.title}
+                  </h3>
+
+                  <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
                     <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>{item.location_name || 'Phoenix, AZ'}</span>
                   </div>
