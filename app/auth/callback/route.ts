@@ -5,7 +5,8 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/browse';
+  // Explicitly default to /dashboard if no target redirect is provided
+  const next = searchParams.get('next') ?? '/dashboard';
 
   if (code) {
     const cookieStore = await cookies();
@@ -33,6 +34,6 @@ export async function GET(request: Request) {
     }
   }
 
-  // Return the user to browse if auth code exchange fails
-  return NextResponse.redirect(`${origin}/browse`);
+  // Fallback redirect directly to the dashboard
+  return NextResponse.redirect(`${origin}/dashboard`);
 }
