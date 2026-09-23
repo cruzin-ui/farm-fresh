@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirectTo') || '/browse';
+  const redirectTo = searchParams.get('redirectTo') || '/dashboard';
 
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,10 +32,6 @@ function LoginForm() {
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
       },
     });
     if (error) setError(error.message);
