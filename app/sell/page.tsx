@@ -1,11 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Sprout, Upload, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function NewListingPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -24,6 +27,20 @@ export default function NewListingPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
+  // Check authentication status on page load
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Redirect unauthenticated sellers to login page
+        router.push('/login?redirectTo=/sell');
+      } else {
+        setAuthChecking(false);
+      }
+    };
+    checkAuth();
+  }, [router]);
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -38,9 +55,11 @@ export default function NewListingPage() {
     setErrorMsg(null);
 
     try {
+      // Check authentication status before allowing submission
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
+        router.push('/login?redirectTo=/sell');
         throw new Error('You must be logged in as a grower to publish a listing.');
       }
 
@@ -104,6 +123,14 @@ export default function NewListingPage() {
       setLoading(false);
     }
   };
+
+  if (authChecking) {
+    return (
+      <div className="max-w-3xl mx-auto my-20 p-8 text-center text-gray-500">
+        Checking authentication...
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white shadow-md rounded-xl my-10 border border-green-100">
