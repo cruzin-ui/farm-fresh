@@ -28,6 +28,10 @@ function CheckoutContent() {
   const [squareLoaded, setSquareLoaded] = useState(false);
   const [squareError, setSquareError] = useState<string | null>(null);
 
+  // Hardcoded Sandbox Credentials
+  const appId = 'sandbox-sq0idb-6B32R6J34y7erO0LdB11dw';
+  const locationId = 'L80C7735RPEEF';
+
   // 1. Fetch listing details from Supabase using 'produce_listings' table
   useEffect(() => {
     async function fetchListing() {
@@ -57,23 +61,12 @@ function CheckoutContent() {
     fetchListing();
   }, [listingId]);
 
-  // Exact Square Sandbox Credentials from your Square Dashboard
-  const appId = 'sandbox-sq0idb-6B32R6J34y7erO0LdB11dw';
-  const locationId = 'L80C7735RPEEF';
-
-  // Explicit Sandbox SDK URL
-  const squareSdkUrl = 'https://sandbox.web.squarecdn.com/v1/square.js';
-
-  // 2. Initialize Square Web SDK Card Container with retry logic
-  const initializeSquareCard = async (retries = 5) => {
+  // 2. Initialize Square Card Form
+  const initSquare = async () => {
     if (card) return;
 
     if (!window.Square) {
-      if (retries > 0) {
-        setTimeout(() => initializeSquareCard(retries - 1), 300);
-        return;
-      }
-      setSquareError('Square SDK script failed to load.');
+      setSquareError('Square SDK not loaded');
       return;
     }
 
@@ -91,20 +84,10 @@ function CheckoutContent() {
       setSquareLoaded(true);
       setSquareError(null);
     } catch (e: any) {
-      console.error('Failed to attach Square Card element:', e);
-      if (retries > 0 && e.message?.includes('initialized in time')) {
-        setTimeout(() => initializeSquareCard(retries - 1), 500);
-      } else {
-        setSquareError(e.message || 'An unexpected error occurred while initializing the payment method.');
-      }
+      console.error('Square initialization failed:', e);
+      setSquareError(e.message || 'Failed to load payment form.');
     }
   };
-
-  useEffect(() => {
-    if (!loadingListing && window.Square && !card) {
-      initializeSquareCard();
-    }
-  }, [loadingListing]);
 
   // Quantity and Price calculations bounded strictly by available_quantity
   const itemPrice = listing ? Number(listing.price_per_unit ?? listing.price ?? 0) : 0;
@@ -196,8 +179,9 @@ function CheckoutContent() {
   return (
     <>
       <Script
-        src={squareSdkUrl}
-        onLoad={() => initializeSquareCard()}
+        id="square-sandbox-sdk"
+        src="https://sandbox.web.squarecdn.com/v1/square.js"
+        onLoad={() => initSquare()}
       />
 
       <div className="max-w-3xl mx-auto px-4 py-8">
