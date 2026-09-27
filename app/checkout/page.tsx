@@ -26,6 +26,7 @@ function CheckoutContent() {
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [card, setCard] = useState<any>(null);
   const [squareLoaded, setSquareLoaded] = useState(false);
+  const [squareError, setSquareError] = useState<string | null>(null);
 
   // 1. Fetch listing details from Supabase using 'produce_listings' table
   useEffect(() => {
@@ -38,7 +39,7 @@ function CheckoutContent() {
 
       try {
         const { data, error } = await supabase
-          .from('produce_listings') // Updated table name
+          .from('produce_listings')
           .select('*')
           .eq('id', listingId)
           .single();
@@ -58,19 +59,38 @@ function CheckoutContent() {
 
   // 2. Initialize Square Web SDK Card Container
   const initializeSquareCard = async () => {
-    if (!window.Square) return;
+    if (card) return;
+
+    const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID;
+    const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID;
+
+    if (!appId || !locationId) {
+      console.error('Square credentials missing:', { appId, locationId });
+      setSquareError('Square Environment variables (App ID / Location ID) missing in Vercel.');
+      return;
+    }
+
+    if (!window.Square) {
+      console.warn('Square SDK script not available yet.');
+      return;
+    }
 
     try {
-      const payments = window.Square.payments(
-        process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID!,
-        process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID!
-      );
+      const payments = window.Square.payments(appId, locationId);
       const cardInstance = await payments.card();
+      
+      const container = document.getElementById('square-card-container');
+      if (container) {
+        container.innerHTML = ''; // Clear prior mount if re-initializing
+      }
+
       await cardInstance.attach('#square-card-container');
       setCard(cardInstance);
       setSquareLoaded(true);
-    } catch (e) {
+      setSquareError(null);
+    } catch (e: any) {
       console.error('Failed to attach Square Card element:', e);
+      setSquareError(e.message || 'Could not load Square payment form.');
     }
   };
 
@@ -80,8 +100,11 @@ function CheckoutContent() {
     }
   }, [loadingListing]);
 
-  // Calculations
-  const itemPrice = listing?.price ? Number(listing.price) : 0;
+  // Price & Quantity matching exact Supabase schema (price_per_unit, available_quantity, unit_type)
+  const itemPrice = listing ? Number(listing.price_per_unit ?? listing.price ?? 0) : 0;
+  const maxQty = listing ? Number(listing.available_quantity ?? listing.quantity_available ?? 99) : 99;
+  const unitType = listing?.unit_type || 'unit';
+
   const subtotal = itemPrice * quantity;
   const buyerFeeRate = 0.05; // 5% buyer platform fee
   const buyerFee = Number((subtotal * buyerFeeRate).toFixed(2));
@@ -176,14 +199,14 @@ function CheckoutContent() {
               <div className="flex justify-between items-start pt-1">
                 <div>
                   <h3 className="font-bold text-gray-900 text-lg">{listing.title}</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">${itemPrice.toFixed(2)} per {listing.unit_type || 'unit'}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">${itemPrice.toFixed(2)} per {unitType}</p>
                 </div>
                 <div className="flex items-center gap-2 bg-gray-50 border px-3 py-1.5 rounded-lg">
                   <label className="text-xs text-gray-600 font-semibold">Qty:</label>
                   <input
                     type="number"
                     min="1"
-                    max={listing.quantity_available || 99}
+                    max={maxQty}
                     value={quantity}
                     onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                     className="w-12 text-center text-sm font-bold bg-white border rounded"
@@ -225,8 +248,11 @@ function CheckoutContent() {
 
               <div className="min-h-[100px] border rounded-lg p-2 bg-gray-50">
                 <div id="square-card-container"></div>
-                {!squareLoaded && (
+                {!squareLoaded && !squareError && (
                   <p className="text-xs text-gray-400 text-center py-4">Loading secure Square card form...</p>
+                )}
+                {squareError && (
+                  <p className="text-xs text-red-500 text-center py-4 p-2">{squareError}</p>
                 )}
               </div>
 
