@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import {
   Sprout,
@@ -16,10 +16,27 @@ import {
   CreditCard,
   Check,
   PackageCheck,
+  Camera,
+  ImageIcon,
+  X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 type DashboardTab = 'listings' | 'new' | 'orders' | 'history' | 'profile' | 'settings';
+
+const UNIT_TYPE_OPTIONS = [
+  { value: 'lbs', label: 'lbs (Pounds)' },
+  { value: 'oz', label: 'oz (Ounces)' },
+  { value: 'kg', label: 'kg (Kilograms)' },
+  { value: 'units', label: 'Units (each, e.g. per pumpkin)' },
+  { value: 'dozen', label: 'Dozen' },
+  { value: 'bunches', label: 'Bunches' },
+  { value: 'bags', label: 'Bags' },
+  { value: 'flats', label: 'Flats' },
+  { value: 'pints', label: 'Pints' },
+  { value: 'quarts', label: 'Quarts' },
+  { value: 'jars', label: 'Jars' },
+];
 
 export default function SellerDashboardPage() {
   const router = useRouter();
@@ -34,6 +51,7 @@ export default function SellerDashboardPage() {
   const [incomingOrders, setIncomingOrders] = useState<any[]>([]);
   const [salesHistory, setSalesHistory] = useState<any[]>([]);
 
+  // Listing Form State
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Vegetables');
   const [description, setDescription] = useState('');
@@ -46,17 +64,31 @@ export default function SellerDashboardPage() {
   const [zipCode, setZipCode] = useState('');
   const [pickupInstructions, setPickupInstructions] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
+  const cropCameraInputRef = useRef<HTMLInputElement>(null);
+  const cropLibraryInputRef = useRef<HTMLInputElement>(null);
+
+  // Profile Form State
   const [farmName, setFarmName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [bio, setBio] = useState('');
   const [profileLocation, setProfileLocation] = useState('');
   const [profileZip, setProfileZip] = useState('');
   const [growingPractices, setGrowingPractices] = useState('No Synthetic Pesticides');
 
-  const [paymentMethod, setPaymentMethod] = useState('Cash / Venmo at Pickup');
-  const [venmoHandle, setVenmoHandle] = useState('');
+  const avatarCameraInputRef = useRef<HTMLInputElement>(null);
+  const avatarLibraryInputRef = useRef<HTMLInputElement>(null);
+
+  // Payouts State (Square-online model — no cash/Venmo-at-pickup anymore)
+  const [payoutNotes, setPayoutNotes] = useState('');
+
+  // Mark Ready flow — per-order draft of the pickup message before sending
+  const [readyDraftOrderId, setReadyDraftOrderId] = useState<string | null>(null);
+  const [readyDraftText, setReadyDraftText] = useState('');
+  const [sendingReady, setSendingReady] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -95,8 +127,7 @@ export default function SellerDashboardPage() {
       setProfileLocation(profile.location || '');
       setProfileZip(profile.zip_code || '');
       setGrowingPractices(profile.growing_practices || 'No Synthetic Pesticides');
-      setPaymentMethod(profile.payment_method || 'Cash / Venmo at Pickup');
-      setVenmoHandle(profile.venmo_handle || '');
+      setPayoutNotes(profile.payout_notes || '');
     }
 
     const listingIds = (listings || []).map((l) => l.id);
@@ -119,6 +150,7 @@ export default function SellerDashboardPage() {
           ...o,
           listing_title: listingLookup[o.listing_id]?.title || 'Harvest Crop',
           listing_unit_type: listingLookup[o.listing_id]?.unit_type || 'units',
+          listing_pickup_instructions: listingLookup[o.listing_id]?.pickup_instructions || '',
         }));
 
         setIncomingOrders(
@@ -158,17 +190,60 @@ export default function SellerDashboardPage() {
     }
   };
 
-  const handleOrderStatusUpdate = async (orderId: string, newStatus: string) => {
+  // "Mark Completed" stays a direct client update — now works because of the
+  // new seller UPDATE policy on orders.
+  const handleMarkCompleted = async (orderId: string) => {
     const { error } = await supabase
       .from('orders')
-      .update({ status: newStatus })
+      .update({ status: 'completed' })
       .eq('id', orderId);
 
     if (error) {
       alert(`Could not update order status: ${error.message}`);
     } else {
-      setSuccessMsg(`Order marked as ${newStatus.replace('_', ' ')}!`);
+      setSuccessMsg('Order marked as completed and moved to Sales History.');
       await fetchDashboardData();
+    }
+  };
+
+  const openReadyDraft = (order: any) => {
+    setReadyDraftOrderId(order.id);
+    setReadyDraftText(
+      order.listing_pickup_instructions
+        ? order.listing_pickup_instructions
+        : 'Your order is ready! Please pick up at [location] during [hours].'
+    );
+  };
+
+  const cancelReadyDraft = () => {
+    setReadyDraftOrderId(null);
+    setReadyDraftText('');
+  };
+
+  const confirmMarkReady = async (orderId: string) => {
+    if (!readyDraftText.trim()) {
+      alert('Please enter pickup details before sending.');
+      return;
+    }
+
+    setSendingReady(true);
+    try {
+      const res = await fetch('/api/orders/mark-ready', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, pickupDetails: readyDraftText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to mark order ready.');
+
+      setSuccessMsg('Order marked ready — the buyer has been emailed the pickup details.');
+      setReadyDraftOrderId(null);
+      setReadyDraftText('');
+      await fetchDashboardData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to mark order ready.');
+    } finally {
+      setSendingReady(false);
     }
   };
 
@@ -209,8 +284,7 @@ export default function SellerDashboardPage() {
         location: profileLocation,
         zip_code: profileZip,
         growing_practices: growingPractices,
-        payment_method: paymentMethod,
-        venmo_handle: venmoHandle,
+        payout_notes: payoutNotes,
       };
 
       const { error: upsertError } = await supabase
@@ -220,6 +294,8 @@ export default function SellerDashboardPage() {
       if (upsertError) throw upsertError;
 
       setSuccessMsg('Farm profile and image successfully updated!');
+      setAvatarFile(null);
+      setAvatarPreviewUrl(null);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to update farm profile.');
     } finally {
@@ -284,7 +360,11 @@ export default function SellerDashboardPage() {
       setPricePerUnit('');
       setAvailableQuantity('');
       setHarvestReadyDate('');
+      setHarvestEndDate('');
+      setZipCode('');
+      setPickupInstructions('');
       setImageFile(null);
+      setImagePreviewUrl(null);
 
       await fetchDashboardData();
       setActiveTab('listings');
@@ -293,6 +373,16 @@ export default function SellerDashboardPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCropFileSelected = (file: File | null) => {
+    setImageFile(file);
+    setImagePreviewUrl(file ? URL.createObjectURL(file) : null);
+  };
+
+  const handleAvatarFileSelected = (file: File | null) => {
+    setAvatarFile(file);
+    setAvatarPreviewUrl(file ? URL.createObjectURL(file) : null);
   };
 
   if (authChecking) {
@@ -548,6 +638,19 @@ export default function SellerDashboardPage() {
                     </div>
                   </div>
 
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Tell buyers what makes this crop special..."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      className="w-full px-4 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">
@@ -558,10 +661,11 @@ export default function SellerDashboardPage() {
                         onChange={(e) => setUnitType(e.target.value)}
                         className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
                       >
-                        <option value="lbs">lbs (Pounds)</option>
-                        <option value="bunches">Bunches</option>
-                        <option value="flats">Flats</option>
-                        <option value="pints">Pints</option>
+                        {UNIT_TYPE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -612,6 +716,21 @@ export default function SellerDashboardPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Zip Code
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., 85001"
+                        value={zipCode}
+                        onChange={(e) => setZipCode(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
                         Ready Date *
                       </label>
                       <input
@@ -622,18 +741,92 @@ export default function SellerDashboardPage() {
                         className="w-full px-4 py-2 border rounded-lg text-sm"
                       />
                     </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Available Until (Optional)
+                      </label>
+                      <input
+                        type="date"
+                        value={harvestEndDate}
+                        onChange={(e) => setHarvestEndDate(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Pickup Instructions
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="e.g., Pickup at the blue farm stand, Sat & Sun 9am-1pm. Text (602) 555-0199 when you arrive."
+                      value={pickupInstructions}
+                      onChange={(e) => setPickupInstructions(e.target.value)}
+                      className="w-full px-4 py-2 border rounded-lg text-sm"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      This gets suggested automatically as the pickup message when you mark an order ready.
+                    </p>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
                       Crop Image (Optional)
                     </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                      className="w-full px-3 py-2 border rounded-lg text-xs"
-                    />
+                    <div className="flex items-center gap-3">
+                      {imagePreviewUrl ? (
+                        <div className="relative">
+                          <img
+                            src={imagePreviewUrl}
+                            alt="Preview"
+                            className="w-16 h-16 rounded-lg object-cover border"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleCropFileSelected(null)}
+                            className="absolute -top-2 -right-2 bg-white border rounded-full p-0.5 shadow-sm"
+                          >
+                            <X className="w-3.5 h-3.5 text-gray-500" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center border border-dashed">
+                          <ImageIcon className="w-6 h-6 text-gray-300" />
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => cropCameraInputRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        <Camera className="w-3.5 h-3.5" /> Take Photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cropLibraryInputRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5" /> Choose Photo
+                      </button>
+
+                      <input
+                        ref={cropCameraInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => handleCropFileSelected(e.target.files?.[0] || null)}
+                        className="hidden"
+                      />
+                      <input
+                        ref={cropLibraryInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleCropFileSelected(e.target.files?.[0] || null)}
+                        className="hidden"
+                      />
+                    </div>
                   </div>
 
                   <button
@@ -670,50 +863,82 @@ export default function SellerDashboardPage() {
                   {incomingOrders.map((order) => (
                     <div
                       key={order.id}
-                      className="p-5 border rounded-2xl border-gray-200 shadow-sm bg-white flex flex-col md:flex-row justify-between md:items-center gap-4"
+                      className="p-5 border rounded-2xl border-gray-200 shadow-sm bg-white flex flex-col gap-4"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
-                              order.status === 'pending_pickup'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-blue-100 text-blue-800'
-                            }`}
-                          >
-                            {order.status === 'pending_pickup' ? 'Pending Harvest' : 'Ready for Pickup'}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            Order #{order.id.slice(0, 8)}
-                          </span>
+                      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                                order.status === 'pending_pickup'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}
+                            >
+                              {order.status === 'pending_pickup' ? 'Pending Harvest' : 'Ready for Pickup'}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              Order #{order.id.slice(0, 8)}
+                            </span>
+                          </div>
+                          <h3 className="text-base font-bold text-gray-900">
+                            {order.listing_title}
+                          </h3>
+                          <p className="text-xs text-gray-600">
+                            Buyer: <span className="font-semibold">{order.buyer_email || 'Buyer'}</span> ({order.reserved_quantity} {order.listing_unit_type})
+                          </p>
+                          <p className="text-xs font-extrabold text-emerald-700">
+                            Total Paid: ${Number(order.total_price || 0).toFixed(2)}
+                          </p>
                         </div>
-                        <h3 className="text-base font-bold text-gray-900">
-                          {order.listing_title}
-                        </h3>
-                        <p className="text-xs text-gray-600">
-                          Buyer: <span className="font-semibold">{order.buyer_email || 'Buyer'}</span> ({order.reserved_quantity} {order.listing_unit_type})
-                        </p>
-                        <p className="text-xs font-extrabold text-emerald-700">
-                          Total Paid: ${Number(order.total_price || 0).toFixed(2)}
-                        </p>
+
+                        <div className="flex items-center gap-2 self-start md:self-auto">
+                          {order.status === 'pending_pickup' && readyDraftOrderId !== order.id && (
+                            <button
+                              onClick={() => openReadyDraft(order)}
+                              className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+                            >
+                              <PackageCheck className="w-4 h-4" /> Mark Ready for Pickup
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleMarkCompleted(order.id)}
+                            className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+                          >
+                            <Check className="w-4 h-4" /> Mark Completed
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2 self-start md:self-auto">
-                        {order.status === 'pending_pickup' && (
-                          <button
-                            onClick={() => handleOrderStatusUpdate(order.id, 'ready_for_pickup')}
-                            className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
-                          >
-                            <PackageCheck className="w-4 h-4" /> Mark Ready for Pickup
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleOrderStatusUpdate(order.id, 'completed')}
-                          className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
-                        >
-                          <Check className="w-4 h-4" /> Mark Completed
-                        </button>
-                      </div>
+                      {readyDraftOrderId === order.id && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                          <label className="block text-xs font-semibold text-blue-900">
+                            Pickup details to email the buyer
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={readyDraftText}
+                            onChange={(e) => setReadyDraftText(e.target.value)}
+                            className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => confirmMarkReady(order.id)}
+                              disabled={sendingReady}
+                              className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                            >
+                              {sendingReady ? 'Sending...' : 'Send & Mark Ready'}
+                            </button>
+                            <button
+                              onClick={cancelReadyDraft}
+                              disabled={sendingReady}
+                              className="inline-flex items-center gap-1.5 bg-white border text-gray-600 text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -772,10 +997,10 @@ export default function SellerDashboardPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                {avatarUrl ? (
+              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100 flex-wrap">
+                {avatarPreviewUrl || avatarUrl ? (
                   <img
-                    src={avatarUrl}
+                    src={avatarPreviewUrl || avatarUrl}
                     alt="Farm avatar"
                     className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500 shadow-sm shrink-0"
                   />
@@ -784,17 +1009,40 @@ export default function SellerDashboardPage() {
                     <Sprout className="w-10 h-10" />
                   </div>
                 )}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Upload Farm / Farmer Photo
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
-                    className="text-xs text-gray-500"
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-700">Upload Farm / Farmer Photo</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => avatarCameraInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-xs font-semibold text-gray-700 hover:bg-white bg-white"
+                    >
+                      <Camera className="w-3.5 h-3.5" /> Take Photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => avatarLibraryInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-xs font-semibold text-gray-700 hover:bg-white bg-white"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" /> Choose Photo
+                    </button>
+                    <input
+                      ref={avatarCameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => handleAvatarFileSelected(e.target.files?.[0] || null)}
+                      className="hidden"
+                    />
+                    <input
+                      ref={avatarLibraryInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleAvatarFileSelected(e.target.files?.[0] || null)}
+                      className="hidden"
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-400">
                     This photo will display beside every harvest listing you publish.
                   </p>
                 </div>
@@ -853,43 +1101,34 @@ export default function SellerDashboardPage() {
           {activeTab === 'settings' && (
             <form onSubmit={handleProfileSubmit} className="space-y-6">
               <div className="pb-4 border-b border-gray-100">
-                <h1 className="text-2xl font-bold text-gray-900">Payout & Payment Preferences</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Payouts & Settings</h1>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Configure how buyers settle payments when picking up produce.
+                  All buyer payments are collected online through Square at checkout.
                 </p>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Accepted Pickup Payment Methods
-                  </label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-full px-4 py-2.5 border rounded-xl text-sm bg-white"
-                  >
-                    <option value="Cash / Venmo at Pickup">Cash / Venmo at Pickup</option>
-                    <option value="Cash Only at Pickup">Cash Only at Pickup</option>
-                    <option value="Venmo / Zelle Pre-payment">Venmo / Zelle Pre-payment</option>
-                  </select>
-                </div>
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
+                Buyers pay in full online via Square when they reserve your produce — there's no
+                cash or Venmo collected at pickup anymore. During this early phase, payouts to
+                farmers are sent manually by the Farm Fresh Direct team. Let us know below how
+                you'd like to receive your earnings, and we'll reach out to arrange it.
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Venmo / Zelle Handle or Phone Number (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="@your-farm-handle or (602) 555-0199"
-                    value={venmoHandle}
-                    onChange={(e) => setVenmoHandle(e.target.value)}
-                    className="w-full px-4 py-2 border rounded-lg text-sm"
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    Revealed to buyers on their order confirmation page for easy payment settlement.
-                  </p>
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Payout Details
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="e.g., Bank transfer — contact me at (602) 555-0199 to set up direct deposit. Or: PayPal — myemail@example.com"
+                  value={payoutNotes}
+                  onChange={(e) => setPayoutNotes(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg text-sm"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Avoid entering full bank account or card numbers here — just tell us your
+                  preferred method and contact info, and we'll follow up securely.
+                </p>
               </div>
 
               <button
