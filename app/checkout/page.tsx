@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import Link from 'next/link';
-import { ShoppingBag, CreditCard, Lock, ArrowRight, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { ShoppingBag, CreditCard, Lock, ArrowRight, ArrowLeft, ShieldCheck, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
 declare global {
@@ -57,21 +57,27 @@ function CheckoutContent() {
     fetchListing();
   }, [listingId]);
 
+  // Determine application ID & location ID with fallbacks
+  const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID || 'sandbox-sq0idb-6B32R6J34y7erO0LdB11dw';
+  const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || 'L313A78A0S3BC';
+
+  // Explicitly detect if credentials are sandbox based on key prefix
+  const isSandbox = appId.startsWith('sandbox-');
+  const squareSdkUrl = isSandbox
+    ? 'https://sandbox.web.squarecdn.com/v1/square.js'
+    : 'https://web.squarecdn.com/v1/square.js';
+
   // 2. Initialize Square Web SDK Card Container
   const initializeSquareCard = async () => {
     if (card) return;
 
-    const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID;
-    const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID;
-
     if (!appId || !locationId) {
-      console.error('Square credentials missing:', { appId, locationId });
-      setSquareError('Square Environment variables (App ID / Location ID) missing in Vercel.');
+      setSquareError('Square Application ID or Location ID environment variables are missing.');
       return;
     }
 
     if (!window.Square) {
-      console.warn('Square SDK script not available yet.');
+      console.warn('Square SDK script not loaded in window yet.');
       return;
     }
 
@@ -81,7 +87,7 @@ function CheckoutContent() {
       
       const container = document.getElementById('square-card-container');
       if (container) {
-        container.innerHTML = ''; // Clear prior mount if re-initializing
+        container.innerHTML = '';
       }
 
       await cardInstance.attach('#square-card-container');
@@ -90,7 +96,7 @@ function CheckoutContent() {
       setSquareError(null);
     } catch (e: any) {
       console.error('Failed to attach Square Card element:', e);
-      setSquareError(e.message || 'Could not load Square payment form.');
+      setSquareError(e.message || 'An unexpected error occurred while initializing the payment method.');
     }
   };
 
@@ -100,20 +106,37 @@ function CheckoutContent() {
     }
   }, [loadingListing]);
 
-  // Price & Quantity matching exact Supabase schema (price_per_unit, available_quantity, unit_type)
+  // Quantity and Price calculations bounded strictly by available_quantity
   const itemPrice = listing ? Number(listing.price_per_unit ?? listing.price ?? 0) : 0;
-  const maxQty = listing ? Number(listing.available_quantity ?? listing.quantity_available ?? 99) : 99;
-  const unitType = listing?.unit_type || 'unit';
+  const maxQty = listing ? Math.max(0, Number(listing.available_quantity ?? listing.quantity_available ?? 0)) : 0;
+  const unitType = listing?.unit_type || 'lbs';
 
   const subtotal = itemPrice * quantity;
   const buyerFeeRate = 0.05; // 5% buyer platform fee
   const buyerFee = Number((subtotal * buyerFeeRate).toFixed(2));
   const grandTotal = Number((subtotal + buyerFee).toFixed(2));
 
+  // Handler for quantity input with min and max validation
+  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    if (isNaN(val) || val < 1) {
+      setQuantity(1);
+    } else if (maxQty > 0 && val > maxQty) {
+      setQuantity(maxQty);
+    } else {
+      setQuantity(val);
+    }
+  };
+
   // 3. Handle Square Payment submission
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!card) return;
+
+    if (quantity > maxQty) {
+      alert(`Cannot reserve more than the available ${maxQty} ${unitType}.`);
+      return;
+    }
 
     setLoadingPayment(true);
 
@@ -173,11 +196,7 @@ function CheckoutContent() {
   return (
     <>
       <Script
-        src={
-          process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT === 'production'
-            ? 'https://web.squarecdn.com/v1/square.js'
-            : 'https://sandbox.web.squarecdn.com/v1/square.js'
-        }
+        src={squareSdkUrl}
         onLoad={initializeSquareCard}
       />
 
@@ -195,7 +214,13 @@ function CheckoutContent() {
           {/* Order Details Column */}
           <div className="md:col-span-3 space-y-6">
             <div className="bg-white border rounded-xl p-4 shadow-sm space-y-3">
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Produce Selection</h2>
+              <div className="flex justify-between items-center">
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Produce Selection</h2>
+                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                  {maxQty} {unitType} available
+                </span>
+              </div>
+
               <div className="flex justify-between items-start pt-1">
                 <div>
                   <h3 className="font-bold text-gray-900 text-lg">{listing.title}</h3>
@@ -208,11 +233,17 @@ function CheckoutContent() {
                     min="1"
                     max={maxQty}
                     value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-12 text-center text-sm font-bold bg-white border rounded"
+                    onChange={handleQuantityChange}
+                    className="w-16 text-center text-sm font-bold bg-white border rounded p-1 focus:ring-2 focus:ring-emerald-500 outline-none"
                   />
                 </div>
               </div>
+
+              {quantity === maxQty && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 p-2 rounded-lg flex items-center gap-1.5 font-medium">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-amber-600" /> Max available limit reached ({maxQty} {unitType}).
+                </p>
+              )}
             </div>
 
             {/* Financial Totals */}
@@ -258,7 +289,7 @@ function CheckoutContent() {
 
               <button
                 type="submit"
-                disabled={loadingPayment || !squareLoaded}
+                disabled={loadingPayment || !squareLoaded || maxQty === 0}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 text-sm"
               >
                 {loadingPayment ? 'Processing Payment...' : `Pay $${grandTotal.toFixed(2)} Now`}
