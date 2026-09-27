@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import Link from 'next/link';
@@ -22,17 +22,35 @@ function CheckoutContent() {
   const [loadingListing, setLoadingListing] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  const [buyerId, setBuyerId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
   const [quantity, setQuantity] = useState(1);
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [card, setCard] = useState<any>(null);
   const [squareLoaded, setSquareLoaded] = useState(false);
   const [squareError, setSquareError] = useState<string | null>(null);
 
-  // Direct Sandbox Credentials (Enforcing Sandbox Mode)
+  const initStartedRef = useRef(false);
+
   const appId = 'sandbox-sq0idb-6B32R6J34y7er00LdBl1dw';
   const locationId = 'L80C7735RPEEF';
 
-  // 1. Fetch listing details from Supabase using 'produce_listings' table
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        const redirectTarget = listingId ? `/checkout?id=${listingId}` : '/checkout';
+        router.push(`/login?redirect=${encodeURIComponent(redirectTarget)}`);
+        return;
+      }
+      setBuyerId(user.id);
+      setAuthChecked(true);
+    }
+    checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     async function fetchListing() {
       if (!listingId) {
@@ -61,18 +79,29 @@ function CheckoutContent() {
     fetchListing();
   }, [listingId]);
 
-  // 2. Initialize Square Sandbox Payment Card
   const initializeSquareCard = async () => {
-    if (card) return;
-
-    if (!window.Square) {
-      console.warn('Square SDK script not available in window yet.');
+    if (initStartedRef.current) {
+      console.log('[Square] Init already in progress/complete, skipping duplicate call.');
       return;
     }
 
+    if (!window.Square) {
+      console.warn('[Square] SDK script not available in window yet.');
+      return;
+    }
+
+    if (!appId || !locationId) {
+      console.error('[Square] Missing appId or locationId at init time.', { appId, locationId });
+      setSquareError('Payment configuration is missing. Please contact support.');
+      return;
+    }
+
+    initStartedRef.current = true;
+
     try {
-      console.log('Attaching Square Card with Sandbox App ID:', appId, 'Location ID:', locationId);
+      console.log('[Square] Initializing payments()', { appId, locationId });
       const payments = window.Square.payments(appId, locationId);
+
       const cardInstance = await payments.card();
 
       const container = document.getElementById('square-card-container');
@@ -84,29 +113,32 @@ function CheckoutContent() {
       setCard(cardInstance);
       setSquareLoaded(true);
       setSquareError(null);
+      console.log('[Square] Card attached successfully.');
     } catch (e: any) {
-      console.error('Square initialization failed:', e);
-      setSquareError(e.message || 'An unexpected error occurred while initializing the payment method.');
+      console.error('[Square] Initialization failed. Raw error object:', e);
+      if (e?.errors) {
+        console.error('[Square] Nested errors array:', e.errors);
+      }
+      setSquareError(e?.message || 'An unexpected error occurred while initializing the payment method.');
+      initStartedRef.current = false;
     }
   };
 
   useEffect(() => {
-    if (!loadingListing && window.Square && !card) {
+    if (!loadingListing && window.Square && !initStartedRef.current) {
       initializeSquareCard();
     }
   }, [loadingListing]);
 
-  // Quantity and Price calculations bounded strictly by available_quantity
   const itemPrice = listing ? Number(listing.price_per_unit ?? listing.price ?? 0) : 0;
   const maxQty = listing ? Math.max(0, Number(listing.available_quantity ?? listing.quantity_available ?? 0)) : 0;
   const unitType = listing?.unit_type || 'lbs';
 
   const subtotal = itemPrice * quantity;
-  const buyerFeeRate = 0.05; // 5% buyer platform fee
+  const buyerFeeRate = 0.05;
   const buyerFee = Number((subtotal * buyerFeeRate).toFixed(2));
   const grandTotal = Number((subtotal + buyerFee).toFixed(2));
 
-  // Handler for quantity input with min and max validation
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value, 10);
     if (isNaN(val) || val < 1) {
@@ -118,10 +150,14 @@ function CheckoutContent() {
     }
   };
 
-  // 3. Handle Square Payment submission
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!card) return;
+
+    if (!buyerId) {
+      alert('You must be signed in to complete checkout.');
+      return;
+    }
 
     if (quantity > maxQty) {
       alert(`Cannot reserve more than the available ${maxQty} ${unitType}.`);
@@ -146,6 +182,7 @@ function CheckoutContent() {
           subtotal,
           buyerFee,
           grandTotal,
+          buyerId,
         }),
       });
 
@@ -160,7 +197,7 @@ function CheckoutContent() {
     }
   };
 
-  if (loadingListing) {
+  if (!authChecked || loadingListing) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center space-y-3">
         <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
@@ -189,7 +226,14 @@ function CheckoutContent() {
         id="square-sandbox-sdk"
         src="https://sandbox.web.squarecdn.com/v1/square.js"
         strategy="afterInteractive"
-        onLoad={initializeSquareCard}
+        onLoad={() => {
+          console.log('[Square] SDK script loaded.');
+          initializeSquareCard();
+        }}
+        onError={(e) => {
+          console.error('[Square] SDK script failed to load:', e);
+          setSquareError('Could not load the Square payment script. Check your network/adblocker.');
+        }}
       />
 
       <div className="max-w-3xl mx-auto px-4 py-8">
@@ -203,7 +247,6 @@ function CheckoutContent() {
         </h1>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-          {/* Order Details Column */}
           <div className="md:col-span-3 space-y-6">
             <div className="bg-white border rounded-xl p-4 shadow-sm space-y-3">
               <div className="flex justify-between items-center">
@@ -238,7 +281,6 @@ function CheckoutContent() {
               )}
             </div>
 
-            {/* Financial Totals */}
             <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-5 space-y-3 text-sm">
               <div className="flex justify-between items-center text-gray-700">
                 <span>Produce Subtotal:</span>
@@ -261,7 +303,6 @@ function CheckoutContent() {
             </div>
           </div>
 
-          {/* Square Card Payment Form */}
           <div className="md:col-span-2">
             <form onSubmit={handlePayment} className="bg-white border rounded-xl p-5 shadow-sm space-y-4 sticky top-6">
               <h2 className="font-bold text-gray-900 text-base flex items-center gap-1.5">

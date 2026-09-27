@@ -6,18 +6,22 @@ export const dynamic = 'force-dynamic';
 
 const squareClient = new SquareClient({
   token: process.env.SQUARE_ACCESS_TOKEN || '',
-  environment: process.env.SQUARE_ENVIRONMENT === 'production' 
-    ? SquareEnvironment.Production 
+  environment: process.env.SQUARE_ENVIRONMENT === 'production'
+    ? SquareEnvironment.Production
     : SquareEnvironment.Sandbox,
 });
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { sourceId, listingId, quantity, grandTotal } = body;
+    const { sourceId, listingId, quantity, grandTotal, buyerId } = body;
 
     if (!sourceId || !grandTotal) {
       return NextResponse.json({ error: 'Missing required payment parameters.' }, { status: 400 });
+    }
+
+    if (!buyerId) {
+      return NextResponse.json({ error: 'You must be signed in to complete checkout.' }, { status: 401 });
     }
 
     // Generate unique pickup verification code
@@ -48,6 +52,7 @@ export async function POST(request: Request) {
       .from('orders')
       .insert([
         {
+          buyer_id: buyerId,
           listing_id: listingId || null,
           quantity: quantity || 1,
           total_price: grandTotal,
