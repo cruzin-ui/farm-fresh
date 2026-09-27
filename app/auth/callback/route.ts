@@ -5,8 +5,7 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  // Check for 'next' target in URL parameters; default to '/browse' for buyers if omitted
-  const next = searchParams.get('next') ?? '/browse';
+  const next = searchParams.get('next') ?? '/dashboard';
 
   if (code) {
     const cookieStore = await cookies();
@@ -15,14 +14,17 @@ export async function GET(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
+          getAll() {
+            return cookieStore.getAll();
           },
-          set(name: string, value: string, options: any) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: any) {
-            cookieStore.delete({ name, ...options });
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              );
+            } catch {
+              // Handled in middleware/server context
+            }
           },
         },
       }
@@ -34,6 +36,5 @@ export async function GET(request: Request) {
     }
   }
 
-  // Fallback redirect if auth code exchange fails
-  return NextResponse.redirect(`${origin}${next}`);
+  return NextResponse.redirect(`${origin}/login?error=auth-failed`);
 }
