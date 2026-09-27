@@ -18,12 +18,12 @@ export default function BrowsePage() {
   const fetchListings = async () => {
     setLoading(true);
 
-    // Fetch listings and seller profiles separately (no formal FK exists
-    // between produce_listings.farmer_id and seller_profiles.id), then
-    // merge them client-side by matching farmer_id to seller id.
+    // Only fetch listings that still have stock, so sold-out posts
+    // disappear from Browse entirely rather than showing a "Sold Out" badge.
     const { data: listingsData, error: listingsError } = await supabase
       .from('produce_listings')
       .select('*')
+      .gt('available_quantity', 0)
       .order('created_at', { ascending: false });
 
     if (listingsError) {
@@ -125,7 +125,6 @@ export default function BrowsePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredListings.map((item) => {
             const availableQty = Number(item.available_quantity ?? 0);
-            const isSoldOut = availableQty <= 0;
 
             return (
               <div
@@ -148,14 +147,8 @@ export default function BrowsePage() {
                   <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-md text-emerald-900 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
                     {item.category || 'Produce'}
                   </span>
-                  <span
-                    className={`absolute top-3 right-3 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm ${
-                      isSoldOut
-                        ? 'bg-gray-800/90 text-white'
-                        : 'bg-white/90 backdrop-blur-md text-emerald-900'
-                    }`}
-                  >
-                    {isSoldOut ? 'Sold Out' : `${availableQty} ${item.unit_type || 'lbs'} left`}
+                  <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-emerald-900 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
+                    {availableQty} {item.unit_type || 'lbs'} left
                   </span>
                 </div>
 
@@ -207,18 +200,12 @@ export default function BrowsePage() {
                       </span>
                     </div>
 
-                    {isSoldOut ? (
-                      <span className="inline-flex items-center gap-1.5 bg-gray-200 text-gray-500 text-xs font-bold px-4 py-2.5 rounded-xl cursor-not-allowed">
-                        <ShoppingBag className="w-3.5 h-3.5" /> Sold Out
-                      </span>
-                    ) : (
-                      <Link
-                        href={`/checkout?id=${item.id}`}
-                        className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition-colors"
-                      >
-                        <ShoppingBag className="w-3.5 h-3.5" /> Reserve
-                      </Link>
-                    )}
+                    <Link
+                      href={`/checkout?id=${item.id}`}
+                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition-colors"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5" /> Reserve
+                    </Link>
                   </div>
                 </div>
               </div>

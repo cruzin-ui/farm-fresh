@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { SquareClient, SquareEnvironment } from 'square';
 import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,9 +31,9 @@ export async function POST(request: Request) {
 
     const orderQuantity = Number(quantity) || 1;
 
-    // Re-check current availability right before charging, to prevent
-    // overselling if two buyers reserve the same listing at nearly the same time.
-    const { data: listing, error: listingFetchError } = await supabase
+    // Use the admin client here since a buyer isn't the listing's owner and
+    // RLS would otherwise block reading/writing available_quantity.
+    const { data: listing, error: listingFetchError } = await supabaseAdmin
       .from('produce_listings')
       .select('available_quantity')
       .eq('id', listingId)
@@ -100,11 +101,8 @@ export async function POST(request: Request) {
     if (orderError) throw orderError;
 
     // Decrement the listing's available quantity now that payment succeeded.
-    // Note: the customer has already been charged at this point, so a failure
-    // here is logged but does not fail the whole request — the order itself
-    // still exists and was paid for.
     const newAvailable = Math.max(0, currentAvailable - orderQuantity);
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('produce_listings')
       .update({ available_quantity: newAvailable })
       .eq('id', listingId);
