@@ -57,21 +57,16 @@ function CheckoutContent() {
     fetchListing();
   }, [listingId]);
 
-  // Exact Square Sandbox Credentials
-  const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID || 'sandbox-sq0idb-6B32R6J34y7erO0LdB11dw';
-  const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || 'L80C7735RPEEF';
+  // Exact Square Sandbox Credentials from your Square Dashboard
+  const appId = 'sandbox-sq0idb-6B32R6J34y7erO0LdB11dw';
+  const locationId = 'L80C7735RPEEF';
 
-  // Force Sandbox CDN script domain
+  // Explicit Sandbox SDK URL
   const squareSdkUrl = 'https://sandbox.web.squarecdn.com/v1/square.js';
 
-  // 2. Initialize Square Web SDK Card Container
+  // 2. Initialize Square Web SDK Card Container with retry logic
   const initializeSquareCard = async (retries = 5) => {
     if (card) return;
-
-    if (!appId || !locationId) {
-      setSquareError('Square Application ID or Location ID environment variables are missing.');
-      return;
-    }
 
     if (!window.Square) {
       if (retries > 0) {
