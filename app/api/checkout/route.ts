@@ -1,34 +1,43 @@
 import { NextResponse } from 'next/server';
-import { Client, Environment } from 'square';
+import { SquareClient, SquareEnvironment } from 'square';
 import { supabase } from '@/lib/supabaseClient';
 
-const squareClient = new Client({
-  accessToken: process.env.SQUARE_ACCESS_TOKEN,
+export const dynamic = 'force-dynamic';
+
+const squareClient = new SquareClient({
+  token: process.env.SQUARE_ACCESS_TOKEN || '',
   environment: process.env.SQUARE_ENVIRONMENT === 'production' 
-    ? Environment.Production 
-    : Environment.Sandbox,
+    ? SquareEnvironment.Production 
+    : SquareEnvironment.Sandbox,
 });
 
 export async function POST(request: Request) {
   try {
-    const { sourceId, listingId, quantity, subtotal, buyerFee, grandTotal } = await request.json();
+    const body = await request.json();
+    const { sourceId, listingId, quantity, grandTotal } = body;
 
-    // Generate pickup code
+    if (!sourceId || !grandTotal) {
+      return NextResponse.json({ error: 'Missing required payment parameters.' }, { status: 400 });
+    }
+
+    // Generate unique pickup verification code
     const pickupCode = `FFD-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // Process payment through Square
-    const paymentsApi = squareClient.paymentsApi;
-    const paymentResponse = await paymentsApi.createPayment({
+    // Convert total dollars to cents integer
+    const amountInCents = Math.round(Number(grandTotal) * 100);
+
+    // Process payment through Square Payments API
+    const paymentResponse = await squareClient.payments.create({
       sourceId: sourceId,
       idempotencyKey: crypto.randomUUID(),
       amountMoney: {
-        amount: BigInt(Math.round(grandTotal * 100)),
+        amount: BigInt(amountInCents),
         currency: 'USD',
       },
       note: `Farm Fresh Direct Order - Code ${pickupCode}`,
     });
 
-    const payment = paymentResponse.result.payment;
+    const payment = paymentResponse.payment;
 
     if (payment?.status !== 'COMPLETED') {
       return NextResponse.json({ error: 'Square payment failed to complete.' }, { status: 400 });
@@ -39,8 +48,8 @@ export async function POST(request: Request) {
       .from('orders')
       .insert([
         {
-          listing_id: listingId,
-          quantity: quantity,
+          listing_id: listingId || null,
+          quantity: quantity || 1,
           total_price: grandTotal,
           deposit_amount: grandTotal,
           balance_due_at_pickup: 0.00,
