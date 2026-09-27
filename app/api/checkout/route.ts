@@ -55,6 +55,7 @@ export async function POST(request: Request) {
           buyer_id: buyerId,
           listing_id: listingId || null,
           quantity: quantity || 1,
+          reserved_quantity: quantity || 1,
           total_price: grandTotal,
           deposit_amount: grandTotal,
           balance_due_at_pickup: 0.00,
