@@ -61,14 +61,13 @@ function CheckoutContent() {
   const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID || 'sandbox-sq0idb-6B32R6J34y7erO0LdB11dw';
   const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || 'L313A78A0S3BC';
 
-  // Explicitly detect if credentials are sandbox based on key prefix
   const isSandbox = appId.startsWith('sandbox-');
   const squareSdkUrl = isSandbox
     ? 'https://sandbox.web.squarecdn.com/v1/square.js'
     : 'https://web.squarecdn.com/v1/square.js';
 
-  // 2. Initialize Square Web SDK Card Container
-  const initializeSquareCard = async () => {
+  // 2. Initialize Square Web SDK Card Container with retry mechanism
+  const initializeSquareCard = async (retries = 5) => {
     if (card) return;
 
     if (!appId || !locationId) {
@@ -77,7 +76,11 @@ function CheckoutContent() {
     }
 
     if (!window.Square) {
-      console.warn('Square SDK script not loaded in window yet.');
+      if (retries > 0) {
+        setTimeout(() => initializeSquareCard(retries - 1), 300);
+        return;
+      }
+      setSquareError('Square SDK script failed to load.');
       return;
     }
 
@@ -96,7 +99,11 @@ function CheckoutContent() {
       setSquareError(null);
     } catch (e: any) {
       console.error('Failed to attach Square Card element:', e);
-      setSquareError(e.message || 'An unexpected error occurred while initializing the payment method.');
+      if (retries > 0 && e.message?.includes('initialized in time')) {
+        setTimeout(() => initializeSquareCard(retries - 1), 500);
+      } else {
+        setSquareError(e.message || 'An unexpected error occurred while initializing the payment method.');
+      }
     }
   };
 
@@ -197,7 +204,7 @@ function CheckoutContent() {
     <>
       <Script
         src={squareSdkUrl}
-        onLoad={initializeSquareCard}
+        onLoad={() => initializeSquareCard()}
       />
 
       <div className="max-w-3xl mx-auto px-4 py-8">
