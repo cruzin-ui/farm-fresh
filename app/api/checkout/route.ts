@@ -58,11 +58,13 @@ export async function POST(request: Request) {
           reserved_quantity: quantity || 1,
           total_price: grandTotal,
           deposit_amount: grandTotal,
+          authorized_amount: grandTotal,
           balance_due_at_pickup: 0.00,
           payment_method: 'square_card_online',
           payment_status: 'paid',
           square_payment_id: payment.id,
           pickup_code: pickupCode,
+          verification_code: pickupCode,
         },
       ])
       .select()
