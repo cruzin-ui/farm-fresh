@@ -29,7 +29,7 @@ function CheckoutContent() {
   const [squareError, setSquareError] = useState<string | null>(null);
 
   // Direct Sandbox Credentials (Enforcing Sandbox Mode)
-  const appId = 'sandbox-sq0idb-6B32R6J34y7erO0LdB11dw';
+  const appId = 'sandbox-sq0idb-6B32R6J34y7er00LdBl1dw';
   const locationId = 'L80C7735RPEEF';
 
   // 1. Fetch listing details from Supabase using 'produce_listings' table
