@@ -12,10 +12,61 @@ const squareClient = new SquareClient({
     : SquareEnvironment.Sandbox,
 });
 
+async function sendSellerNotification(params: {
+  sellerEmail: string;
+  listingTitle: string;
+  quantity: number;
+  unitType: string;
+  buyerEmail: string | null;
+  totalPrice: number;
+  pickupCode: string;
+}) {
+  const { sellerEmail, listingTitle, quantity, unitType, buyerEmail, totalPrice, pickupCode } = params;
+
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('RESEND_API_KEY not set — skipping seller notification email.');
+    return;
+  }
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Farm Fresh Direct <onboarding@resend.dev>',
+        to: [sellerEmail],
+        subject: `New order: ${quantity} ${unitType} of ${listingTitle}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 480px;">
+            <h2 style="color: #059669;">You've got a new reservation!</h2>
+            <p><strong>${listingTitle}</strong> — ${quantity} ${unitType}</p>
+            <p>Buyer: ${buyerEmail || 'N/A'}</p>
+            <p>Total paid: $${totalPrice.toFixed(2)}</p>
+            <p>Pickup code: <strong>${pickupCode}</strong></p>
+            <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">
+              Visit your Seller Dashboard to mark this order ready for pickup.
+            </p>
+          </div>
+        `,
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error('Resend API error:', res.status, errBody);
+    }
+  } catch (err) {
+    console.error('Failed to send seller notification email:', err);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { sourceId, listingId, quantity, grandTotal, buyerId } = body;
+    const { sourceId, listingId, quantity, grandTotal, buyerId, buyerEmail } = body;
 
     if (!sourceId || !grandTotal) {
       return NextResponse.json({ error: 'Missing required payment parameters.' }, { status: 400 });
@@ -31,11 +82,10 @@ export async function POST(request: Request) {
 
     const orderQuantity = Number(quantity) || 1;
 
-    // Use the admin client here since a buyer isn't the listing's owner and
-    // RLS would otherwise block reading/writing available_quantity.
+    // Fetch listing including farmer_id so we know who to notify afterward.
     const { data: listing, error: listingFetchError } = await supabaseAdmin
       .from('produce_listings')
-      .select('available_quantity')
+      .select('available_quantity, title, unit_type, farmer_id')
       .eq('id', listingId)
       .single();
 
@@ -52,13 +102,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate unique pickup verification code
     const pickupCode = `FFD-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    // Convert total dollars to cents integer
     const amountInCents = Math.round(Number(grandTotal) * 100);
 
-    // Process payment through Square Payments API
     const paymentResponse = await squareClient.payments.create({
       sourceId: sourceId,
       idempotencyKey: crypto.randomUUID(),
@@ -81,6 +127,7 @@ export async function POST(request: Request) {
       .insert([
         {
           buyer_id: buyerId,
+          buyer_email: buyerEmail || null,
           listing_id: listingId || null,
           quantity: orderQuantity,
           reserved_quantity: orderQuantity,
@@ -109,6 +156,27 @@ export async function POST(request: Request) {
 
     if (updateError) {
       console.error('Failed to update listing available_quantity after successful payment:', updateError);
+    }
+
+    // Notify the seller by email. This runs after payment/order success and
+    // never fails the request — a missed email shouldn't undo a real sale.
+    if (listing.farmer_id) {
+      const { data: sellerUser, error: sellerLookupError } =
+        await supabaseAdmin.auth.admin.getUserById(listing.farmer_id);
+
+      if (sellerLookupError) {
+        console.error('Failed to look up seller email:', sellerLookupError);
+      } else if (sellerUser?.user?.email) {
+        await sendSellerNotification({
+          sellerEmail: sellerUser.user.email,
+          listingTitle: listing.title || 'your listing',
+          quantity: orderQuantity,
+          unitType: listing.unit_type || 'units',
+          buyerEmail: buyerEmail || null,
+          totalPrice: Number(grandTotal),
+          pickupCode,
+        });
+      }
     }
 
     return NextResponse.json({ success: true, orderId: order.id, code: pickupCode });

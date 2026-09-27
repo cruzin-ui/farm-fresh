@@ -23,6 +23,7 @@ function CheckoutContent() {
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [buyerId, setBuyerId] = useState<string | null>(null);
+  const [buyerEmail, setBuyerEmail] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
   const [quantity, setQuantity] = useState(1);
@@ -45,6 +46,7 @@ function CheckoutContent() {
         return;
       }
       setBuyerId(user.id);
+      setBuyerEmail(user.email ?? null);
       setAuthChecked(true);
     }
     checkAuth();
@@ -183,6 +185,7 @@ function CheckoutContent() {
           buyerFee,
           grandTotal,
           buyerId,
+          buyerEmail,
         }),
       });
 

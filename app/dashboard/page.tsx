@@ -4,44 +4,36 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import {
   Sprout,
-  Upload,
   AlertCircle,
   CheckCircle2,
   PlusCircle,
   LayoutDashboard,
   Trash2,
-  Calendar,
   LogOut,
   User,
   ShoppingBag,
   History,
-  Settings,
   CreditCard,
-  Clock,
-  DollarSign,
   Check,
   PackageCheck,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+
+type DashboardTab = 'listings' | 'new' | 'orders' | 'history' | 'profile' | 'settings';
 
 export default function SellerDashboardPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<
-    'listings' | 'new' | 'orders' | 'history' | 'profile' | 'settings'
-  >('listings');
+  const [activeTab, setActiveTab] = useState<DashboardTab>('listings');
   const [loading, setLoading] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // User & Seller Data State
   const [user, setUser] = useState<any>(null);
   const [myListings, setMyListings] = useState<any[]>([]);
   const [incomingOrders, setIncomingOrders] = useState<any[]>([]);
   const [salesHistory, setSalesHistory] = useState<any[]>([]);
 
-  // Listing Form State
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Vegetables');
   const [description, setDescription] = useState('');
@@ -55,7 +47,6 @@ export default function SellerDashboardPage() {
   const [pickupInstructions, setPickupInstructions] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
 
-  // Profile Form State
   const [farmName, setFarmName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -64,7 +55,6 @@ export default function SellerDashboardPage() {
   const [profileZip, setProfileZip] = useState('');
   const [growingPractices, setGrowingPractices] = useState('No Synthetic Pesticides');
 
-  // Settings & Payout State
   const [paymentMethod, setPaymentMethod] = useState('Cash / Venmo at Pickup');
   const [venmoHandle, setVenmoHandle] = useState('');
 
@@ -77,14 +67,13 @@ export default function SellerDashboardPage() {
       data: { session },
     } = await supabase.auth.getSession();
     if (!session) {
-      router.push('/login?redirectTo=/dashboard');
+      router.push('/login?redirect=/dashboard');
       return;
     }
 
     const currentUserId = session.user.id;
     setUser(session.user);
 
-    // Fetch Seller Listings
     const { data: listings } = await supabase
       .from('produce_listings')
       .select('*')
@@ -93,7 +82,6 @@ export default function SellerDashboardPage() {
 
     if (listings) setMyListings(listings);
 
-    // Fetch Seller Profile
     const { data: profile } = await supabase
       .from('seller_profiles')
       .select('*')
@@ -111,16 +99,38 @@ export default function SellerDashboardPage() {
       setVenmoHandle(profile.venmo_handle || '');
     }
 
-    // Fetch Incoming Orders
-    const { data: orders } = await supabase
-      .from('orders')
-      .select('*, produce_listings(title, unit_type, price_per_unit)')
-      .eq('seller_id', currentUserId)
-      .order('created_at', { ascending: false });
+    const listingIds = (listings || []).map((l) => l.id);
+    const listingLookup = (listings || []).reduce((acc, l) => {
+      acc[l.id] = l;
+      return acc;
+    }, {} as Record<string, any>);
 
-    if (orders) {
-      setIncomingOrders(orders.filter((o) => o.status === 'pending' || o.status === 'ready'));
-      setSalesHistory(orders.filter((o) => o.status === 'completed' || o.status === 'cancelled'));
+    if (listingIds.length > 0) {
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .in('listing_id', listingIds)
+        .order('created_at', { ascending: false });
+
+      if (ordersError) {
+        console.error('Failed to fetch orders:', ordersError);
+      } else if (orders) {
+        const merged = orders.map((o) => ({
+          ...o,
+          listing_title: listingLookup[o.listing_id]?.title || 'Harvest Crop',
+          listing_unit_type: listingLookup[o.listing_id]?.unit_type || 'units',
+        }));
+
+        setIncomingOrders(
+          merged.filter((o) => o.status === 'pending_pickup' || o.status === 'ready_for_pickup')
+        );
+        setSalesHistory(
+          merged.filter((o) => o.status === 'completed' || o.status === 'cancelled')
+        );
+      }
+    } else {
+      setIncomingOrders([]);
+      setSalesHistory([]);
     }
 
     setAuthChecking(false);
@@ -157,7 +167,7 @@ export default function SellerDashboardPage() {
     if (error) {
       alert(`Could not update order status: ${error.message}`);
     } else {
-      setSuccessMsg(`Order marked as ${newStatus}!`);
+      setSuccessMsg(`Order marked as ${newStatus.replace('_', ' ')}!`);
       await fetchDashboardData();
     }
   };
@@ -250,8 +260,6 @@ export default function SellerDashboardPage() {
         .insert([
           {
             farmer_id: user.id,
-            farm_name: farmName || 'Local Grower',
-            farmer_avatar_url: avatarUrl || null,
             title,
             category,
             description,
@@ -298,7 +306,6 @@ export default function SellerDashboardPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex flex-col md:flex-row gap-8">
-        {/* SIDEBAR NAVIGATION WITH ALL TABS RESTORED */}
         <aside className="w-full md:w-64 bg-white p-5 rounded-2xl border border-gray-200 shadow-sm shrink-0 self-start">
           <div className="flex items-center gap-3 pb-6 mb-6 border-b border-gray-100">
             {avatarUrl ? (
@@ -321,7 +328,6 @@ export default function SellerDashboardPage() {
           </div>
 
           <nav className="space-y-1">
-            {/* TAB 1: YOUR LISTINGS */}
             <button
               onClick={() => {
                 setActiveTab('listings');
@@ -342,7 +348,6 @@ export default function SellerDashboardPage() {
               </span>
             </button>
 
-            {/* TAB 2: INCOMING ORDERS */}
             <button
               onClick={() => {
                 setActiveTab('orders');
@@ -365,7 +370,6 @@ export default function SellerDashboardPage() {
               )}
             </button>
 
-            {/* TAB 3: SALES HISTORY */}
             <button
               onClick={() => {
                 setActiveTab('history');
@@ -381,7 +385,6 @@ export default function SellerDashboardPage() {
               <History className="w-4 h-4" /> Sales History
             </button>
 
-            {/* TAB 4: FARM PROFILE & PHOTO */}
             <button
               onClick={() => {
                 setActiveTab('profile');
@@ -397,7 +400,6 @@ export default function SellerDashboardPage() {
               <User className="w-4 h-4" /> Farm Profile & Photo
             </button>
 
-            {/* TAB 5: PAYOUTS & SETTINGS */}
             <button
               onClick={() => {
                 setActiveTab('settings');
@@ -424,7 +426,6 @@ export default function SellerDashboardPage() {
           </div>
         </aside>
 
-        {/* MAIN DASHBOARD CONTENT PANEL */}
         <main className="flex-1 bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 shadow-sm">
           {successMsg && (
             <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center justify-between text-sm">
@@ -442,7 +443,6 @@ export default function SellerDashboardPage() {
             </div>
           )}
 
-          {/* TAB 1: YOUR LISTINGS */}
           {(activeTab === 'listings' || activeTab === 'new') && (
             <div>
               <div className="flex items-center justify-between pb-6 mb-6 border-b border-gray-100">
@@ -477,35 +477,44 @@ export default function SellerDashboardPage() {
 
               {activeTab === 'listings' && myListings.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {myListings.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-4 border rounded-xl border-gray-200 shadow-sm bg-white flex justify-between items-start"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                            {item.category}
-                          </span>
-                          <span className="text-xs text-gray-400">{item.location_name}</span>
-                        </div>
-                        <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
-                        <p className="text-sm font-semibold text-gray-700">
-                          ${Number(item.price_per_unit || 0).toFixed(2)} / {item.unit_type}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteListing(item.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  {myListings.map((item) => {
+                    const qty = Number(item.available_quantity ?? 0);
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-4 border rounded-xl border-gray-200 shadow-sm bg-white flex justify-between items-start"
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                              {item.category}
+                            </span>
+                            <span className="text-xs text-gray-400">{item.location_name}</span>
+                          </div>
+                          <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
+                          <p className="text-sm font-semibold text-gray-700">
+                            ${Number(item.price_per_unit || 0).toFixed(2)} / {item.unit_type}
+                          </p>
+                          <p
+                            className={`text-xs font-bold ${
+                              qty <= 0 ? 'text-red-600' : 'text-emerald-700'
+                            }`}
+                          >
+                            {qty <= 0 ? 'Sold Out' : `${qty} ${item.unit_type} left`}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteListing(item.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
-              {/* POST NEW HARVEST FORM */}
               {activeTab === 'new' && (
                 <form onSubmit={handleListingSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -639,7 +648,6 @@ export default function SellerDashboardPage() {
             </div>
           )}
 
-          {/* TAB 2: INCOMING ORDERS */}
           {activeTab === 'orders' && (
             <div className="space-y-6">
               <div className="pb-4 border-b border-gray-100">
@@ -668,32 +676,32 @@ export default function SellerDashboardPage() {
                         <div className="flex items-center gap-2">
                           <span
                             className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
-                              order.status === 'pending'
+                              order.status === 'pending_pickup'
                                 ? 'bg-amber-100 text-amber-800'
                                 : 'bg-blue-100 text-blue-800'
                             }`}
                           >
-                            {order.status === 'pending' ? 'Pending Harvest' : 'Ready for Pickup'}
+                            {order.status === 'pending_pickup' ? 'Pending Harvest' : 'Ready for Pickup'}
                           </span>
                           <span className="text-xs text-gray-400">
                             Order #{order.id.slice(0, 8)}
                           </span>
                         </div>
                         <h3 className="text-base font-bold text-gray-900">
-                          {order.produce_listings?.title || 'Harvest Crop'}
+                          {order.listing_title}
                         </h3>
                         <p className="text-xs text-gray-600">
-                          Buyer: <span className="font-semibold">{order.buyer_name || order.buyer_email || 'Buyer'}</span> ({order.quantity_reserved} {order.produce_listings?.unit_type || 'units'})
+                          Buyer: <span className="font-semibold">{order.buyer_email || 'Buyer'}</span> ({order.reserved_quantity} {order.listing_unit_type})
                         </p>
                         <p className="text-xs font-extrabold text-emerald-700">
-                          Total Due at Pickup: ${Number(order.total_price || 0).toFixed(2)}
+                          Total Paid: ${Number(order.total_price || 0).toFixed(2)}
                         </p>
                       </div>
 
                       <div className="flex items-center gap-2 self-start md:self-auto">
-                        {order.status === 'pending' && (
+                        {order.status === 'pending_pickup' && (
                           <button
-                            onClick={() => handleOrderStatusUpdate(order.id, 'ready')}
+                            onClick={() => handleOrderStatusUpdate(order.id, 'ready_for_pickup')}
                             className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
                           >
                             <PackageCheck className="w-4 h-4" /> Mark Ready for Pickup
@@ -713,7 +721,6 @@ export default function SellerDashboardPage() {
             </div>
           )}
 
-          {/* TAB 3: SALES HISTORY */}
           {activeTab === 'history' && (
             <div className="space-y-6">
               <div className="pb-4 border-b border-gray-100">
@@ -740,7 +747,7 @@ export default function SellerDashboardPage() {
                     >
                       <div>
                         <h4 className="text-sm font-bold text-gray-800">
-                          {order.produce_listings?.title || 'Produce Sale'}
+                          {order.listing_title}
                         </h4>
                         <p className="text-xs text-gray-500">
                           Completed on {new Date(order.created_at).toLocaleDateString()}
@@ -756,7 +763,6 @@ export default function SellerDashboardPage() {
             </div>
           )}
 
-          {/* TAB 4: FARM PROFILE & PHOTO */}
           {activeTab === 'profile' && (
             <form onSubmit={handleProfileSubmit} className="space-y-6">
               <div className="pb-4 border-b border-gray-100">
@@ -844,7 +850,6 @@ export default function SellerDashboardPage() {
             </form>
           )}
 
-          {/* TAB 5: PAYOUTS & SETTINGS */}
           {activeTab === 'settings' && (
             <form onSubmit={handleProfileSubmit} className="space-y-6">
               <div className="pb-4 border-b border-gray-100">
