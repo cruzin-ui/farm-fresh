@@ -28,7 +28,7 @@ function CheckoutContent() {
   const [squareLoaded, setSquareLoaded] = useState(false);
   const [squareError, setSquareError] = useState<string | null>(null);
 
-  // Hardcoded Sandbox Credentials
+  // Direct Sandbox Credentials (Enforcing Sandbox Mode)
   const appId = 'sandbox-sq0idb-6B32R6J34y7erO0LdB11dw';
   const locationId = 'L80C7735RPEEF';
 
@@ -61,19 +61,20 @@ function CheckoutContent() {
     fetchListing();
   }, [listingId]);
 
-  // 2. Initialize Square Card Form
-  const initSquare = async () => {
+  // 2. Initialize Square Sandbox Payment Card
+  const initializeSquareCard = async () => {
     if (card) return;
 
     if (!window.Square) {
-      setSquareError('Square SDK not loaded');
+      console.warn('Square SDK script not available in window yet.');
       return;
     }
 
     try {
+      console.log('Attaching Square Card with Sandbox App ID:', appId, 'Location ID:', locationId);
       const payments = window.Square.payments(appId, locationId);
       const cardInstance = await payments.card();
-      
+
       const container = document.getElementById('square-card-container');
       if (container) {
         container.innerHTML = '';
@@ -85,9 +86,15 @@ function CheckoutContent() {
       setSquareError(null);
     } catch (e: any) {
       console.error('Square initialization failed:', e);
-      setSquareError(e.message || 'Failed to load payment form.');
+      setSquareError(e.message || 'An unexpected error occurred while initializing the payment method.');
     }
   };
+
+  useEffect(() => {
+    if (!loadingListing && window.Square && !card) {
+      initializeSquareCard();
+    }
+  }, [loadingListing]);
 
   // Quantity and Price calculations bounded strictly by available_quantity
   const itemPrice = listing ? Number(listing.price_per_unit ?? listing.price ?? 0) : 0;
@@ -181,7 +188,8 @@ function CheckoutContent() {
       <Script
         id="square-sandbox-sdk"
         src="https://sandbox.web.squarecdn.com/v1/square.js"
-        onLoad={() => initSquare()}
+        strategy="afterInteractive"
+        onLoad={initializeSquareCard}
       />
 
       <div className="max-w-3xl mx-auto px-4 py-8">
