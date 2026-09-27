@@ -18,19 +18,48 @@ export default function BrowsePage() {
   const fetchListings = async () => {
     setLoading(true);
 
-    // Embed the seller's farm_name/avatar_url from seller_profiles via the
-    // farmer_id foreign key, since those fields don't live on produce_listings.
-    const { data, error } = await supabase
+    // Fetch listings and seller profiles separately (no formal FK exists
+    // between produce_listings.farmer_id and seller_profiles.id), then
+    // merge them client-side by matching farmer_id to seller id.
+    const { data: listingsData, error: listingsError } = await supabase
       .from('produce_listings')
-      .select('*, seller_profiles!farmer_id(farm_name, avatar_url, location)')
+      .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Supabase Fetch Error:', error.message);
-    } else {
-      setListings(data || []);
+    if (listingsError) {
+      console.error('Supabase Fetch Error (listings):', listingsError.message);
+      setLoading(false);
+      return;
     }
 
+    const farmerIds = Array.from(
+      new Set((listingsData || []).map((item) => item.farmer_id).filter(Boolean))
+    );
+
+    let sellerMap: Record<string, any> = {};
+
+    if (farmerIds.length > 0) {
+      const { data: sellersData, error: sellersError } = await supabase
+        .from('seller_profiles')
+        .select('id, farm_name, avatar_url, location')
+        .in('id', farmerIds);
+
+      if (sellersError) {
+        console.error('Supabase Fetch Error (sellers):', sellersError.message);
+      } else {
+        sellerMap = (sellersData || []).reduce((acc, seller) => {
+          acc[seller.id] = seller;
+          return acc;
+        }, {} as Record<string, any>);
+      }
+    }
+
+    const merged = (listingsData || []).map((item) => ({
+      ...item,
+      seller_profiles: item.farmer_id ? sellerMap[item.farmer_id] || null : null,
+    }));
+
+    setListings(merged);
     setLoading(false);
   };
 
