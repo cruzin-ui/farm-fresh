@@ -61,11 +61,8 @@ function CheckoutContent() {
   const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID || 'sandbox-sq0idb-6B32R6J34y7erO0LdB11dw';
   const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || 'L80C7735RPEEF';
 
-  // Force Sandbox CDN script when App ID starts with sandbox-
-  const isSandbox = appId.startsWith('sandbox-');
-  const squareSdkUrl = isSandbox
-    ? 'https://sandbox.web.squarecdn.com/v1/square.js'
-    : 'https://web.squarecdn.com/v1/square.js';
+  // Force Sandbox CDN script domain
+  const squareSdkUrl = 'https://sandbox.web.squarecdn.com/v1/square.js';
 
   // 2. Initialize Square Web SDK Card Container
   const initializeSquareCard = async (retries = 5) => {
