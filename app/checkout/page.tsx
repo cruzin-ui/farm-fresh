@@ -27,7 +27,7 @@ function CheckoutContent() {
   const [card, setCard] = useState<any>(null);
   const [squareLoaded, setSquareLoaded] = useState(false);
 
-  // 1. Fetch listing details from Supabase using URL param ID
+  // 1. Fetch listing details from Supabase using 'produce_listings' table
   useEffect(() => {
     async function fetchListing() {
       if (!listingId) {
@@ -38,7 +38,7 @@ function CheckoutContent() {
 
       try {
         const { data, error } = await supabase
-          .from('listings')
+          .from('produce_listings') // Updated table name
           .select('*')
           .eq('id', listingId)
           .single();
@@ -83,7 +83,7 @@ function CheckoutContent() {
   // Calculations
   const itemPrice = listing?.price ? Number(listing.price) : 0;
   const subtotal = itemPrice * quantity;
-  const buyerFeeRate = 0.05; // 5% buyer fee
+  const buyerFeeRate = 0.05; // 5% buyer platform fee
   const buyerFee = Number((subtotal * buyerFeeRate).toFixed(2));
   const grandTotal = Number((subtotal + buyerFee).toFixed(2));
 
