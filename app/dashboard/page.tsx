@@ -10,6 +10,7 @@ import {
   PlusCircle,
   LayoutDashboard,
   Trash2,
+  Pencil,
   LogOut,
   User,
   ShoppingBag,
@@ -74,7 +75,10 @@ export default function SellerDashboardPage() {
   const [salesHistory, setSalesHistory] = useState<any[]>([]);
 
   // Listing Form State
+  // Set while the listing form is editing an existing post instead of creating one
+  const [editingListingId, setEditingListingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
+  const [variety, setVariety] = useState('');
   const [category, setCategory] = useState('Vegetables');
   const [description, setDescription] = useState('');
   const [unitType, setUnitType] = useState('lbs');
@@ -217,21 +221,87 @@ export default function SellerDashboardPage() {
     router.push('/');
   };
 
+  // Listings that have ever been ordered. These can't be deleted or have their
+  // crop name, variety, category or unit changed — their orders depend on them.
+  const listingIdsWithOrders = new Set(
+    [...incomingOrders, ...salesHistory].map((o) => o.listing_id)
+  );
+
   const handleDeleteListing = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this harvest listing?')) return;
+    const hasOrders = listingIdsWithOrders.has(id);
 
-    const { error } = await supabase
-      .from('produce_listings')
-      .delete()
-      .eq('id', id)
-      .eq('farmer_id', user.id);
-
-    if (error) {
-      alert(`Could not delete listing: ${error.message}`);
-    } else {
-      setMyListings((prev) => prev.filter((item) => item.id !== id));
-      await fetchDashboardData();
+    if (
+      !confirm(
+        hasOrders
+          ? 'This listing has orders, so it will be taken down from Browse instead of deleted. Your existing orders are not affected. Continue?'
+          : 'Are you sure you want to delete this harvest listing?'
+      )
+    ) {
+      return;
     }
+
+    try {
+      const res = await postWithAuth('/api/listings/remove', { listingId: id });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not remove listing.');
+
+      setSuccessMsg(
+        data.takenDown
+          ? 'Listing taken down from Browse. Edit it and set a quantity to put it back on sale.'
+          : 'Listing deleted.'
+      );
+      await fetchDashboardData();
+    } catch (err: any) {
+      alert(err.message || 'Could not remove listing.');
+    }
+  };
+
+  const resetListingForm = () => {
+    setEditingListingId(null);
+    setTitle('');
+    setVariety('');
+    setCategory('Vegetables');
+    setDescription('');
+    setUnitType('lbs');
+    setPricePerUnit('');
+    setAvailableQuantity('');
+    setHarvestReadyDate('');
+    setHarvestEndDate('');
+    setPickupInstructions('');
+    setListingTags([]);
+    setImageFile(null);
+    setImagePreviewUrl(null);
+    setZipCode(profileZip);
+    setLocationName(profileLocation);
+  };
+
+  const startNewListing = () => {
+    if (editingListingId) resetListingForm();
+    setSuccessMsg(null);
+    setErrorMsg(null);
+    setActiveTab('new');
+  };
+
+  const startEditListing = (item: any) => {
+    setEditingListingId(item.id);
+    setTitle(item.title || '');
+    setVariety(item.variety || '');
+    setCategory(item.category || 'Vegetables');
+    setDescription(item.description || '');
+    setUnitType(item.unit_type || 'lbs');
+    setPricePerUnit(item.price_per_unit != null ? String(item.price_per_unit) : '');
+    setAvailableQuantity(item.available_quantity != null ? String(item.available_quantity) : '');
+    setHarvestReadyDate(item.harvest_ready_date || '');
+    setHarvestEndDate(item.harvest_end_date || '');
+    setPickupInstructions(item.pickup_instructions || '');
+    setListingTags(Array.isArray(item.tags) ? item.tags.slice(0, MAX_LISTING_TAGS) : []);
+    setZipCode(item.zip_code || '');
+    setLocationName(item.location_name || '');
+    setImageFile(null);
+    setImagePreviewUrl(item.image_url || null);
+    setSuccessMsg(null);
+    setErrorMsg(null);
+    setActiveTab('new');
   };
 
   // "Mark Completed" goes through the API because completing an order is what
@@ -460,6 +530,8 @@ export default function SellerDashboardPage() {
     }
   };
 
+  const identityLocked = editingListingId !== null && listingIdsWithOrders.has(editingListingId);
+
   const handleListingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -488,12 +560,42 @@ export default function SellerDashboardPage() {
         cropImageUrl = publicUrlData.publicUrl;
       }
 
+      if (editingListingId) {
+        const res = await postWithAuth('/api/listings/update', {
+          listingId: editingListingId,
+          fields: {
+            ...(identityLocked
+              ? {}
+              : { title, variety, category, unit_type: unitType }),
+            description,
+            price_per_unit: parseFloat(pricePerUnit),
+            available_quantity: parseFloat(availableQuantity),
+            harvest_ready_date: harvestReadyDate,
+            harvest_end_date: harvestEndDate || null,
+            location_name: locationName,
+            zip_code: zipCode,
+            pickup_instructions: pickupInstructions,
+            tags: listingTags,
+            ...(cropImageUrl ? { image_url: cropImageUrl } : {}),
+          },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not save your changes.');
+
+        resetListingForm();
+        setSuccessMsg('Listing updated.');
+        await fetchDashboardData();
+        setActiveTab('listings');
+        return;
+      }
+
       const { error: insertError } = await supabase
         .from('produce_listings')
         .insert([
           {
             farmer_id: user.id,
             title,
+            variety: variety.trim() || null,
             category,
             description,
             unit_type: unitType,
@@ -514,6 +616,7 @@ export default function SellerDashboardPage() {
 
       setSuccessMsg('Listing successfully published with your farm branding!');
       setTitle('');
+      setVariety('');
       setDescription('');
       setPricePerUnit('');
       setAvailableQuantity('');
@@ -544,6 +647,7 @@ export default function SellerDashboardPage() {
   // Copies the details of an earlier post of the same crop into the form, so
   // a repeat harvest only needs its quantity and dates.
   const reuseListingDetails = (previous: any) => {
+    setVariety(previous.variety || '');
     setCategory(previous.category || 'Vegetables');
     setDescription(previous.description || '');
     setUnitType(previous.unit_type || 'lbs');
@@ -762,7 +866,7 @@ export default function SellerDashboardPage() {
                 </div>
                 {activeTab === 'listings' && (
                   <button
-                    onClick={() => setActiveTab('new')}
+                    onClick={startNewListing}
                     className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-xl text-xs transition-colors shadow-sm"
                   >
                     <PlusCircle className="w-4 h-4" /> Post New Harvest
@@ -775,7 +879,7 @@ export default function SellerDashboardPage() {
                   <Sprout className="mx-auto h-12 w-12 text-gray-400 mb-3" />
                   <h3 className="text-base font-semibold text-gray-900">No Active Posts Yet</h3>
                   <button
-                    onClick={() => setActiveTab('new')}
+                    onClick={startNewListing}
                     className="mt-4 inline-flex items-center gap-2 bg-emerald-600 text-white font-semibold py-2.5 px-5 rounded-lg text-xs shadow-sm hover:bg-emerald-700"
                   >
                     <PlusCircle className="w-4 h-4" /> Post Your First Produce Item
@@ -799,7 +903,12 @@ export default function SellerDashboardPage() {
                             </span>
                             <span className="text-xs text-gray-400">{item.location_name}</span>
                           </div>
-                          <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
+                          <h3 className="text-lg font-bold text-gray-900">
+                            {item.title}
+                            {item.variety && (
+                              <span className="text-sm font-medium text-gray-500"> · {item.variety}</span>
+                            )}
+                          </h3>
                           <p className="text-sm font-semibold text-gray-700">
                             ${Number(item.price_per_unit || 0).toFixed(2)} / {item.unit_type}
                           </p>
@@ -808,15 +917,27 @@ export default function SellerDashboardPage() {
                               qty <= 0 ? 'text-red-600' : 'text-emerald-700'
                             }`}
                           >
-                            {qty <= 0 ? 'Sold Out' : `${qty} ${item.unit_type} left`}
+                            {qty <= 0 ? 'Not on sale — sold out or taken down' : `${qty} ${item.unit_type} left`}
                           </p>
                         </div>
-                        <button
-                          onClick={() => handleDeleteListing(item.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => startEditListing(item)}
+                            aria-label="Edit listing"
+                            title="Edit listing"
+                            className="p-2 text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteListing(item.id)}
+                            aria-label={listingIdsWithOrders.has(item.id) ? 'Take down listing' : 'Delete listing'}
+                            title={listingIdsWithOrders.has(item.id) ? 'Take down listing' : 'Delete listing'}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -825,7 +946,18 @@ export default function SellerDashboardPage() {
 
               {activeTab === 'new' && (
                 <form onSubmit={handleListingSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {editingListingId && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
+                      <p className="font-bold text-sm">Editing an existing listing</p>
+                      <p className="mt-0.5">
+                        {identityLocked
+                          ? "This listing already has orders, so its crop name, variety, category and unit can't be changed — create a new post to sell something different. A new price only applies to new orders."
+                          : 'A new price only applies to new orders.'}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-xs font-semibold text-gray-700 mb-1">
                         Crop Name *
@@ -837,20 +969,21 @@ export default function SellerDashboardPage() {
                         list="previous-crop-names"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg text-sm"
+                        disabled={identityLocked}
+                        className="w-full px-4 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500"
                       />
                       <datalist id="previous-crop-names">
                         {[...previousListingsByTitle.keys()].map((name) => (
                           <option key={name} value={name} />
                         ))}
                       </datalist>
-                      {reusableListing ? (
+                      {editingListingId ? null : reusableListing ? (
                         <button
                           type="button"
                           onClick={() => reuseListingDetails(reusableListing)}
                           className="mt-1 text-[11px] font-semibold text-emerald-700 hover:underline"
                         >
-                          Fill in the price, unit, description and labels from your last "{reusableListing.title}" post
+                          Fill in the variety, price, unit, description and labels from your last "{reusableListing.title}" post
                         </button>
                       ) : (
                         previousListingsByTitle.size > 0 && (
@@ -862,12 +995,26 @@ export default function SellerDashboardPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Variety (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Yukon Gold"
+                        value={variety}
+                        onChange={(e) => setVariety(e.target.value)}
+                        disabled={identityLocked}
+                        className="w-full px-4 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
                         Category
                       </label>
                       <select
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg text-sm bg-white"
+                        disabled={identityLocked}
+                        className="w-full px-4 py-2 border rounded-lg text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500"
                       >
                         <option>Vegetables</option>
                         <option>Fruits & Berries</option>
@@ -931,7 +1078,8 @@ export default function SellerDashboardPage() {
                       <select
                         value={unitType}
                         onChange={(e) => setUnitType(e.target.value)}
-                        className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+                        disabled={identityLocked}
+                        className="w-full px-3 py-2 border rounded-lg text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500"
                       >
                         {UNIT_TYPE_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -1117,8 +1265,27 @@ export default function SellerDashboardPage() {
                     disabled={loading}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl text-sm transition-colors shadow-md disabled:bg-gray-400"
                   >
-                    {loading ? 'Publishing...' : 'Publish Produce Listing'}
+                    {editingListingId
+                      ? loading
+                        ? 'Saving...'
+                        : 'Save Changes'
+                      : loading
+                        ? 'Publishing...'
+                        : 'Publish Produce Listing'}
                   </button>
+                  {editingListingId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetListingForm();
+                        setActiveTab('listings');
+                      }}
+                      disabled={loading}
+                      className="w-full bg-white border text-gray-600 font-semibold py-3 px-6 rounded-xl text-sm hover:bg-gray-50"
+                    >
+                      Cancel Editing
+                    </button>
+                  )}
                 </form>
               )}
             </div>

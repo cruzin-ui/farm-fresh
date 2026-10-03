@@ -99,6 +99,9 @@ export default function ListingDetailPage() {
               {listing.category || 'Produce'}
             </span>
             <h1 className="text-3xl font-extrabold text-gray-900 mt-3">{listing.title}</h1>
+            {listing.variety && (
+              <p className="text-sm font-semibold text-gray-500 mt-1">Variety: {listing.variety}</p>
+            )}
             <p className="mt-2">
               <span className="text-3xl font-black text-gray-900">
                 ${Number(listing.price_per_unit || 0).toFixed(2)}

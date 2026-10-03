@@ -174,6 +174,9 @@ export default function PublicSellerProfilePage() {
                       {item.title}
                     </Link>
                   </h3>
+                  {item.variety && (
+                    <p className="text-xs font-semibold text-gray-500">Variety: {item.variety}</p>
+                  )}
                   <p className="text-sm font-bold text-gray-800 mt-1">
                     ${Number(item.price_per_unit || 0).toFixed(2)} / {item.unit_type}
                   </p>

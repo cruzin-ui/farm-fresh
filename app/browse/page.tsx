@@ -5,11 +5,36 @@ import { supabase } from '@/lib/supabaseClient';
 import { Search, MapPin, Calendar, ShoppingBag, Sprout, User } from 'lucide-react';
 import Link from 'next/link';
 
+// "Shop by vegetable" tiles. Listings have free-text crop names, so a listing
+// belongs to a tile when its title or variety contains one of the keywords (and none of
+// the excluded phrases — e.g. sweet potatoes aren't potatoes).
+const VEGETABLE_TYPES: { name: string; emoji: string; keywords: string[]; exclude?: string[] }[] = [
+  { name: 'Potatoes', emoji: '🥔', keywords: ['potato', 'russet', 'yukon'], exclude: ['sweet potato'] },
+  { name: 'Tomatoes', emoji: '🍅', keywords: ['tomato'] },
+  { name: 'Onions', emoji: '🧅', keywords: ['onion', 'shallot', 'scallion', 'leek'] },
+  { name: 'Carrots', emoji: '🥕', keywords: ['carrot'] },
+  { name: 'Lettuce & Greens', emoji: '🥬', keywords: ['lettuce', 'spinach', 'kale', 'greens', 'chard', 'arugula', 'cabbage'] },
+  { name: 'Peppers', emoji: '🫑', keywords: ['pepper', 'chile', 'chili', 'jalape'] },
+  { name: 'Cucumbers', emoji: '🥒', keywords: ['cucumber'] },
+  { name: 'Broccoli & Cauliflower', emoji: '🥦', keywords: ['broccoli', 'cauliflower'] },
+  { name: 'Corn', emoji: '🌽', keywords: ['corn'] },
+  { name: 'Squash & Pumpkins', emoji: '🎃', keywords: ['squash', 'zucchini', 'pumpkin'] },
+  { name: 'Garlic', emoji: '🧄', keywords: ['garlic'] },
+  { name: 'Sweet Potatoes', emoji: '🍠', keywords: ['sweet potato', 'yam'] },
+];
+
+function matchesVegetableType(item: { title?: string | null; variety?: string | null }, type: (typeof VEGETABLE_TYPES)[number]) {
+  const text = `${item.title || ''} ${item.variety || ''}`.toLowerCase();
+  if (type.exclude?.some((phrase) => text.includes(phrase))) return false;
+  return type.keywords.some((keyword) => text.includes(keyword));
+}
+
 export default function BrowsePage() {
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedVegetable, setSelectedVegetable] = useState<string | null>(null);
 
   useEffect(() => {
     fetchListings();
@@ -66,12 +91,16 @@ export default function BrowsePage() {
   const filteredListings = listings.filter((item) => {
     const matchesSearch =
       item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.variety?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.location_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.seller_profiles?.farm_name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory =
       selectedCategory === 'All' || item.category === selectedCategory;
 
-    return matchesSearch && matchesCategory;
+    const vegetableType = VEGETABLE_TYPES.find((t) => t.name === selectedVegetable);
+    const matchesVegetable = !vegetableType || matchesVegetableType(item, vegetableType);
+
+    return matchesSearch && matchesCategory && matchesVegetable;
   });
 
   return (
@@ -106,6 +135,52 @@ export default function BrowsePage() {
             )
           )}
         </div>
+      </div>
+
+      {/* SHOP BY VEGETABLE */}
+      <div>
+        <h2 className="text-lg font-extrabold text-gray-900 mb-3">Shop by Vegetable</h2>
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+          {VEGETABLE_TYPES.map((type) => {
+            const count = listings.filter((item) => matchesVegetableType(item, type)).length;
+            const selected = selectedVegetable === type.name;
+
+            return (
+              <button
+                key={type.name}
+                onClick={() => setSelectedVegetable(selected ? null : type.name)}
+                aria-pressed={selected}
+                className={`flex flex-col items-center gap-1 p-3 rounded-2xl border text-center transition-all ${
+                  selected
+                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-md'
+                    : 'bg-white border-gray-200 text-gray-800 hover:border-emerald-400 hover:shadow-sm'
+                } ${count === 0 && !selected ? 'opacity-60' : ''}`}
+              >
+                <span className="text-4xl leading-none" aria-hidden="true">
+                  {type.emoji}
+                </span>
+                <span className="text-xs font-bold leading-tight">{type.name}</span>
+                <span className={`text-[10px] font-medium ${selected ? 'text-emerald-100' : 'text-gray-400'}`}>
+                  {loading ? ' ' : count === 0 ? 'None right now' : `${count} listing${count === 1 ? '' : 's'}`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-extrabold text-gray-900">
+          {selectedVegetable ? `${selectedVegetable} Available Now` : 'Latest Harvest Listings'}
+        </h2>
+        {selectedVegetable && (
+          <button
+            onClick={() => setSelectedVegetable(null)}
+            className="text-xs font-semibold text-emerald-700 hover:underline"
+          >
+            Show all produce
+          </button>
+        )}
       </div>
 
       {/* LISTINGS GRID */}
@@ -183,6 +258,9 @@ export default function BrowsePage() {
                         {item.title}
                       </Link>
                     </h3>
+                    {item.variety && (
+                      <p className="text-xs font-semibold text-gray-500 mt-0.5">Variety: {item.variety}</p>
+                    )}
 
                     {Array.isArray(item.tags) && item.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
