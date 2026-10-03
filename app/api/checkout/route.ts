@@ -1,91 +1,37 @@
 import { NextResponse } from 'next/server';
-import { SquareClient, SquareEnvironment } from 'square';
-import { supabase } from '@/lib/supabaseClient';
+import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getRequestUser } from '@/lib/apiAuth';
+import { calculateOrderTotals, MIN_CHARGE_CENTS } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
-const squareClient = new SquareClient({
-  token: process.env.SQUARE_ACCESS_TOKEN || '',
-  environment: process.env.SQUARE_ENVIRONMENT === 'production'
-    ? SquareEnvironment.Production
-    : SquareEnvironment.Sandbox,
-});
-
-async function sendSellerNotification(params: {
-  sellerEmail: string;
-  listingTitle: string;
-  quantity: number;
-  unitType: string;
-  buyerEmail: string | null;
-  totalPrice: number;
-  pickupCode: string;
-}) {
-  const { sellerEmail, listingTitle, quantity, unitType, buyerEmail, totalPrice, pickupCode } = params;
-
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set — skipping seller notification email.');
-    return;
-  }
-
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'Farm Fresh Direct <onboarding@resend.dev>',
-        to: [sellerEmail],
-        subject: `New order: ${quantity} ${unitType} of ${listingTitle}`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 480px;">
-            <h2 style="color: #059669;">You've got a new reservation!</h2>
-            <p><strong>${listingTitle}</strong> — ${quantity} ${unitType}</p>
-            <p>Buyer: ${buyerEmail || 'N/A'}</p>
-            <p>Total paid: $${totalPrice.toFixed(2)}</p>
-            <p>Pickup code: <strong>${pickupCode}</strong></p>
-            <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">
-              Visit your Seller Dashboard to mark this order ready for pickup.
-            </p>
-          </div>
-        `,
-      }),
-    });
-
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error('Resend API error:', res.status, errBody);
-    }
-  } catch (err) {
-    console.error('Failed to send seller notification email:', err);
-  }
-}
-
+// Step 1 of checkout: creates a Stripe PaymentIntent as a destination charge.
+// The buyer pays the platform, the 5% buyer fee stays with the platform as the
+// application fee, and the rest transfers to the farmer's connected account.
+// The order itself is recorded by /api/checkout/complete once payment succeeds.
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { sourceId, listingId, quantity, grandTotal, buyerId, buyerEmail } = body;
-
-    if (!sourceId || !grandTotal) {
-      return NextResponse.json({ error: 'Missing required payment parameters.' }, { status: 400 });
-    }
-
-    if (!buyerId) {
+    const user = await getRequestUser(request);
+    if (!user) {
       return NextResponse.json({ error: 'You must be signed in to complete checkout.' }, { status: 401 });
     }
+
+    const body = await request.json();
+    const { listingId } = body;
+    const orderQuantity = Number(body.quantity);
 
     if (!listingId) {
       return NextResponse.json({ error: 'Missing listing reference.' }, { status: 400 });
     }
 
-    const orderQuantity = Number(quantity) || 1;
+    if (!Number.isInteger(orderQuantity) || orderQuantity < 1) {
+      return NextResponse.json({ error: 'Invalid quantity.' }, { status: 400 });
+    }
 
-    // Fetch listing including farmer_id so we know who to notify afterward.
     const { data: listing, error: listingFetchError } = await supabaseAdmin
       .from('produce_listings')
-      .select('available_quantity, title, unit_type, farmer_id')
+      .select('available_quantity, price_per_unit, title, farmer_id')
       .eq('id', listingId)
       .single();
 
@@ -102,86 +48,47 @@ export async function POST(request: Request) {
       );
     }
 
-    const pickupCode = `FFD-${Math.floor(1000 + Math.random() * 9000)}`;
-    const amountInCents = Math.round(Number(grandTotal) * 100);
+    const { data: seller } = await supabaseAdmin
+      .from('seller_profiles')
+      .select('stripe_account_id, stripe_onboarding_complete')
+      .eq('id', listing.farmer_id)
+      .maybeSingle();
 
-    const paymentResponse = await squareClient.payments.create({
-      sourceId: sourceId,
-      idempotencyKey: crypto.randomUUID(),
-      amountMoney: {
-        amount: BigInt(amountInCents),
-        currency: 'USD',
+    if (!seller?.stripe_account_id || !seller.stripe_onboarding_complete) {
+      return NextResponse.json(
+        { error: "This farmer hasn't finished setting up payouts yet, so this listing can't be purchased right now." },
+        { status: 409 }
+      );
+    }
+
+    // Totals are always computed server-side from the listing price — never
+    // trusted from the client.
+    const { feeCents, totalCents } = calculateOrderTotals(
+      Number(listing.price_per_unit ?? 0),
+      orderQuantity
+    );
+
+    if (totalCents < MIN_CHARGE_CENTS) {
+      return NextResponse.json({ error: 'Order total is below the minimum charge of $0.50.' }, { status: 400 });
+    }
+
+    const paymentIntent = await stripeAdmin.paymentIntents.create({
+      amount: totalCents,
+      currency: 'usd',
+      allowed_payment_method_types: ['card'],
+      application_fee_amount: feeCents,
+      transfer_data: { destination: seller.stripe_account_id },
+      description: `Farm Fresh Direct — ${orderQuantity} x ${listing.title || 'produce'}`,
+      metadata: {
+        listing_id: String(listingId),
+        quantity: String(orderQuantity),
+        buyer_id: user.id,
       },
-      note: `Farm Fresh Direct Order - Code ${pickupCode}`,
     });
 
-    const payment = paymentResponse.payment;
-
-    if (payment?.status !== 'COMPLETED') {
-      return NextResponse.json({ error: 'Square payment failed to complete.' }, { status: 400 });
-    }
-
-    // Insert order in Supabase
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert([
-        {
-          buyer_id: buyerId,
-          buyer_email: buyerEmail || null,
-          listing_id: listingId || null,
-          quantity: orderQuantity,
-          reserved_quantity: orderQuantity,
-          total_price: grandTotal,
-          deposit_amount: grandTotal,
-          authorized_amount: grandTotal,
-          balance_due_at_pickup: 0.00,
-          payment_method: 'square_card_online',
-          payment_status: 'paid',
-          square_payment_id: payment.id,
-          pickup_code: pickupCode,
-          verification_code: pickupCode,
-        },
-      ])
-      .select()
-      .single();
-
-    if (orderError) throw orderError;
-
-    // Decrement the listing's available quantity now that payment succeeded.
-    const newAvailable = Math.max(0, currentAvailable - orderQuantity);
-    const { error: updateError } = await supabaseAdmin
-      .from('produce_listings')
-      .update({ available_quantity: newAvailable })
-      .eq('id', listingId);
-
-    if (updateError) {
-      console.error('Failed to update listing available_quantity after successful payment:', updateError);
-    }
-
-    // Notify the seller by email. This runs after payment/order success and
-    // never fails the request — a missed email shouldn't undo a real sale.
-    if (listing.farmer_id) {
-      const { data: sellerUser, error: sellerLookupError } =
-        await supabaseAdmin.auth.admin.getUserById(listing.farmer_id);
-
-      if (sellerLookupError) {
-        console.error('Failed to look up seller email:', sellerLookupError);
-      } else if (sellerUser?.user?.email) {
-        await sendSellerNotification({
-          sellerEmail: sellerUser.user.email,
-          listingTitle: listing.title || 'your listing',
-          quantity: orderQuantity,
-          unitType: listing.unit_type || 'units',
-          buyerEmail: buyerEmail || null,
-          totalPrice: Number(grandTotal),
-          pickupCode,
-        });
-      }
-    }
-
-    return NextResponse.json({ success: true, orderId: order.id, code: pickupCode });
+    return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (err: any) {
-    console.error('Square Payment API Error:', err);
+    console.error('Checkout PaymentIntent error:', err);
     return NextResponse.json(
       { error: err.message || 'Payment processing failed.' },
       { status: 500 }

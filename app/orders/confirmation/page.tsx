@@ -73,7 +73,7 @@ function ConfirmationContent() {
         </h2>
 
         <div className="flex justify-between items-center bg-emerald-50 text-emerald-950 font-bold px-3 py-2.5 rounded-xl">
-          <span>Total Paid Online (Square):</span>
+          <span>Total Paid Online:</span>
           <span className="text-lg">${Number(totalPaid).toFixed(2)}</span>
         </div>
 

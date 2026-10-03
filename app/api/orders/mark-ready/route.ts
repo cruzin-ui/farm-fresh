@@ -1,10 +1,24 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getRequestUser } from '@/lib/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 export async function POST(request: Request) {
   try {
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { orderId, pickupDetails } = body;
 
@@ -14,11 +28,22 @@ export async function POST(request: Request) {
 
     const { data: order, error: fetchError } = await supabaseAdmin
       .from('orders')
-      .select('*, produce_listings(title, farmer_id)')
+      .select('*')
       .eq('id', orderId)
-      .single();
+      .maybeSingle();
 
     if (fetchError || !order) {
+      return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
+    }
+
+    const { data: listing } = await supabaseAdmin
+      .from('produce_listings')
+      .select('title, farmer_id')
+      .eq('id', order.listing_id)
+      .maybeSingle();
+
+    // Only the farmer who owns the listing can mark its orders ready.
+    if (!listing || listing.farmer_id !== user.id) {
       return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
     }
 
@@ -46,8 +71,8 @@ export async function POST(request: Request) {
             html: `
               <div style="font-family: sans-serif; max-width: 480px;">
                 <h2 style="color: #059669;">Your harvest is ready!</h2>
-                <p><strong>${order.produce_listings?.title || 'Your order'}</strong> is ready for pickup.</p>
-                <p style="white-space: pre-wrap;">${pickupDetails}</p>
+                <p><strong>${escapeHtml(listing.title || 'Your order')}</strong> is ready for pickup.</p>
+                <p style="white-space: pre-wrap;">${escapeHtml(String(pickupDetails))}</p>
                 <p>Your pickup code: <strong>${order.pickup_code || order.verification_code}</strong></p>
               </div>
             `,

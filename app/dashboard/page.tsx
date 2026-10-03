@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { postWithAuth } from '@/lib/authedFetch';
 import {
   Sprout,
   AlertCircle,
@@ -21,6 +22,9 @@ import {
   X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { loadConnectAndInitialize } from '@stripe/connect-js/pure';
+import type { StripeConnectInstance } from '@stripe/connect-js';
+import { ConnectComponentsProvider, ConnectAccountOnboarding } from '@stripe/react-connect-js';
 
 type DashboardTab = 'listings' | 'new' | 'orders' | 'history' | 'profile' | 'settings';
 
@@ -82,8 +86,11 @@ export default function SellerDashboardPage() {
   const avatarCameraInputRef = useRef<HTMLInputElement>(null);
   const avatarLibraryInputRef = useRef<HTMLInputElement>(null);
 
-  // Payouts State (Square-online model — no cash/Venmo-at-pickup anymore)
-  const [payoutNotes, setPayoutNotes] = useState('');
+  // Stripe Connect onboarding state
+  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
+  const [stripeOnboardingComplete, setStripeOnboardingComplete] = useState(false);
+  const [connectInstance, setConnectInstance] = useState<StripeConnectInstance | null>(null);
+  const [settingUpPayouts, setSettingUpPayouts] = useState(false);
 
   // Mark Ready flow — per-order draft of the pickup message before sending
   const [readyDraftOrderId, setReadyDraftOrderId] = useState<string | null>(null);
@@ -127,7 +134,8 @@ export default function SellerDashboardPage() {
       setProfileLocation(profile.location || '');
       setProfileZip(profile.zip_code || '');
       setGrowingPractices(profile.growing_practices || 'No Synthetic Pesticides');
-      setPayoutNotes(profile.payout_notes || '');
+      setStripeAccountId(profile.stripe_account_id || null);
+      setStripeOnboardingComplete(Boolean(profile.stripe_onboarding_complete));
     }
 
     const listingIds = (listings || []).map((l) => l.id);
@@ -228,10 +236,9 @@ export default function SellerDashboardPage() {
 
     setSendingReady(true);
     try {
-      const res = await fetch('/api/orders/mark-ready', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, pickupDetails: readyDraftText }),
+      const res = await postWithAuth('/api/orders/mark-ready', {
+        orderId,
+        pickupDetails: readyDraftText,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to mark order ready.');
@@ -244,6 +251,60 @@ export default function SellerDashboardPage() {
       alert(err.message || 'Failed to mark order ready.');
     } finally {
       setSendingReady(false);
+    }
+  };
+
+  const handleSetUpPayouts = async () => {
+    setSettingUpPayouts(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      if (!user) throw new Error('Authentication required.');
+
+      const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+      if (!publishableKey) throw new Error('Stripe is not configured (missing publishable key).');
+
+      const res = await postWithAuth('/api/connect/create-account');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create payout account.');
+
+      setStripeAccountId(data.accountId);
+
+      const instance = loadConnectAndInitialize({
+        publishableKey,
+        fetchClientSecret: async () => {
+          const sessionRes = await postWithAuth('/api/connect/account-session');
+          const sessionData = await sessionRes.json();
+          if (!sessionRes.ok) {
+            throw new Error(sessionData.error || 'Failed to start payout onboarding.');
+          }
+          return sessionData.client_secret;
+        },
+      });
+
+      setConnectInstance(instance);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to set up payouts.');
+    } finally {
+      setSettingUpPayouts(false);
+    }
+  };
+
+  const handleOnboardingExit = async () => {
+    setConnectInstance(null);
+
+    try {
+      const res = await postWithAuth('/api/connect/account-status');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to check payout status.');
+
+      setStripeOnboardingComplete(Boolean(data.complete));
+      if (data.complete) {
+        setSuccessMsg('Payouts are set up — your Stripe account is connected.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to check payout status.');
     }
   };
 
@@ -284,7 +345,6 @@ export default function SellerDashboardPage() {
         location: profileLocation,
         zip_code: profileZip,
         growing_practices: growingPractices,
-        payout_notes: payoutNotes,
       };
 
       const { error: upsertError } = await supabase
@@ -1099,46 +1159,71 @@ export default function SellerDashboardPage() {
           )}
 
           {activeTab === 'settings' && (
-            <form onSubmit={handleProfileSubmit} className="space-y-6">
+            <div className="space-y-6">
               <div className="pb-4 border-b border-gray-100">
                 <h1 className="text-2xl font-bold text-gray-900">Payouts & Settings</h1>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  All buyer payments are collected online through Square at checkout.
+                  Connect a payout account so your earnings can be deposited directly to your bank.
                 </p>
               </div>
+
+              {stripeOnboardingComplete ? (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2 text-xs text-emerald-900">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <p className="font-bold text-sm">Payouts connected</p>
+                    <p className="mt-0.5">
+                      Your Stripe account is verified and ready to receive payouts.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-xs text-amber-900">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                  <div>
+                    <p className="font-bold text-sm">
+                      {stripeAccountId ? 'Payout setup incomplete' : 'Payouts not connected'}
+                    </p>
+                    <p className="mt-0.5">
+                      {stripeAccountId
+                        ? 'Finish the remaining steps with Stripe to start receiving direct payouts.'
+                        : 'Set up a Stripe payout account to receive your earnings by direct deposit.'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {!stripeOnboardingComplete && !connectInstance && (
+                <button
+                  type="button"
+                  onClick={handleSetUpPayouts}
+                  disabled={settingUpPayouts}
+                  className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm transition-colors shadow-sm disabled:bg-gray-400"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  {settingUpPayouts
+                    ? 'Starting...'
+                    : stripeAccountId
+                      ? 'Continue Payout Setup'
+                      : 'Set Up Payouts'}
+                </button>
+              )}
+
+              {connectInstance && (
+                <div className="p-4 border border-gray-200 rounded-xl">
+                  <ConnectComponentsProvider connectInstance={connectInstance}>
+                    <ConnectAccountOnboarding onExit={handleOnboardingExit} />
+                  </ConnectComponentsProvider>
+                </div>
+              )}
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
-                Buyers pay in full online via Square when they reserve your produce — there's no
-                cash or Venmo collected at pickup anymore. During this early phase, payouts to
-                farmers are sent manually by the Farm Fresh Direct team. Let us know below how
-                you'd like to receive your earnings, and we'll reach out to arrange it.
+                Buyers pay in full online when they reserve your produce — there's no cash or
+                Venmo collected at pickup. Your earnings are sent automatically to your connected
+                payout account. Buyers can't purchase your listings until payout setup is
+                complete.
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Payout Details
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="e.g., Bank transfer — contact me at (602) 555-0199 to set up direct deposit. Or: PayPal — myemail@example.com"
-                  value={payoutNotes}
-                  onChange={(e) => setPayoutNotes(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg text-sm"
-                />
-                <p className="text-[10px] text-gray-400 mt-1">
-                  Avoid entering full bank account or card numbers here — just tell us your
-                  preferred method and contact info, and we'll follow up securely.
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl text-sm transition-colors shadow-md disabled:bg-gray-400"
-              >
-                {loading ? 'Saving Settings...' : 'Save Payout Preferences'}
-              </button>
-            </form>
+            </div>
           )}
         </main>
       </div>
