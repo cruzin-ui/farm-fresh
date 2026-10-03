@@ -97,6 +97,18 @@ export default function SellerDashboardPage() {
   const [readyDraftText, setReadyDraftText] = useState('');
   const [sendingReady, setSendingReady] = useState(false);
 
+  // Complete flow — the farmer enters the pickup code the buyer gives them
+  const [completeOrderId, setCompleteOrderId] = useState<string | null>(null);
+  const [completeCode, setCompleteCode] = useState('');
+  const [submittingComplete, setSubmittingComplete] = useState(false);
+
+  // Cancel / Adjust flow — per-order draft of the reduced quantity (0 = cancel)
+  const [adjustOrderId, setAdjustOrderId] = useState<string | null>(null);
+  const [adjustQuantity, setAdjustQuantity] = useState('0');
+  const [adjustNote, setAdjustNote] = useState('');
+  const [adjustRestock, setAdjustRestock] = useState(false);
+  const [submittingAdjust, setSubmittingAdjust] = useState(false);
+
   useEffect(() => {
     fetchDashboardData();
   }, [router]);
@@ -198,19 +210,39 @@ export default function SellerDashboardPage() {
     }
   };
 
-  // "Mark Completed" stays a direct client update — now works because of the
-  // new seller UPDATE policy on orders.
-  const handleMarkCompleted = async (orderId: string) => {
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: 'completed' })
-      .eq('id', orderId);
+  // "Mark Completed" goes through the API because completing an order is what
+  // releases the farmer's payout for it.
+  const openComplete = (order: any) => {
+    setReadyDraftOrderId(null);
+    setAdjustOrderId(null);
+    setCompleteOrderId(order.id);
+    setCompleteCode('');
+  };
 
-    if (error) {
-      alert(`Could not update order status: ${error.message}`);
-    } else {
-      setSuccessMsg('Order marked as completed and moved to Sales History.');
+  const handleMarkCompleted = async (orderId: string) => {
+    if (!completeCode.trim()) {
+      alert("Enter the buyer's pickup code to complete this order.");
+      return;
+    }
+
+    setSubmittingComplete(true);
+    try {
+      const res = await postWithAuth('/api/orders/complete', { orderId, code: completeCode });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not complete order.');
+
+      setSuccessMsg(
+        Number(data.payoutAmount) > 0
+          ? `Order completed — $${Number(data.payoutAmount).toFixed(2)} is on its way to your payout account.`
+          : 'Order marked as completed and moved to Sales History.'
+      );
+      setCompleteOrderId(null);
+      setCompleteCode('');
       await fetchDashboardData();
+    } catch (err: any) {
+      alert(err.message || 'Could not complete order.');
+    } finally {
+      setSubmittingComplete(false);
     }
   };
 
@@ -251,6 +283,47 @@ export default function SellerDashboardPage() {
       alert(err.message || 'Failed to mark order ready.');
     } finally {
       setSendingReady(false);
+    }
+  };
+
+  const openAdjust = (order: any) => {
+    setReadyDraftOrderId(null);
+    setCompleteOrderId(null);
+    setAdjustOrderId(order.id);
+    setAdjustQuantity('0');
+    setAdjustNote('');
+    setAdjustRestock(false);
+  };
+
+  const confirmAdjust = async (order: any) => {
+    const currentQty = Number(order.reserved_quantity ?? 0);
+    const newQty = Number(adjustQuantity);
+
+    if (adjustQuantity.trim() === '' || !Number.isInteger(newQty) || newQty < 0 || newQty >= currentQty) {
+      alert(`Enter a whole number from 0 to ${currentQty - 1}. Use 0 to cancel the whole order.`);
+      return;
+    }
+
+    setSubmittingAdjust(true);
+    try {
+      const res = await postWithAuth('/api/orders/adjust', {
+        orderId: order.id,
+        newQuantity: newQty,
+        note: adjustNote,
+        restock: adjustRestock,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to adjust order.');
+
+      setSuccessMsg(
+        `${data.cancelled ? 'Order cancelled' : 'Order updated'} — $${Number(data.refundAmount).toFixed(2)} refunded to the buyer, who has been emailed.`
+      );
+      setAdjustOrderId(null);
+      await fetchDashboardData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to adjust order.');
+    } finally {
+      setSubmittingAdjust(false);
     }
   };
 
@@ -961,14 +1034,137 @@ export default function SellerDashboardPage() {
                               <PackageCheck className="w-4 h-4" /> Mark Ready for Pickup
                             </button>
                           )}
-                          <button
-                            onClick={() => handleMarkCompleted(order.id)}
-                            className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
-                          >
-                            <Check className="w-4 h-4" /> Mark Completed
-                          </button>
+                          {completeOrderId !== order.id && (
+                            <button
+                              onClick={() => openComplete(order)}
+                              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+                            >
+                              <Check className="w-4 h-4" /> Mark Completed
+                            </button>
+                          )}
+                          {order.stripe_payment_intent_id && adjustOrderId !== order.id && (
+                            <button
+                              onClick={() => openAdjust(order)}
+                              className="inline-flex items-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                            >
+                              <X className="w-4 h-4" /> Cancel / Adjust
+                            </button>
+                          )}
                         </div>
                       </div>
+
+                      {completeOrderId === order.id && (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+                          <label className="block text-xs font-semibold text-emerald-900">
+                            Enter the buyer's pickup code
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="FFD-123456"
+                            value={completeCode}
+                            onChange={(e) => setCompleteCode(e.target.value)}
+                            className="w-44 px-3 py-2 border border-emerald-200 rounded-lg text-sm bg-white font-mono uppercase"
+                          />
+                          <p className="text-[11px] text-emerald-900">
+                            Ask the buyer for the code from their order confirmation when they collect
+                            their produce. Entering it completes the order and releases your payout.
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleMarkCompleted(order.id)}
+                              disabled={submittingComplete || !completeCode.trim()}
+                              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                            >
+                              {submittingComplete ? 'Checking...' : 'Confirm Pickup & Release Payout'}
+                            </button>
+                            <button
+                              onClick={() => setCompleteOrderId(null)}
+                              disabled={submittingComplete}
+                              className="inline-flex items-center gap-1.5 bg-white border text-gray-600 text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {adjustOrderId === order.id && (() => {
+                        const currentQty = Number(order.reserved_quantity ?? 0);
+                        const newQty = Number(adjustQuantity);
+                        const validQty =
+                          adjustQuantity.trim() !== '' &&
+                          Number.isInteger(newQty) &&
+                          newQty >= 0 &&
+                          newQty < currentQty;
+                        const estimatedRefund = validQty
+                          ? (Number(order.total_price || 0) * (currentQty - newQty)) / currentQty
+                          : 0;
+
+                        return (
+                          <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-red-900 mb-1">
+                                New quantity ({order.listing_unit_type}) — enter 0 to cancel the whole order
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={currentQty - 1}
+                                step="1"
+                                value={adjustQuantity}
+                                onChange={(e) => setAdjustQuantity(e.target.value)}
+                                className="w-28 px-3 py-2 border border-red-200 rounded-lg text-sm bg-white"
+                              />
+                              <p className="text-[11px] text-red-900 mt-1">
+                                Currently {currentQty} {order.listing_unit_type}.{' '}
+                                {validQty
+                                  ? `The buyer will be refunded about $${estimatedRefund.toFixed(2)}, and your payout for this order shrinks to match.`
+                                  : `Enter a whole number from 0 to ${currentQty - 1}.`}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-red-900 mb-1">
+                                Message to the buyer (optional)
+                              </label>
+                              <textarea
+                                rows={2}
+                                placeholder="e.g., Sorry — the late frost cut this week's harvest short."
+                                value={adjustNote}
+                                onChange={(e) => setAdjustNote(e.target.value)}
+                                className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm bg-white"
+                              />
+                            </div>
+                            <label className="flex items-center gap-2 text-xs text-red-900">
+                              <input
+                                type="checkbox"
+                                checked={adjustRestock}
+                                onChange={(e) => setAdjustRestock(e.target.checked)}
+                              />
+                              Put the removed quantity back on the listing for other buyers
+                            </label>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => confirmAdjust(order)}
+                                disabled={submittingAdjust || !validQty}
+                                className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                              >
+                                {submittingAdjust
+                                  ? 'Refunding...'
+                                  : newQty === 0
+                                    ? 'Cancel Order & Refund'
+                                    : 'Reduce Order & Refund'}
+                              </button>
+                              <button
+                                onClick={() => setAdjustOrderId(null)}
+                                disabled={submittingAdjust}
+                                className="inline-flex items-center gap-1.5 bg-white border text-gray-600 text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-gray-50"
+                              >
+                                Keep Order
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {readyDraftOrderId === order.id && (
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
@@ -1035,10 +1231,17 @@ export default function SellerDashboardPage() {
                           {order.listing_title}
                         </h4>
                         <p className="text-xs text-gray-500">
-                          Completed on {new Date(order.created_at).toLocaleDateString()}
+                          {order.status === 'cancelled' ? 'Cancelled — ordered' : 'Completed — ordered'} on{' '}
+                          {new Date(order.created_at).toLocaleDateString()}
+                          {Number(order.refunded_amount || 0) > 0 &&
+                            ` · $${Number(order.refunded_amount).toFixed(2)} refunded`}
                         </p>
                       </div>
-                      <span className="text-sm font-black text-emerald-800">
+                      <span
+                        className={`text-sm font-black ${
+                          order.status === 'cancelled' ? 'text-gray-400' : 'text-emerald-800'
+                        }`}
+                      >
                         ${Number(order.total_price || 0).toFixed(2)}
                       </span>
                     </div>
@@ -1219,9 +1422,9 @@ export default function SellerDashboardPage() {
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
                 Buyers pay in full online when they reserve your produce — there's no cash or
-                Venmo collected at pickup. Your earnings are sent automatically to your connected
-                payout account. Buyers can't purchase your listings until payout setup is
-                complete.
+                Venmo collected at pickup. Your earnings for an order are released to your
+                connected payout account when you enter the buyer's pickup code at pickup. Buyers can't
+                purchase your listings until payout setup is complete.
               </div>
             </div>
           )}

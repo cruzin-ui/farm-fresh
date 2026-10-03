@@ -28,7 +28,15 @@ function ConfirmationContent() {
           .single();
 
         if (error) throw error;
-        setOrder(data);
+
+        // The pickup code is stored separately so only the buyer can read it.
+        const { data: codeRow } = await supabase
+          .from('order_pickup_codes')
+          .select('code')
+          .eq('order_id', orderId)
+          .maybeSingle();
+
+        setOrder({ ...data, pickup_code: codeRow?.code || data.pickup_code });
       } catch (err) {
         console.error('Error fetching order:', err);
       } finally {
@@ -63,7 +71,7 @@ function ConfirmationContent() {
       <div className="bg-white border-2 border-dashed border-emerald-300 rounded-2xl p-6 text-center space-y-2 shadow-sm bg-gradient-to-b from-emerald-50/30 to-white">
         <span className="text-xs font-bold uppercase tracking-widest text-emerald-800">Pickup Verification Code</span>
         <div className="text-4xl font-black text-emerald-900 tracking-wider font-mono">{pickupCode}</div>
-        <p className="text-xs text-gray-500">Show this verification code or give your name when collecting your harvest.</p>
+        <p className="text-xs text-gray-500">Give this code to the farmer only when you collect your harvest — it confirms you received your order and releases their payment.</p>
       </div>
 
       {/* Payment & Status Summary */}
@@ -92,10 +100,10 @@ function ConfirmationContent() {
           <Printer className="w-4 h-4 text-gray-500" /> Print Receipt
         </button>
         <Link
-          href="/browse"
+          href="/orders"
           className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 text-center shadow-md"
         >
-          Return to Marketplace
+          View My Orders
         </Link>
       </div>
     </div>

@@ -15,3 +15,23 @@ export async function getRequestUser(request: Request): Promise<User | null> {
 
   return data.user;
 }
+
+// Admins are the signed-in users whose email is listed in the ADMIN_EMAILS
+// environment variable (comma-separated). With the variable unset, nobody is
+// an admin.
+export function isAdminEmail(email: string | undefined | null) {
+  if (!email) return false;
+
+  const admins = (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  return admins.includes(email.toLowerCase());
+}
+
+// Like getRequestUser, but returns null unless the user is an admin.
+export async function getRequestAdmin(request: Request): Promise<User | null> {
+  const user = await getRequestUser(request);
+  return user && isAdminEmail(user.email) ? user : null;
+}

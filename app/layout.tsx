@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
-import { Sprout, ShoppingBag, LayoutDashboard } from "lucide-react";
+import { Sprout, ShoppingBag, LayoutDashboard, Receipt } from "lucide-react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,6 +45,12 @@ export default function RootLayout({
                 className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
               >
                 <ShoppingBag className="w-4 h-4" /> Browse
+              </Link>
+              <Link
+                href="/orders"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+              >
+                <Receipt className="w-4 h-4" /> My Orders
               </Link>
               <Link
                 href="/dashboard"

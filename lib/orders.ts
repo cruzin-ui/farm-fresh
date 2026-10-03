@@ -1,19 +1,10 @@
 import type Stripe from 'stripe';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getOrCreatePickupCode } from '@/lib/pickupCodes';
 
-async function sendSellerNotification(params: {
-  sellerEmail: string;
-  listingTitle: string;
-  quantity: number;
-  unitType: string;
-  buyerEmail: string | null;
-  totalPrice: number;
-  pickupCode: string;
-}) {
-  const { sellerEmail, listingTitle, quantity, unitType, buyerEmail, totalPrice, pickupCode } = params;
-
+async function sendEmail(params: { to: string; subject: string; html: string }) {
   if (!process.env.RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set — skipping seller notification email.');
+    console.warn('RESEND_API_KEY not set — skipping email:', params.subject);
     return;
   }
 
@@ -26,20 +17,9 @@ async function sendSellerNotification(params: {
       },
       body: JSON.stringify({
         from: 'Farm Fresh Direct <onboarding@resend.dev>',
-        to: [sellerEmail],
-        subject: `New order: ${quantity} ${unitType} of ${listingTitle}`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 480px;">
-            <h2 style="color: #059669;">You've got a new reservation!</h2>
-            <p><strong>${listingTitle}</strong> — ${quantity} ${unitType}</p>
-            <p>Buyer: ${buyerEmail || 'N/A'}</p>
-            <p>Total paid: $${totalPrice.toFixed(2)}</p>
-            <p>Pickup code: <strong>${pickupCode}</strong></p>
-            <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">
-              Visit your Seller Dashboard to mark this order ready for pickup.
-            </p>
-          </div>
-        `,
+        to: [params.to],
+        subject: params.subject,
+        html: params.html,
       }),
     });
 
@@ -48,34 +28,93 @@ async function sendSellerNotification(params: {
       console.error('Resend API error:', res.status, errBody);
     }
   } catch (err) {
-    console.error('Failed to send seller notification email:', err);
+    console.error('Failed to send email:', err);
   }
 }
 
-async function findOrderForPayment(paymentIntentId: string) {
-  const { data } = await supabaseAdmin
-    .from('orders')
-    .select('id, pickup_code')
-    .eq('stripe_payment_intent_id', paymentIntentId)
-    .maybeSingle();
+// The seller's email deliberately leaves out the pickup code — they only get
+// it from the buyer at pickup, and need it to release their payout.
+async function sendSellerNotification(params: {
+  sellerEmail: string;
+  listingTitle: string;
+  quantity: number;
+  unitType: string;
+  buyerEmail: string | null;
+  totalPrice: number;
+}) {
+  const { sellerEmail, listingTitle, quantity, unitType, buyerEmail, totalPrice } = params;
 
-  return data ? { orderId: data.id as string, code: data.pickup_code as string } : null;
+  await sendEmail({
+    to: sellerEmail,
+    subject: `New order: ${quantity} ${unitType} of ${listingTitle}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px;">
+        <h2 style="color: #059669;">You've got a new reservation!</h2>
+        <p><strong>${listingTitle}</strong> — ${quantity} ${unitType}</p>
+        <p>Buyer: ${buyerEmail || 'N/A'}</p>
+        <p>Total paid: $${totalPrice.toFixed(2)}</p>
+        <p>
+          At pickup, ask the buyer for their pickup code and enter it in your Seller Dashboard
+          to complete the order and release your payout.
+        </p>
+        <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">
+          Visit your Seller Dashboard to mark this order ready for pickup.
+        </p>
+      </div>
+    `,
+  });
+}
+
+async function sendBuyerConfirmation(params: {
+  buyerEmail: string;
+  listingTitle: string;
+  quantity: number;
+  unitType: string;
+  totalPrice: number;
+  pickupCode: string;
+}) {
+  const { buyerEmail, listingTitle, quantity, unitType, totalPrice, pickupCode } = params;
+
+  await sendEmail({
+    to: buyerEmail,
+    subject: `Order confirmed: ${quantity} ${unitType} of ${listingTitle}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px;">
+        <h2 style="color: #059669;">Your order is confirmed!</h2>
+        <p><strong>${listingTitle}</strong> — ${quantity} ${unitType}</p>
+        <p>Total paid: $${totalPrice.toFixed(2)}</p>
+        <p>Your pickup code: <strong style="font-size: 20px;">${pickupCode}</strong></p>
+        <p>
+          Give this code to the farmer <strong>only when you collect your produce</strong> — it
+          confirms you received your order and releases their payment. We'll email you when
+          your order is ready for pickup.
+        </p>
+      </div>
+    `,
+  });
 }
 
 // SERVER-ONLY. Records the order for a succeeded checkout PaymentIntent,
-// decrements the listing's quantity and emails the seller. Called from both
-// /api/checkout/complete (the buyer's browser) and the Stripe webhook, so it
-// is idempotent: whichever arrives second gets the existing order back and
-// nothing is decremented or emailed twice.
+// decrements the listing's quantity and emails the buyer and seller. Called
+// from both /api/checkout/complete (the buyer's browser) and the Stripe
+// webhook, so it is idempotent: whichever arrives second gets the existing
+// order back and nothing is decremented or emailed twice.
 export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentIntent) {
-  const existing = await findOrderForPayment(paymentIntent.id);
-  if (existing) return existing;
-
   const buyerId = paymentIntent.metadata.buyer_id;
+
+  const { data: existing } = await supabaseAdmin
+    .from('orders')
+    .select('id')
+    .eq('stripe_payment_intent_id', paymentIntent.id)
+    .maybeSingle();
+
+  if (existing) {
+    return { orderId: existing.id as string, code: await getOrCreatePickupCode(existing.id, buyerId) };
+  }
+
   const listingId = paymentIntent.metadata.listing_id;
   const orderQuantity = Number(paymentIntent.metadata.quantity) || 1;
   const totalPaid = paymentIntent.amount / 100;
-  const pickupCode = `FFD-${Math.floor(1000 + Math.random() * 9000)}`;
 
   const { data: buyerUser } = await supabaseAdmin.auth.admin.getUserById(buyerId);
   const buyerEmail = buyerUser?.user?.email || null;
@@ -96,8 +135,6 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
         payment_method: 'stripe_card_online',
         payment_status: 'paid',
         stripe_payment_intent_id: paymentIntent.id,
-        pickup_code: pickupCode,
-        verification_code: pickupCode,
       },
     ])
     .select()
@@ -106,11 +143,20 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
   if (orderError) {
     // Unique violation: the other caller recorded this payment first.
     if (orderError.code === '23505') {
-      const raced = await findOrderForPayment(paymentIntent.id);
-      if (raced) return raced;
+      const { data: raced } = await supabaseAdmin
+        .from('orders')
+        .select('id')
+        .eq('stripe_payment_intent_id', paymentIntent.id)
+        .maybeSingle();
+
+      if (raced) {
+        return { orderId: raced.id as string, code: await getOrCreatePickupCode(raced.id, buyerId) };
+      }
     }
     throw orderError;
   }
+
+  const pickupCode = await getOrCreatePickupCode(order.id, buyerId);
 
   // Decrement the listing's available quantity now that payment succeeded.
   const { data: listing } = await supabaseAdmin
@@ -129,26 +175,39 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     if (updateError) {
       console.error('Failed to update listing available_quantity after successful payment:', updateError);
     }
+  }
 
-    // Notify the seller by email. This runs after payment/order success and
-    // never fails the request — a missed email shouldn't undo a real sale.
-    if (listing.farmer_id) {
-      const { data: sellerUser, error: sellerLookupError } =
-        await supabaseAdmin.auth.admin.getUserById(listing.farmer_id);
+  // Emails run after payment/order success and never fail the request — a
+  // missed email shouldn't undo a real sale.
+  const listingTitle = listing?.title || 'your order';
+  const unitType = listing?.unit_type || 'units';
 
-      if (sellerLookupError) {
-        console.error('Failed to look up seller email:', sellerLookupError);
-      } else if (sellerUser?.user?.email) {
-        await sendSellerNotification({
-          sellerEmail: sellerUser.user.email,
-          listingTitle: listing.title || 'your listing',
-          quantity: orderQuantity,
-          unitType: listing.unit_type || 'units',
-          buyerEmail,
-          totalPrice: totalPaid,
-          pickupCode,
-        });
-      }
+  if (buyerEmail) {
+    await sendBuyerConfirmation({
+      buyerEmail,
+      listingTitle,
+      quantity: orderQuantity,
+      unitType,
+      totalPrice: totalPaid,
+      pickupCode,
+    });
+  }
+
+  if (listing?.farmer_id) {
+    const { data: sellerUser, error: sellerLookupError } =
+      await supabaseAdmin.auth.admin.getUserById(listing.farmer_id);
+
+    if (sellerLookupError) {
+      console.error('Failed to look up seller email:', sellerLookupError);
+    } else if (sellerUser?.user?.email) {
+      await sendSellerNotification({
+        sellerEmail: sellerUser.user.email,
+        listingTitle,
+        quantity: orderQuantity,
+        unitType,
+        buyerEmail,
+        totalPrice: totalPaid,
+      });
     }
   }
 

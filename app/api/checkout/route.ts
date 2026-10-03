@@ -6,10 +6,12 @@ import { calculateOrderTotals, MIN_CHARGE_CENTS } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
-// Step 1 of checkout: creates a Stripe PaymentIntent as a destination charge.
-// The buyer pays the platform, the 5% buyer fee stays with the platform as the
-// application fee, and the rest transfers to the farmer's connected account.
-// The order itself is recorded by /api/checkout/complete once payment succeeds.
+// Step 1 of checkout: creates a Stripe PaymentIntent on the platform account.
+// The whole payment is held by the platform; the farmer's share (the produce
+// subtotal) is only transferred to their connected account when the order is
+// marked completed — see /api/orders/complete. The buyer fee stays with the
+// platform. The order itself is recorded by /api/checkout/complete once
+// payment succeeds.
 export async function POST(request: Request) {
   try {
     const user = await getRequestUser(request);
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
 
     // Totals are always computed server-side from the listing price — never
     // trusted from the client.
-    const { feeCents, totalCents } = calculateOrderTotals(
+    const { subtotalCents, totalCents } = calculateOrderTotals(
       Number(listing.price_per_unit ?? 0),
       orderQuantity
     );
@@ -76,13 +78,14 @@ export async function POST(request: Request) {
       amount: totalCents,
       currency: 'usd',
       allowed_payment_method_types: ['card'],
-      application_fee_amount: feeCents,
-      transfer_data: { destination: seller.stripe_account_id },
+      transfer_group: `order-${crypto.randomUUID()}`,
       description: `Farm Fresh Direct — ${orderQuantity} x ${listing.title || 'produce'}`,
       metadata: {
         listing_id: String(listingId),
         quantity: String(orderQuantity),
         buyer_id: user.id,
+        // The farmer's share for the full quantity, paid out on completion.
+        subtotal_cents: String(subtotalCents),
       },
     });
 

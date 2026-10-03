@@ -8,7 +8,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
-import { calculateOrderTotals, MIN_CHARGE_CENTS } from '@/lib/pricing';
+import { calculateOrderTotals, BUYER_FEE_LABEL, MIN_CHARGE_CENTS } from '@/lib/pricing';
 
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
@@ -264,7 +264,7 @@ function CheckoutContent() {
               <span className="font-semibold">${subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center text-gray-700">
-              <span>Platform & Processing Fee (5%):</span>
+              <span>Platform & Processing Fee ({BUYER_FEE_LABEL}):</span>
               <span className="font-semibold">${buyerFee.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center font-bold text-lg text-emerald-950 border-t border-emerald-200 pt-2">
