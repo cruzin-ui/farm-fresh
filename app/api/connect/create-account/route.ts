@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('seller_profiles')
-      .select('stripe_account_id')
+      .select('stripe_account_id, farm_name')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -27,11 +27,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ accountId: profile.stripe_account_id });
     }
 
-    const account = await stripeAdmin.accounts.create({
-      type: 'express',
-      email: user.email,
-      capabilities: {
-        transfers: { requested: true },
+    // Accounts v2: a "recipient" account that can receive transfers from our
+    // destination charges. The platform pays Stripe fees and covers losses,
+    // and the farmer gets the Express Dashboard.
+    const account = await stripeAdmin.v2.core.accounts.create({
+      contact_email: user.email,
+      display_name: profile?.farm_name || user.email,
+      dashboard: 'express',
+      identity: { country: 'us' },
+      configuration: {
+        recipient: {
+          capabilities: {
+            stripe_balance: {
+              stripe_transfers: { requested: true },
+            },
+          },
+        },
+      },
+      defaults: {
+        responsibilities: {
+          fees_collector: 'application',
+          losses_collector: 'application',
+        },
       },
     });
 
