@@ -43,6 +43,7 @@ export default function PublicSellerProfilePage() {
       .select('*')
       .eq('farmer_id', sellerId)
       .eq('status', 'active')
+      .gt('available_quantity', 0)
       .order('created_at', { ascending: false });
 
     // Fetch Seller Reviews
@@ -84,7 +85,14 @@ export default function PublicSellerProfilePage() {
         <div className="p-6 relative pt-4 sm:pt-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-gray-100">
             <div>
-              <div className="flex items-center gap-3">
+              {profile?.avatar_url && (
+                <img
+                  src={profile.avatar_url}
+                  alt={profile.farm_name || 'Farm'}
+                  className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md -mt-16 mb-3 relative bg-white"
+                />
+              )}
+              <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-3xl font-extrabold text-gray-900">
                   {profile?.farm_name || 'Local Farm'}
                 </h1>
@@ -148,20 +156,26 @@ export default function PublicSellerProfilePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {listings.map((item) => (
               <div key={item.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col justify-between">
-                {item.image_url ? (
-                  <img src={item.image_url} alt={item.title} className="h-40 w-full object-cover" />
-                ) : (
-                  <div className="h-40 w-full bg-green-50 flex items-center justify-center text-green-700">
-                    <Sprout className="w-10 h-10 opacity-50" />
-                  </div>
-                )}
+                <Link href={`/listings/${item.id}`}>
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.title} className="h-40 w-full object-cover" />
+                  ) : (
+                    <div className="h-40 w-full bg-green-50 flex items-center justify-center text-green-700">
+                      <Sprout className="w-10 h-10 opacity-50" />
+                    </div>
+                  )}
+                </Link>
                 <div className="p-5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-green-800 bg-green-100 px-2.5 py-0.5 rounded-full">
                     {item.category}
                   </span>
-                  <h3 className="text-lg font-bold text-gray-900 mt-2">{item.title}</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mt-2">
+                    <Link href={`/listings/${item.id}`} className="hover:text-green-700">
+                      {item.title}
+                    </Link>
+                  </h3>
                   <p className="text-sm font-bold text-gray-800 mt-1">
-                    ${item.price_per_unit.toFixed(2)} / {item.unit_type}
+                    ${Number(item.price_per_unit || 0).toFixed(2)} / {item.unit_type}
                   </p>
                   <p className="text-xs text-gray-500 flex items-center gap-1 mt-2">
                     <Calendar className="w-3.5 h-3.5" /> Ready: {item.harvest_ready_date}
@@ -169,10 +183,10 @@ export default function PublicSellerProfilePage() {
                 </div>
                 <div className="p-5 pt-0">
                   <Link
-                    href={`/checkout?item=${item.id}`}
+                    href={`/checkout?id=${item.id}`}
                     className="w-full inline-block text-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-xl text-xs transition-colors shadow-sm"
                   >
-                    Buy Produce
+                    Reserve
                   </Link>
                 </div>
               </div>

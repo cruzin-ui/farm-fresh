@@ -131,7 +131,10 @@ export default function BrowsePage() {
                 key={item.id}
                 className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col"
               >
-                <div className="h-44 bg-emerald-50 relative flex items-center justify-center overflow-hidden">
+                <Link
+                  href={`/listings/${item.id}`}
+                  className="h-44 bg-emerald-50 relative flex items-center justify-center overflow-hidden"
+                >
                   {item.image_url ? (
                     <img
                       src={item.image_url}
@@ -150,12 +153,15 @@ export default function BrowsePage() {
                   <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-emerald-900 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
                     {availableQty} {item.unit_type || 'lbs'} left
                   </span>
-                </div>
+                </Link>
 
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div>
                     {/* FARMER BRANDING BADGE */}
-                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100">
+                    <Link
+                      href={item.farmer_id ? `/sellers/${item.farmer_id}` : '/browse'}
+                      className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 group"
+                    >
                       {item.seller_profiles?.avatar_url ? (
                         <img
                           src={item.seller_profiles.avatar_url}
@@ -167,14 +173,29 @@ export default function BrowsePage() {
                           <User className="w-3.5 h-3.5" />
                         </div>
                       )}
-                      <span className="text-xs font-bold text-gray-700 truncate">
+                      <span className="text-xs font-bold text-gray-700 truncate group-hover:text-emerald-700 group-hover:underline">
                         {item.seller_profiles?.farm_name || 'Local Farm'}
                       </span>
-                    </div>
+                    </Link>
 
                     <h3 className="font-extrabold text-gray-900 text-lg leading-snug">
-                      {item.title}
+                      <Link href={`/listings/${item.id}`} className="hover:text-emerald-700">
+                        {item.title}
+                      </Link>
                     </h3>
+
+                    {Array.isArray(item.tags) && item.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {item.tags.slice(0, 3).map((tag: string) => (
+                          <span
+                            key={tag}
+                            className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
                       <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />

@@ -1,5 +1,10 @@
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { sendEmail, escapeHtml } from '@/lib/email';
+
+// On a no-show, the farmer keeps this share of the produce subtotal as a
+// restocking fee; the platform keeps its buyer fee; the buyer gets the rest.
+export const NO_SHOW_RESTOCKING_RATE = 0.1;
 
 // SERVER-ONLY. The money-moving order operations, shared by the farmer's
 // routes (which first check the pickup code / ownership) and the admin
@@ -20,14 +25,6 @@ function isOpen(order: any) {
   return order.status === 'pending_pickup' || order.status === 'ready_for_pickup';
 }
 
-function escapeHtml(text: string) {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 async function sendBuyerAdjustmentEmail(params: {
   buyerEmail: string;
   listingTitle: string;
@@ -39,53 +36,32 @@ async function sendBuyerAdjustmentEmail(params: {
 }) {
   const { buyerEmail, listingTitle, unitType, oldQuantity, newQuantity, refundAmount, note } = params;
 
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set — skipping buyer adjustment email.');
-    return;
-  }
-
   const cancelled = newQuantity === 0;
   const title = escapeHtml(listingTitle);
 
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'Farm Fresh Direct <onboarding@resend.dev>',
-        to: [buyerEmail],
-        subject: cancelled
-          ? `Your order of ${listingTitle} was cancelled`
-          : `Your order of ${listingTitle} was updated`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 480px;">
-            <h2 style="color: #b45309;">${cancelled ? 'Your order was cancelled' : 'Your order was updated'}</h2>
-            <p>
-              ${
-                cancelled
-                  ? `Your order of <strong>${oldQuantity} ${unitType}</strong> of <strong>${title}</strong> was cancelled.`
-                  : `Your order of <strong>${title}</strong> was changed from ${oldQuantity} ${unitType} to <strong>${newQuantity} ${unitType}</strong>.`
-              }
-            </p>
-            ${note ? `<p style="white-space: pre-wrap;">${escapeHtml(note)}</p>` : ''}
-            <p>
-              A refund of <strong>$${refundAmount.toFixed(2)}</strong> has been issued to your original
-              payment method. It usually takes 5–10 business days to appear.
-            </p>
-          </div>
-        `,
-      }),
-    });
-
-    if (!res.ok) {
-      console.error('Resend error notifying buyer of adjustment:', await res.text());
-    }
-  } catch (err) {
-    console.error('Failed to send buyer adjustment email:', err);
-  }
+  await sendEmail({
+    to: buyerEmail,
+    subject: cancelled
+      ? `Your order of ${listingTitle} was cancelled`
+      : `Your order of ${listingTitle} was updated`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px;">
+        <h2 style="color: #b45309;">${cancelled ? 'Your order was cancelled' : 'Your order was updated'}</h2>
+        <p>
+          ${
+            cancelled
+              ? `Your order of <strong>${oldQuantity} ${unitType}</strong> of <strong>${title}</strong> was cancelled.`
+              : `Your order of <strong>${title}</strong> was changed from ${oldQuantity} ${unitType} to <strong>${newQuantity} ${unitType}</strong>.`
+          }
+        </p>
+        ${note ? `<p style="white-space: pre-wrap;">${escapeHtml(note)}</p>` : ''}
+        <p>
+          A refund of <strong>$${refundAmount.toFixed(2)}</strong> has been issued to your original
+          payment method. It usually takes 5–10 business days to appear.
+        </p>
+      </div>
+    `,
+  });
 }
 
 // Marks an open order completed and, for orders paid through Stripe, releases
@@ -292,4 +268,139 @@ export async function refundOrderQuantity(params: {
   }
 
   return { cancelled, refundAmount, newQuantity };
+}
+
+// Resolves an open order whose buyer never came to collect it. The platform
+// keeps its buyer fee, the farmer is paid a restocking fee out of the produce
+// subtotal, and the buyer is refunded the rest of the subtotal. The produce
+// goes back on the listing.
+export async function resolveNoShow(params: {
+  order: any;
+  listing: { title?: string | null; unit_type?: string | null; available_quantity?: number | null };
+  farmerId: string;
+}) {
+  const { order, listing, farmerId } = params;
+
+  if (!isOpen(order)) {
+    throw new OrderActionError(409, 'Only open orders can be marked as a no-show.');
+  }
+
+  if (!order.stripe_payment_intent_id) {
+    throw new OrderActionError(409, 'This order was not paid through Stripe and has to be resolved manually.');
+  }
+
+  const paymentIntent = await stripeAdmin.paymentIntents.retrieve(order.stripe_payment_intent_id);
+  const originalSubtotalCents = Number(paymentIntent.metadata?.subtotal_cents) || 0;
+
+  // Orders from before payouts were held already paid the farmer in full at
+  // checkout, so this split doesn't apply to them.
+  if (paymentIntent.transfer_data?.destination || !originalSubtotalCents) {
+    throw new OrderActionError(
+      409,
+      'This order predates held payouts and has to be resolved manually in Stripe.'
+    );
+  }
+
+  const originalQuantity = Number(paymentIntent.metadata?.quantity) || 1;
+  const currentQuantity = Number(order.reserved_quantity ?? order.quantity ?? 0);
+  const subtotalCents = Math.round((originalSubtotalCents * currentQuantity) / originalQuantity);
+  const restockingCents = Math.round(subtotalCents * NO_SHOW_RESTOCKING_RATE);
+  const refundCents = subtotalCents - restockingCents;
+
+  const { data: seller } = await supabaseAdmin
+    .from('seller_profiles')
+    .select('stripe_account_id')
+    .eq('id', farmerId)
+    .maybeSingle();
+
+  if (restockingCents > 0 && !seller?.stripe_account_id) {
+    throw new OrderActionError(409, 'The farmer has not finished payout setup, so the restocking fee cannot be paid.');
+  }
+
+  // The idempotency keys make a retry return the same refund/transfer instead
+  // of moving money twice.
+  if (refundCents > 0) {
+    await stripeAdmin.refunds.create(
+      { payment_intent: paymentIntent.id, amount: refundCents },
+      { idempotencyKey: `order-noshow-refund-${order.id}` }
+    );
+  }
+
+  let transferId: string | null = null;
+  const chargeId =
+    typeof paymentIntent.latest_charge === 'string'
+      ? paymentIntent.latest_charge
+      : paymentIntent.latest_charge?.id;
+
+  if (restockingCents > 0 && chargeId) {
+    const transfer = await stripeAdmin.transfers.create(
+      {
+        amount: restockingCents,
+        currency: 'usd',
+        destination: seller!.stripe_account_id,
+        source_transaction: chargeId,
+        transfer_group: paymentIntent.transfer_group ?? undefined,
+        metadata: { order_id: String(order.id), reason: 'no_show_restocking_fee' },
+      },
+      { idempotencyKey: `order-noshow-payout-${order.id}` }
+    );
+    transferId = transfer.id;
+  }
+
+  const refundAmount = refundCents / 100;
+  const restockingFee = restockingCents / 100;
+  const keptTotal = Math.round(Number(order.total_price ?? 0) * 100 - refundCents) / 100;
+
+  const { error: updateError } = await supabaseAdmin
+    .from('orders')
+    .update({
+      status: 'cancelled',
+      total_price: keptTotal,
+      deposit_amount: keptTotal,
+      authorized_amount: keptTotal,
+      refunded_amount: Number(order.refunded_amount ?? 0) + refundAmount,
+      no_show_fee_amount: restockingFee,
+      stripe_transfer_id: transferId,
+    })
+    .eq('id', order.id);
+
+  if (updateError) {
+    console.error('No-show money moved but order update failed:', order.id, updateError);
+    throw new OrderActionError(
+      500,
+      `The refund and restocking fee were issued, but the order could not be updated: ${updateError.message}`
+    );
+  }
+
+  const { error: restockError } = await supabaseAdmin
+    .from('produce_listings')
+    .update({ available_quantity: Number(listing.available_quantity ?? 0) + currentQuantity })
+    .eq('id', order.listing_id);
+
+  if (restockError) {
+    console.error('Failed to restock listing after no-show:', restockError);
+  }
+
+  if (order.buyer_email) {
+    await sendEmail({
+      to: order.buyer_email,
+      subject: `Your order of ${listing.title || 'produce'} was closed as not picked up`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px;">
+          <h2 style="color: #b45309;">Your order was not picked up</h2>
+          <p>
+            Your order of <strong>${currentQuantity} ${listing.unit_type || 'units'}</strong> of
+            <strong>${escapeHtml(listing.title || 'produce')}</strong> was not collected, so it has been closed.
+          </p>
+          <p>
+            A refund of <strong>$${refundAmount.toFixed(2)}</strong> has been issued to your original
+            payment method. It usually takes 5–10 business days to appear. The service fee and a
+            ${NO_SHOW_RESTOCKING_RATE * 100}% restocking fee for the farmer are not refunded on missed pickups.
+          </p>
+        </div>
+      `,
+    });
+  }
+
+  return { refundAmount, restockingFee };
 }

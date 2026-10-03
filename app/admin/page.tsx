@@ -243,6 +243,21 @@ export default function AdminPage() {
                       Release Payout
                     </button>
                   )}
+                  {isOpen(order) && order.paid_via_stripe && (
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        runAction(
+                          order,
+                          'no_show',
+                          `Close this order as a no-show? The buyer is refunded the produce cost minus a 10% restocking fee paid to ${order.farm_name}, and the platform fee is kept.`
+                        )
+                      }
+                      className="bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                    >
+                      No-Show
+                    </button>
+                  )}
                   {refundable && (
                     <button
                       disabled={busy}

@@ -2,16 +2,9 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
+import { sendEmail, escapeHtml } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
-
-function escapeHtml(text: string) {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 export async function POST(request: Request) {
   try {
@@ -60,35 +53,20 @@ export async function POST(request: Request) {
     const codeRecord = await getPickupCodeRecord(order.id);
     const pickupCode = codeRecord?.code || order.pickup_code || order.verification_code;
 
-    if (order.buyer_email && process.env.RESEND_API_KEY) {
-      try {
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: 'Farm Fresh Direct <onboarding@resend.dev>',
-            to: [order.buyer_email],
-            subject: 'Your order is ready for pickup!',
-            html: `
-              <div style="font-family: sans-serif; max-width: 480px;">
-                <h2 style="color: #059669;">Your harvest is ready!</h2>
-                <p><strong>${escapeHtml(listing.title || 'Your order')}</strong> is ready for pickup.</p>
-                <p style="white-space: pre-wrap;">${escapeHtml(String(pickupDetails))}</p>
-                <p>Your pickup code: <strong>${pickupCode}</strong></p>
-                <p>Give this code to the farmer only when you collect your produce — it releases their payment.</p>
-              </div>
-            `,
-          }),
-        });
-        if (!res.ok) {
-          console.error('Resend error notifying buyer:', await res.text());
-        }
-      } catch (emailErr) {
-        console.error('Failed to send buyer pickup-ready email:', emailErr);
-      }
+    if (order.buyer_email) {
+      await sendEmail({
+        to: order.buyer_email,
+        subject: 'Your order is ready for pickup!',
+        html: `
+          <div style="font-family: sans-serif; max-width: 480px;">
+            <h2 style="color: #059669;">Your harvest is ready!</h2>
+            <p><strong>${escapeHtml(listing.title || 'Your order')}</strong> is ready for pickup.</p>
+            <p style="white-space: pre-wrap;">${escapeHtml(String(pickupDetails))}</p>
+            <p>Your pickup code: <strong>${pickupCode}</strong></p>
+            <p>Give this code to the farmer only when you collect your produce — it releases their payment.</p>
+          </div>
+        `,
+      });
     }
 
     return NextResponse.json({ success: true });

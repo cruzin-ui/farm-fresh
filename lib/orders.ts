@@ -1,36 +1,7 @@
 import type Stripe from 'stripe';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getOrCreatePickupCode } from '@/lib/pickupCodes';
-
-async function sendEmail(params: { to: string; subject: string; html: string }) {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set — skipping email:', params.subject);
-    return;
-  }
-
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'Farm Fresh Direct <onboarding@resend.dev>',
-        to: [params.to],
-        subject: params.subject,
-        html: params.html,
-      }),
-    });
-
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error('Resend API error:', res.status, errBody);
-    }
-  } catch (err) {
-    console.error('Failed to send email:', err);
-  }
-}
+import { sendEmail } from '@/lib/email';
 
 // The seller's email deliberately leaves out the pickup code — they only get
 // it from the buyer at pickup, and need it to release their payout.

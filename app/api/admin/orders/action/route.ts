@@ -4,6 +4,7 @@ import { getRequestAdmin } from '@/lib/apiAuth';
 import {
   completeOrderAndReleasePayout,
   refundOrderQuantity,
+  resolveNoShow,
   OrderActionError,
 } from '@/lib/orderActions';
 
@@ -14,6 +15,8 @@ export const dynamic = 'force-dynamic';
 //   release        — complete the order and pay the farmer without a code
 //   refund         — cancel the order and refund the buyer in full (pulls the
 //                    payout back from the farmer if it was already released)
+//   no_show        — buyer never collected: platform keeps its fee, the farmer
+//                    gets a restocking fee, the buyer is refunded the rest
 //   reset_attempts — unlock an order after too many wrong pickup codes
 export async function POST(request: Request) {
   try {
@@ -83,6 +86,18 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         message: `Order cancelled — $${refundAmount.toFixed(2)} refunded to the buyer.`,
+      });
+    }
+
+    if (action === 'no_show') {
+      const { refundAmount, restockingFee } = await resolveNoShow({
+        order,
+        listing,
+        farmerId: listing.farmer_id,
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Closed as a no-show — $${refundAmount.toFixed(2)} refunded to the buyer, $${restockingFee.toFixed(2)} restocking fee paid to the farmer.`,
       });
     }
 

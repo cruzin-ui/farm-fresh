@@ -42,6 +42,24 @@ const UNIT_TYPE_OPTIONS = [
   { value: 'jars', label: 'Jars' },
 ];
 
+// Short labels a farmer can attach to a listing; up to MAX_LISTING_TAGS show
+// on the Browse card.
+const LISTING_TAG_OPTIONS = [
+  'Pesticide Free',
+  'Organically Grown',
+  'Independent Grower',
+  'Family Farm',
+  'Non-GMO',
+  'Heirloom Variety',
+  'No Synthetic Fertilizers',
+  'Hand Harvested',
+  'Picked to Order',
+  'Regenerative',
+  'Hydroponic',
+  'Raw & Unfiltered',
+];
+const MAX_LISTING_TAGS = 3;
+
 export default function SellerDashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<DashboardTab>('listings');
@@ -67,6 +85,9 @@ export default function SellerDashboardPage() {
   const [locationName, setLocationName] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [pickupInstructions, setPickupInstructions] = useState('');
+  const [listingTags, setListingTags] = useState<string[]>([]);
+  const [lookingUpZip, setLookingUpZip] = useState(false);
+  const [zipNotFound, setZipNotFound] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
@@ -146,6 +167,9 @@ export default function SellerDashboardPage() {
       setProfileLocation(profile.location || '');
       setProfileZip(profile.zip_code || '');
       setGrowingPractices(profile.growing_practices || 'No Synthetic Pesticides');
+      // Start new listings from the farm's own location so it rarely needs typing.
+      setZipCode((current) => current || profile.zip_code || '');
+      setLocationName((current) => current || profile.location || '');
       setStripeAccountId(profile.stripe_account_id || null);
       setStripeOnboardingComplete(Boolean(profile.stripe_onboarding_complete));
     }
@@ -480,6 +504,7 @@ export default function SellerDashboardPage() {
             location_name: locationName || profileLocation,
             zip_code: zipCode || profileZip,
             pickup_instructions: pickupInstructions,
+            tags: listingTags,
             image_url: cropImageUrl,
             status: 'active',
           },
@@ -494,8 +519,8 @@ export default function SellerDashboardPage() {
       setAvailableQuantity('');
       setHarvestReadyDate('');
       setHarvestEndDate('');
-      setZipCode('');
       setPickupInstructions('');
+      setListingTags([]);
       setImageFile(null);
       setImagePreviewUrl(null);
 
@@ -505,6 +530,66 @@ export default function SellerDashboardPage() {
       setErrorMsg(err.message || 'Something went wrong saving your listing.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Crop names from this farmer's existing posts, most recent first, offered
+  // as suggestions when posting a new harvest.
+  const previousListingsByTitle = myListings.reduce((acc, l) => {
+    if (l.title && !acc.has(l.title)) acc.set(l.title, l);
+    return acc;
+  }, new Map<string, any>());
+  const reusableListing = previousListingsByTitle.get(title.trim());
+
+  // Copies the details of an earlier post of the same crop into the form, so
+  // a repeat harvest only needs its quantity and dates.
+  const reuseListingDetails = (previous: any) => {
+    setCategory(previous.category || 'Vegetables');
+    setDescription(previous.description || '');
+    setUnitType(previous.unit_type || 'lbs');
+    setPricePerUnit(previous.price_per_unit != null ? String(previous.price_per_unit) : '');
+    setPickupInstructions(previous.pickup_instructions || '');
+    setListingTags(Array.isArray(previous.tags) ? previous.tags.slice(0, MAX_LISTING_TAGS) : []);
+    if (previous.zip_code) setZipCode(previous.zip_code);
+    if (previous.location_name) setLocationName(previous.location_name);
+  };
+
+  const toggleListingTag = (tag: string) => {
+    setListingTags((current) =>
+      current.includes(tag)
+        ? current.filter((t) => t !== tag)
+        : current.length < MAX_LISTING_TAGS
+          ? [...current, tag]
+          : current
+    );
+  };
+
+  // Fills in the city and state from a 5-digit US zip code. The city field
+  // stays editable in case the lookup is unavailable or picks the wrong name.
+  const handleZipChange = async (value: string) => {
+    const zip = value.replace(/\D/g, '').slice(0, 5);
+    setZipCode(zip);
+    setZipNotFound(false);
+    if (zip.length !== 5) return;
+
+    setLookingUpZip(true);
+    try {
+      const res = await fetch(`https://api.zippopotam.us/us/${zip}`);
+      if (!res.ok) {
+        setZipNotFound(true);
+        return;
+      }
+      const data = await res.json();
+      const place = data.places?.[0];
+      if (place) {
+        setLocationName(`${place['place name']}, ${place['state abbreviation']}`);
+      } else {
+        setZipNotFound(true);
+      }
+    } catch {
+      setZipNotFound(true);
+    } finally {
+      setLookingUpZip(false);
     }
   };
 
@@ -749,10 +834,31 @@ export default function SellerDashboardPage() {
                         type="text"
                         required
                         placeholder="e.g., Organic Heirloom Tomatoes"
+                        list="previous-crop-names"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         className="w-full px-4 py-2 border rounded-lg text-sm"
                       />
+                      <datalist id="previous-crop-names">
+                        {[...previousListingsByTitle.keys()].map((name) => (
+                          <option key={name} value={name} />
+                        ))}
+                      </datalist>
+                      {reusableListing ? (
+                        <button
+                          type="button"
+                          onClick={() => reuseListingDetails(reusableListing)}
+                          className="mt-1 text-[11px] font-semibold text-emerald-700 hover:underline"
+                        >
+                          Fill in the price, unit, description and labels from your last "{reusableListing.title}" post
+                        </button>
+                      ) : (
+                        previousListingsByTitle.size > 0 && (
+                          <p className="text-[10px] text-gray-400 mt-1">
+                            Start typing or click the field to pick a crop you've posted before.
+                          </p>
+                        )
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">
@@ -782,6 +888,39 @@ export default function SellerDashboardPage() {
                       onChange={(e) => setDescription(e.target.value)}
                       className="w-full px-4 py-2 border rounded-lg text-sm"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Highlights ({listingTags.length}/{MAX_LISTING_TAGS})
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {LISTING_TAG_OPTIONS.map((tag) => {
+                        const selected = listingTags.includes(tag);
+                        const atLimit = !selected && listingTags.length >= MAX_LISTING_TAGS;
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => toggleListingTag(tag)}
+                            disabled={atLimit}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                              selected
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : atLimit
+                                  ? 'bg-gray-50 text-gray-300 border-gray-200 cursor-not-allowed'
+                                  : 'bg-white text-gray-600 border-gray-300 hover:border-emerald-400'
+                            }`}
+                          >
+                            {tag}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Pick up to {MAX_LISTING_TAGS} to show on your listing in Browse. Anything else can go in the
+                      description.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
@@ -836,26 +975,37 @@ export default function SellerDashboardPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Zip Code *
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        pattern="[0-9]{5}"
+                        title="Enter a 5-digit zip code"
+                        placeholder="e.g., 85001"
+                        value={zipCode}
+                        onChange={(e) => handleZipChange(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg text-sm"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        {lookingUpZip
+                          ? 'Looking up city...'
+                          : zipNotFound
+                            ? "Couldn't find that zip code — please type the city."
+                            : 'The city fills in automatically from the zip code.'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
                         City / Area *
                       </label>
                       <input
                         type="text"
                         required
-                        placeholder="e.g., Phoenix, AZ"
+                        placeholder="Filled in from zip code"
                         value={locationName}
                         onChange={(e) => setLocationName(e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
-                        Zip Code
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g., 85001"
-                        value={zipCode}
-                        onChange={(e) => setZipCode(e.target.value)}
                         className="w-full px-4 py-2 border rounded-lg text-sm"
                       />
                     </div>
@@ -1235,6 +1385,8 @@ export default function SellerDashboardPage() {
                           {new Date(order.created_at).toLocaleDateString()}
                           {Number(order.refunded_amount || 0) > 0 &&
                             ` · $${Number(order.refunded_amount).toFixed(2)} refunded`}
+                          {Number(order.no_show_fee_amount || 0) > 0 &&
+                            ` · buyer no-show, $${Number(order.no_show_fee_amount).toFixed(2)} restocking fee paid to you`}
                         </p>
                       </div>
                       <span
