@@ -27,12 +27,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ accountId: profile.stripe_account_id });
     }
 
+    // The farm profile must exist first — it has required fields (like the
+    // farm name) that we can't fill in here, and checking before calling
+    // Stripe avoids creating a connected account we then fail to save.
+    if (!profile) {
+      return NextResponse.json(
+        { error: 'Please fill out and save your Farm Profile before setting up payouts.' },
+        { status: 400 }
+      );
+    }
+
     // Accounts v2: a "recipient" account that can receive transfers from our
     // destination charges. The platform pays Stripe fees and covers losses,
     // and the farmer gets the Express Dashboard.
     const account = await stripeAdmin.v2.core.accounts.create({
       contact_email: user.email,
-      display_name: profile?.farm_name || user.email,
+      display_name: profile.farm_name || user.email,
       dashboard: 'express',
       identity: { country: 'us' },
       configuration: {
@@ -52,12 +62,13 @@ export async function POST(request: Request) {
       },
     });
 
-    const { error: upsertError } = await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from('seller_profiles')
-      .upsert({ id: user.id, stripe_account_id: account.id });
+      .update({ stripe_account_id: account.id })
+      .eq('id', user.id);
 
-    if (upsertError) {
-      return NextResponse.json({ error: upsertError.message }, { status: 500 });
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
     return NextResponse.json({ accountId: account.id });
