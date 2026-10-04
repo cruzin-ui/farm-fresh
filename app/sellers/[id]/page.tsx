@@ -181,7 +181,7 @@ export default function PublicSellerProfilePage() {
                     ${Number(item.price_per_unit || 0).toFixed(2)} / {item.unit_type}
                   </p>
                   <p className="text-xs text-gray-500 flex items-center gap-1 mt-2">
-                    <Calendar className="w-3.5 h-3.5" /> Ready: {item.harvest_ready_date}
+                    <Calendar className="w-3.5 h-3.5" /> Harvest date: {item.harvest_ready_date}
                   </p>
                 </div>
                 <div className="p-5 pt-0">

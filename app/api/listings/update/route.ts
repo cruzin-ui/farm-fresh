@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
+import { checkListingAllowed, MAX_LISTING_TAGS } from '@/lib/listingRules';
 
 export const dynamic = 'force-dynamic';
-
-const MAX_TAGS = 3;
 
 // What a listing *is*. Orders look these up from the listing rather than
 // keeping their own copy, so once a listing has any orders they are frozen —
@@ -109,11 +108,31 @@ export async function POST(request: Request) {
     if (fields.harvest_end_date !== undefined) update.harvest_end_date = fields.harvest_end_date || null;
     if (typeof fields.image_url === 'string' && fields.image_url) update.image_url = fields.image_url;
     if (Array.isArray(fields.tags)) {
-      update.tags = fields.tags.filter((t: unknown) => typeof t === 'string').slice(0, MAX_TAGS);
+      update.tags = fields.tags.filter((t: unknown) => typeof t === 'string').slice(0, MAX_LISTING_TAGS);
     }
 
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ success: true });
+    }
+
+    // If the listing will be on sale after this edit, it must not duplicate
+    // another of the farmer's listings. Putting a sold-out or taken-down
+    // listing back on sale also counts toward the cap.
+    const wasOnSale = Number(listing.available_quantity ?? 0) > 0;
+    const willBeOnSale = Number(update.available_quantity ?? listing.available_quantity ?? 0) > 0;
+
+    if (willBeOnSale) {
+      const notAllowed = await checkListingAllowed({
+        farmerId: user.id,
+        title,
+        variety,
+        excludeListingId: listingId,
+        enforceCap: !wasOnSale,
+      });
+
+      if (notAllowed) {
+        return NextResponse.json({ error: notAllowed }, { status: 409 });
+      }
     }
 
     const { error: updateError } = await supabaseAdmin

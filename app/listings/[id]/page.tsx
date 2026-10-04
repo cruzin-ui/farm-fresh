@@ -141,7 +141,7 @@ export default function ListingDetailPage() {
             </p>
             <p className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-              Ready: {listing.harvest_ready_date || 'Available Now'}
+              Harvest date: {listing.harvest_ready_date || 'Available Now'}
               {listing.harvest_end_date ? ` · Available until ${listing.harvest_end_date}` : ''}
             </p>
           </div>

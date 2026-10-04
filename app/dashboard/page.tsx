@@ -593,30 +593,28 @@ export default function SellerDashboardPage() {
         return;
       }
 
-      const { error: insertError } = await supabase
-        .from('produce_listings')
-        .insert([
-          {
-            farmer_id: user.id,
-            title,
-            variety: variety.trim() || null,
-            category,
-            description,
-            unit_type: unitType,
-            price_per_unit: parseFloat(pricePerUnit),
-            available_quantity: parseFloat(availableQuantity),
-            harvest_ready_date: harvestReadyDate,
-            harvest_end_date: harvestEndDate || null,
-            location_name: locationName || profileLocation,
-            zip_code: zipCode || profileZip,
-            pickup_instructions: pickupInstructions,
-            tags: listingTags,
-            image_url: cropImageUrl,
-            status: 'active',
-          },
-        ]);
-
-      if (insertError) throw insertError;
+      // Publishing goes through the server, which refuses duplicate posts of
+      // the same crop and enforces the cap on listings on sale at once.
+      const createRes = await postWithAuth('/api/listings/create', {
+        fields: {
+          title,
+          variety,
+          category,
+          description,
+          unit_type: unitType,
+          price_per_unit: parseFloat(pricePerUnit),
+          available_quantity: parseFloat(availableQuantity),
+          harvest_ready_date: harvestReadyDate,
+          harvest_end_date: harvestEndDate || null,
+          location_name: locationName || profileLocation,
+          zip_code: zipCode || profileZip,
+          pickup_instructions: pickupInstructions,
+          tags: listingTags,
+          image_url: cropImageUrl,
+        },
+      });
+      const createData = await createRes.json();
+      if (!createRes.ok) throw new Error(createData.error || 'Could not publish your listing.');
 
       setSuccessMsg('Listing successfully published with your farm branding!');
       setTitle('');
@@ -1171,7 +1169,7 @@ export default function SellerDashboardPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">
-                        Ready Date *
+                        Harvest Date *
                       </label>
                       <input
                         type="date"

@@ -29,6 +29,43 @@ function matchesVegetableType(item: { title?: string | null; variety?: string | 
   return type.keywords.some((keyword) => text.includes(keyword));
 }
 
+// Orders Browse so no farm can crowd the top of the page. Farms take turns:
+// every farm's first listing is shown before any farm's second, and so on.
+// The order of the farms themselves is shuffled once a day (the same for
+// every visitor that day), so posting — or deleting and reposting — doesn't
+// move a farm up. Within a farm, listings keep the order they arrive in
+// (newest first).
+function orderFairly(listings: any[]) {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const dailyRank = (farmerId: string) => {
+    let hash = 2166136261;
+    for (const char of `${today}:${farmerId}`) {
+      hash ^= char.charCodeAt(0);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  };
+
+  const byFarm = new Map<string, any[]>();
+  for (const item of listings) {
+    const farmerId = item.farmer_id || 'unknown';
+    byFarm.set(farmerId, [...(byFarm.get(farmerId) || []), item]);
+  }
+
+  const farms = [...byFarm.entries()]
+    .sort(([a], [b]) => dailyRank(a) - dailyRank(b))
+    .map(([, items]) => items);
+
+  const ordered: any[] = [];
+  for (let round = 0; farms.some((items) => round < items.length); round++) {
+    for (const items of farms) {
+      if (round < items.length) ordered.push(items[round]);
+    }
+  }
+  return ordered;
+}
+
 export default function BrowsePage() {
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +121,7 @@ export default function BrowsePage() {
       seller_profiles: item.farmer_id ? sellerMap[item.farmer_id] || null : null,
     }));
 
-    setListings(merged);
+    setListings(orderFairly(merged));
     setLoading(false);
   };
 
@@ -171,7 +208,7 @@ export default function BrowsePage() {
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-extrabold text-gray-900">
-          {selectedVegetable ? `${selectedVegetable} Available Now` : 'Latest Harvest Listings'}
+          {selectedVegetable ? `${selectedVegetable} Available Now` : 'Fresh Harvest Available Now'}
         </h2>
         {selectedVegetable && (
           <button
@@ -284,7 +321,7 @@ export default function BrowsePage() {
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                       <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                       <span>
-                        Ready: {item.harvest_ready_date || 'Available Now'}
+                        Harvest date: {item.harvest_ready_date || 'Available Now'}
                       </span>
                     </div>
                   </div>

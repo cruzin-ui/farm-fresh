@@ -73,7 +73,7 @@ export default function SplashLandingPage() {
               </p>
             </div>
             <Link
-              href="/sell"
+              href="/dashboard"
               className="mt-6 inline-flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-xl transition-colors shadow-sm"
             >
               Post Harvest Listing
