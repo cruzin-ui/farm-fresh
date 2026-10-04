@@ -1,11 +1,16 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { safeNextPath } from '@/lib/safeRedirect';
 
+// Where Google sign-in — and email links that use Supabase's default email
+// templates — land. Exchanges the one-time code in the link for a session.
+// (Email links only work here when opened in the same browser that requested
+// them; /auth/confirm handles links opened anywhere.)
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/dashboard';
+  const next = safeNextPath(searchParams.get('next'));
 
   if (code) {
     const cookieStore = await cookies();

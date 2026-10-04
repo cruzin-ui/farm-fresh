@@ -2,21 +2,42 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Sprout, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { Sprout, Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { safeNextPath } from '@/lib/safeRedirect';
+
+type Mode = 'signin' | 'signup' | 'forgot';
+
+const MIN_PASSWORD_LENGTH = 8;
+
+const LINK_ERRORS: Record<string, string> = {
+  'auth-failed': "We couldn't sign you in with that link. Please try again.",
+  'link-expired': 'That link has expired or was already used. Please request a new one.',
+};
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const redirectTarget =
-    searchParams.get('redirect') || searchParams.get('next') || '/dashboard';
+  const redirectTarget = safeNextPath(searchParams.get('redirect') || searchParams.get('next'));
 
+  const initialMode = searchParams.get('mode');
+  const [mode, setMode] = useState<Mode>(
+    initialMode === 'signup' || initialMode === 'forgot' ? initialMode : 'signin'
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(LINK_ERRORS[searchParams.get('error') || ''] || null);
+  // Shown after a sign-up or reset request, in place of the form.
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    setError(null);
+    setNotice(null);
+  };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +45,43 @@ function LoginContent() {
     setLoading(true);
 
     try {
+      if (mode === 'forgot') {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+        });
+        if (resetError) throw resetError;
+
+        // The same message whether or not the address has an account, so this
+        // form can't be used to find out who is registered.
+        setNotice(`If there's an account for ${email}, we've emailed a link to reset the password. It can take a minute to arrive.`);
+        return;
+      }
+
+      if (mode === 'signup') {
+        if (password.length < MIN_PASSWORD_LENGTH) {
+          throw new Error(`Use a password of at least ${MIN_PASSWORD_LENGTH} characters.`);
+        }
+
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTarget)}`,
+          },
+        });
+        if (signUpError) throw signUpError;
+
+        // With email confirmation switched off in Supabase there is a session
+        // straight away; otherwise they need to click the link we sent.
+        if (data.session) {
+          router.push(redirectTarget);
+          return;
+        }
+
+        setNotice(`Almost there — we've emailed a confirmation link to ${email}. Click it to finish creating your account. If you already have an account, sign in instead.`);
+        return;
+      }
+
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -33,7 +91,11 @@ function LoginContent() {
 
       router.push(redirectTarget);
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in. Please check your credentials.');
+      setError(
+        err.message === 'Email not confirmed'
+          ? 'Please confirm your email first, using the link we sent when you signed up.'
+          : err.message || 'Something went wrong. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -70,17 +132,39 @@ function LoginContent() {
           <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center mb-3">
             <Sprout className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900">Welcome back</h1>
-          <p className="text-sm text-gray-500 mt-1">Sign in to Farm Fresh Direct</p>
+          <h1 className="text-xl font-bold text-gray-900">
+            {mode === 'signup' ? 'Create your account' : mode === 'forgot' ? 'Reset your password' : 'Welcome back'}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {mode === 'signup'
+              ? 'Join Farm Fresh Direct to buy or sell'
+              : mode === 'forgot'
+                ? "We'll email you a link to choose a new one"
+                : 'Sign in to Farm Fresh Direct'}
+          </p>
         </div>
 
         {error && (
-          <div className="mb-4 flex items-start gap-2 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <div role="alert" className="mb-4 flex items-start gap-2 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
             <span>{error}</span>
           </div>
         )}
 
+        {notice ? (
+          <div role="status" className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-900 space-y-3">
+            <p className="flex items-start gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" aria-hidden="true" />
+              <span>{notice}</span>
+            </p>
+            <button onClick={() => switchMode('signin')} className="font-semibold underline">
+              Back to sign in
+            </button>
+          </div>
+        ) : (
+          <>
+        {mode !== 'forgot' && (
+          <>
         <button
           onClick={handleGoogleLogin}
           disabled={googleLoading || loading}
@@ -112,6 +196,8 @@ function LoginContent() {
           <span className="text-xs text-gray-400 font-medium">or</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
+          </>
+        )}
 
         <form onSubmit={handleEmailLogin} className="space-y-3">
           <div>
@@ -129,8 +215,20 @@ function LoginContent() {
             </div>
           </div>
 
+          {mode !== 'forgot' && (
           <div>
-            <label htmlFor="login-password" className="text-xs font-semibold text-gray-600 mb-1 block">Password</label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="login-password" className="text-xs font-semibold text-gray-600 block">Password</label>
+              {mode === 'signin' && (
+                <button
+                  type="button"
+                  onClick={() => switchMode('forgot')}
+                  className="text-xs font-semibold text-emerald-800 underline"
+                >
+                  Forgot password?
+                </button>
+              )}
+            </div>
             <div className="relative">
               <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input id="login-password"
@@ -139,20 +237,66 @@ function LoginContent() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                minLength={mode === 'signup' ? MIN_PASSWORD_LENGTH : undefined}
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
               />
             </div>
+            {mode === 'signup' && (
+              <p className="text-[11px] text-gray-500 mt-1">At least {MIN_PASSWORD_LENGTH} characters.</p>
+            )}
           </div>
+          )}
 
           <button
             type="submit"
             disabled={loading || googleLoading}
             className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 transition-colors mt-2"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading
+              ? 'Please wait...'
+              : mode === 'signup'
+                ? 'Create Account'
+                : mode === 'forgot'
+                  ? 'Email Me a Reset Link'
+                  : 'Sign In'}
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
+
+        <p className="mt-5 text-center text-sm text-gray-600">
+          {mode === 'signin' ? (
+            <>
+              New here?{' '}
+              <button onClick={() => switchMode('signup')} className="font-semibold text-emerald-800 underline">
+                Create an account
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{' '}
+              <button onClick={() => switchMode('signin')} className="font-semibold text-emerald-800 underline">
+                Sign in
+              </button>
+            </>
+          )}
+        </p>
+
+        {mode === 'signup' && (
+          <p className="mt-3 text-center text-[11px] text-gray-500">
+            By creating an account you agree to our{' '}
+            <a href="/terms" target="_blank" className="underline">
+              Terms of Use
+            </a>{' '}
+            and{' '}
+            <a href="/privacy" target="_blank" className="underline">
+              Privacy Policy
+            </a>
+            .
+          </p>
+        )}
+          </>
+        )}
       </div>
     </div>
   );
