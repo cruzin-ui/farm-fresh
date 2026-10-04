@@ -106,8 +106,8 @@ function PaymentForm({
 
       {!signedIn && (
         <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">Email for your confirmation *</label>
-          <input
+          <label htmlFor="checkout-email-for-your-confirmation" className="block text-xs font-semibold text-gray-700 mb-1">Email for your confirmation *</label>
+          <input id="checkout-email-for-your-confirmation"
             type="email"
             required
             autoComplete="email"
@@ -130,7 +130,7 @@ function PaymentForm({
       </div>
 
       {paymentError && (
-        <p className="text-xs text-red-600 bg-red-50 border border-red-200 p-2 rounded-lg">{paymentError}</p>
+        <p role="alert" className="text-xs text-red-600 bg-red-50 border border-red-200 p-2 rounded-lg">{paymentError}</p>
       )}
 
       <button
@@ -274,8 +274,8 @@ function CheckoutContent() {
                 <p className="text-xs text-gray-500 mt-0.5">${itemPrice.toFixed(2)} per {unitType}</p>
               </div>
               <div className="flex items-center gap-2 bg-gray-50 border px-3 py-1.5 rounded-lg">
-                <label className="text-xs text-gray-600 font-semibold">Qty:</label>
-                <input
+                <label htmlFor="checkout-qty" className="text-xs text-gray-600 font-semibold">Qty:</label>
+                <input id="checkout-qty"
                   type="number"
                   min="1"
                   max={maxQty}

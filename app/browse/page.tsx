@@ -200,6 +200,7 @@ export default function BrowsePage() {
           <Search className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
           <input
             type="text"
+            aria-label="Search produce by crop, farm name or location"
             placeholder="Search fresh crops, farm name, or location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -244,15 +245,17 @@ export default function BrowsePage() {
                 aria-pressed={selected}
                 className={`flex flex-col items-center gap-1 p-3 rounded-2xl border text-center transition-all ${
                   selected
-                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-md'
-                    : 'bg-white border-gray-200 text-gray-800 hover:border-emerald-400 hover:shadow-sm'
-                } ${count === 0 && !selected ? 'opacity-60' : ''}`}
+                    ? 'bg-emerald-700 border-emerald-700 text-white shadow-md'
+                    : count === 0
+                      ? 'bg-gray-50 border-dashed border-gray-300 text-gray-600 hover:border-emerald-400'
+                      : 'bg-white border-gray-200 text-gray-800 hover:border-emerald-400 hover:shadow-sm'
+                }`}
               >
                 <span className="text-4xl leading-none" aria-hidden="true">
                   {type.emoji}
                 </span>
                 <span className="text-xs font-bold leading-tight">{type.name}</span>
-                <span className={`text-[10px] font-medium ${selected ? 'text-emerald-100' : 'text-gray-400'}`}>
+                <span className={`text-[10px] font-medium ${selected ? 'text-white' : 'text-gray-500'}`}>
                   {loading ? ' ' : count === 0 ? 'None right now' : `${count} listing${count === 1 ? '' : 's'}`}
                 </span>
               </button>

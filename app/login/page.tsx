@@ -115,10 +115,10 @@ function LoginContent() {
 
         <form onSubmit={handleEmailLogin} className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">Email</label>
+            <label htmlFor="login-email" className="text-xs font-semibold text-gray-600 mb-1 block">Email</label>
             <div className="relative">
               <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
+              <input id="login-email"
                 type="email"
                 required
                 value={email}
@@ -130,10 +130,10 @@ function LoginContent() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">Password</label>
+            <label htmlFor="login-password" className="text-xs font-semibold text-gray-600 mb-1 block">Password</label>
             <div className="relative">
               <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
+              <input id="login-password"
                 type="password"
                 required
                 value={password}

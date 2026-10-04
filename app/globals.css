@@ -17,6 +17,13 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Tailwind's gray-400 is too light for text on white (about 2.5:1, against
+   the 4.5:1 WCAG AA asks for). Wherever it's used as a text colour, use
+   gray-500 instead (about 4.8:1). */
+.text-gray-400 {
+  color: var(--color-gray-500);
+}
+
 /* iOS Safari zooms the whole page in when a focused form field's text is
    smaller than 16px, and doesn't zoom back out. Our fields use 14px text, so
    bump them to 16px on phone-sized screens only. */

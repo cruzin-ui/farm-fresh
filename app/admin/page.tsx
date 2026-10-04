@@ -187,14 +187,14 @@ export default function AdminPage() {
       </div>
 
       {successMsg && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-2 text-sm">
+        <div role="status" className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-2 text-sm">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
 
       {errorMsg && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-2 text-sm">
+        <div role="alert" className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-2 text-sm">
           <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
           <span>{errorMsg}</span>
         </div>
@@ -211,6 +211,7 @@ export default function AdminPage() {
           </div>
           {summaryMonths.length > 0 && (
             <select
+              aria-label="Month"
               value={summaryMonth}
               onChange={(e) => setSummaryMonth(e.target.value)}
               className="px-3 py-2 border rounded-xl text-xs font-semibold bg-white"

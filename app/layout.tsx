@@ -17,7 +17,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Farm Fresh Direct | Local Agricultural Marketplace",
+  title: {
+    default: "Farm Fresh Direct | Local Agricultural Marketplace",
+    template: "%s | Farm Fresh Direct",
+  },
   description: "Connect local growers and buyers for fresh farm produce.",
 };
 

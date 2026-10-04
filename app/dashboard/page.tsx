@@ -895,7 +895,7 @@ export default function SellerDashboardPage() {
 
         <main className="flex-1 min-w-0 bg-white p-4 sm:p-8 rounded-2xl border border-gray-200 shadow-sm">
           {successMsg && (
-            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center justify-between text-sm">
+            <div role="status" className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                 <span>{successMsg}</span>
@@ -904,7 +904,7 @@ export default function SellerDashboardPage() {
           )}
 
           {errorMsg && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-2 text-sm">
+            <div role="alert" className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-2 text-sm">
               <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
               <span>{errorMsg}</span>
             </div>
@@ -1032,10 +1032,10 @@ export default function SellerDashboardPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      <label htmlFor="dash-crop-name" className="block text-xs font-semibold text-gray-700 mb-1">
                         Crop Name *
                       </label>
-                      <input
+                      <input id="dash-crop-name"
                         type="text"
                         required
                         placeholder="e.g., Organic Heirloom Tomatoes"
@@ -1067,10 +1067,10 @@ export default function SellerDashboardPage() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      <label htmlFor="dash-variety-optional" className="block text-xs font-semibold text-gray-700 mb-1">
                         Variety (Optional)
                       </label>
-                      <input
+                      <input id="dash-variety-optional"
                         type="text"
                         placeholder="e.g., Yukon Gold"
                         value={variety}
@@ -1080,10 +1080,10 @@ export default function SellerDashboardPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      <label htmlFor="dash-category" className="block text-xs font-semibold text-gray-700 mb-1">
                         Category
                       </label>
-                      <select
+                      <select id="dash-category"
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
                         disabled={identityLocked}
@@ -1098,10 +1098,10 @@ export default function SellerDashboardPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    <label htmlFor="dash-description" className="block text-xs font-semibold text-gray-700 mb-1">
                       Description
                     </label>
-                    <textarea
+                    <textarea id="dash-description"
                       rows={2}
                       placeholder="Tell buyers what makes this crop special..."
                       value={description}
@@ -1111,10 +1111,10 @@ export default function SellerDashboardPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    <p id="dash-highlights-label" className="block text-xs font-semibold text-gray-700 mb-1">
                       Highlights ({listingTags.length}/{MAX_LISTING_TAGS})
-                    </label>
-                    <div className="flex flex-wrap gap-2">
+                    </p>
+                    <div role="group" aria-labelledby="dash-highlights-label" className="flex flex-wrap gap-2">
                       {LISTING_TAG_OPTIONS.map((tag) => {
                         const selected = listingTags.includes(tag);
                         const atLimit = !selected && listingTags.length >= MAX_LISTING_TAGS;
@@ -1123,6 +1123,7 @@ export default function SellerDashboardPage() {
                             key={tag}
                             type="button"
                             onClick={() => toggleListingTag(tag)}
+                            aria-pressed={selected}
                             disabled={atLimit}
                             className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                               selected
@@ -1145,10 +1146,10 @@ export default function SellerDashboardPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      <label htmlFor="dash-unit-type" className="block text-xs font-semibold text-gray-700 mb-1">
                         Unit Type *
                       </label>
-                      <select
+                      <select id="dash-unit-type"
                         value={unitType}
                         onChange={(e) => setUnitType(e.target.value)}
                         disabled={identityLocked}
@@ -1163,10 +1164,10 @@ export default function SellerDashboardPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      <label htmlFor="dash-price-per" className="block text-xs font-semibold text-gray-700 mb-1">
                         Price per {unitType} ($) *
                       </label>
-                      <input
+                      <input id="dash-price-per"
                         type="number"
                         step="0.01"
                         required
@@ -1182,10 +1183,10 @@ export default function SellerDashboardPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      <label htmlFor="dash-est-total" className="block text-xs font-semibold text-gray-700 mb-1">
                         Est. Total {unitType} *
                       </label>
-                      <input
+                      <input id="dash-est-total"
                         type="number"
                         step="0.1"
                         required
@@ -1199,10 +1200,10 @@ export default function SellerDashboardPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      <label htmlFor="dash-zip-code" className="block text-xs font-semibold text-gray-700 mb-1">
                         Zip Code *
                       </label>
-                      <input
+                      <input id="dash-zip-code"
                         type="text"
                         inputMode="numeric"
                         required
@@ -1222,10 +1223,10 @@ export default function SellerDashboardPage() {
                       </p>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      <label htmlFor="dash-city-area" className="block text-xs font-semibold text-gray-700 mb-1">
                         City / Area *
                       </label>
-                      <input
+                      <input id="dash-city-area"
                         type="text"
                         required
                         placeholder="Filled in from zip code"
@@ -1238,10 +1239,10 @@ export default function SellerDashboardPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      <label htmlFor="dash-harvest-date" className="block text-xs font-semibold text-gray-700 mb-1">
                         Harvest Date *
                       </label>
-                      <input
+                      <input id="dash-harvest-date"
                         type="date"
                         required
                         value={harvestReadyDate}
@@ -1250,10 +1251,10 @@ export default function SellerDashboardPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      <label htmlFor="dash-available-until-optional" className="block text-xs font-semibold text-gray-700 mb-1">
                         Available Until (Optional)
                       </label>
-                      <input
+                      <input id="dash-available-until-optional"
                         type="date"
                         value={harvestEndDate}
                         onChange={(e) => setHarvestEndDate(e.target.value)}
@@ -1263,10 +1264,10 @@ export default function SellerDashboardPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    <label htmlFor="dash-pickup-address" className="block text-xs font-semibold text-gray-700 mb-1">
                       Pickup Address *
                     </label>
-                    <AddressAutocomplete
+                    <AddressAutocomplete id="dash-pickup-address"
                       required
                       placeholder="e.g., 1234 W Farm Rd, Phoenix"
                       value={pickupAddress}
@@ -1293,10 +1294,10 @@ export default function SellerDashboardPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    <p id="dash-crop-image-label" className="block text-xs font-semibold text-gray-700 mb-1">
                       Crop Image (Optional)
-                    </label>
-                    <div className="flex items-center gap-3">
+                    </p>
+                    <div role="group" aria-labelledby="dash-crop-image-label" className="flex items-center gap-3">
                       {imagePreviewUrl ? (
                         <div className="relative">
                           <img
@@ -1307,6 +1308,7 @@ export default function SellerDashboardPage() {
                           <button
                             type="button"
                             onClick={() => handleCropFileSelected(null)}
+                            aria-label="Remove photo"
                             className="absolute -top-2 -right-2 bg-white border rounded-full p-0.5 shadow-sm"
                           >
                             <X className="w-3.5 h-3.5 text-gray-500" />
@@ -1466,10 +1468,10 @@ export default function SellerDashboardPage() {
 
                       {completeOrderId === order.id && (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
-                          <label className="block text-xs font-semibold text-emerald-900">
+                          <label htmlFor="dash-enter-the-buyer-s-pickup-code" className="block text-xs font-semibold text-emerald-900">
                             Enter the buyer's pickup code
                           </label>
-                          <input
+                          <input id="dash-enter-the-buyer-s-pickup-code"
                             type="text"
                             placeholder="FFD-123456"
                             value={completeCode}
@@ -1514,10 +1516,10 @@ export default function SellerDashboardPage() {
                         return (
                           <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
                             <div>
-                              <label className="block text-xs font-semibold text-red-900 mb-1">
+                              <label htmlFor="dash-new-quantity-enter-to-cancel-the-whole-o" className="block text-xs font-semibold text-red-900 mb-1">
                                 New quantity ({order.listing_unit_type}) — enter 0 to cancel the whole order
                               </label>
-                              <input
+                              <input id="dash-new-quantity-enter-to-cancel-the-whole-o"
                                 type="number"
                                 min="0"
                                 max={currentQty - 1}
@@ -1534,10 +1536,10 @@ export default function SellerDashboardPage() {
                               </p>
                             </div>
                             <div>
-                              <label className="block text-xs font-semibold text-red-900 mb-1">
+                              <label htmlFor="dash-message-to-the-buyer-optional" className="block text-xs font-semibold text-red-900 mb-1">
                                 Message to the buyer (optional)
                               </label>
-                              <textarea
+                              <textarea id="dash-message-to-the-buyer-optional"
                                 rows={2}
                                 placeholder="e.g., Sorry — the late frost cut this week's harvest short."
                                 value={adjustNote}
@@ -1579,10 +1581,10 @@ export default function SellerDashboardPage() {
 
                       {readyDraftOrderId === order.id && (
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
-                          <label className="block text-xs font-semibold text-blue-900">
+                          <label htmlFor="dash-pickup-details-to-email-the-buyer" className="block text-xs font-semibold text-blue-900">
                             Pickup details to email the buyer
                           </label>
-                          <textarea
+                          <textarea id="dash-pickup-details-to-email-the-buyer"
                             rows={3}
                             value={readyDraftText}
                             onChange={(e) => setReadyDraftText(e.target.value)}
@@ -1737,10 +1739,10 @@ export default function SellerDashboardPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  <label htmlFor="dash-farm-stand-name" className="block text-xs font-semibold text-gray-700 mb-1">
                     Farm / Stand Name *
                   </label>
-                  <input
+                  <input id="dash-farm-stand-name"
                     type="text"
                     required
                     placeholder="e.g., Sunrise Acres Garden"
@@ -1750,10 +1752,10 @@ export default function SellerDashboardPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  <label htmlFor="dash-location" className="block text-xs font-semibold text-gray-700 mb-1">
                     Location *
                   </label>
-                  <input
+                  <input id="dash-location"
                     type="text"
                     required
                     placeholder="e.g., Phoenix, AZ"
@@ -1765,8 +1767,8 @@ export default function SellerDashboardPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Farm Bio</label>
-                <textarea
+                <label htmlFor="dash-farm-bio" className="block text-xs font-semibold text-gray-700 mb-1">Farm Bio</label>
+                <textarea id="dash-farm-bio"
                   rows={3}
                   placeholder="Tell buyers about your growing practices..."
                   value={bio}
