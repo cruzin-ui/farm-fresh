@@ -30,7 +30,15 @@ export async function POST(request: Request) {
       .eq('id', orderId)
       .maybeSingle();
 
-    if (!order?.guest_access_token || !tokensMatch(order.guest_access_token, token)) {
+    if (!order) {
+      return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
+    }
+
+    const codeRecord = await getPickupCodeRecord(order.id);
+    // Older guest orders kept their token on the order row.
+    const expectedToken = codeRecord?.guestToken || order.guest_access_token;
+
+    if (!expectedToken || !tokensMatch(expectedToken, token)) {
       return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
     }
 
@@ -39,8 +47,6 @@ export async function POST(request: Request) {
       .select('title, unit_type, location_name')
       .eq('id', order.listing_id)
       .maybeSingle();
-
-    const codeRecord = await getPickupCodeRecord(order.id);
 
     return NextResponse.json({
       order: {

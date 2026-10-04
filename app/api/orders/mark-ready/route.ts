@@ -53,6 +53,8 @@ export async function POST(request: Request) {
 
     const codeRecord = await getPickupCodeRecord(order.id);
     const pickupCode = codeRecord?.code || order.pickup_code || order.verification_code;
+    // Guests reach their order through a secret link. (Older guest orders kept the token on the order row.)
+    const guestToken = codeRecord?.guestToken || order.guest_access_token;
 
     if (order.buyer_email) {
       await sendEmail({
@@ -68,8 +70,8 @@ export async function POST(request: Request) {
             <p>Give this code to the farmer only when you collect your produce — it releases their payment.</p>
             ${buyerGuidanceEmailHtml(new URL(request.url).origin)}
             ${
-              order.guest_access_token
-                ? `<p><a href="${new URL(request.url).origin}/orders/confirmation?orderId=${order.id}&token=${order.guest_access_token}">View your order</a></p>`
+              guestToken
+                ? `<p><a href="${new URL(request.url).origin}/orders/confirmation?orderId=${order.id}&token=${guestToken}">View your order</a></p>`
                 : ''
             }
           </div>

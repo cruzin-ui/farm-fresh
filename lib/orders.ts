@@ -94,10 +94,12 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     .maybeSingle();
 
   if (existing) {
+    const stored = await getOrCreatePickupCode(existing.id, buyerId);
     return {
       orderId: existing.id as string,
-      code: await getOrCreatePickupCode(existing.id, buyerId),
-      guestToken: (existing.guest_access_token as string | null) ?? null,
+      code: stored.code,
+      // Older guest orders kept their token on the order row.
+      guestToken: stored.guestToken ?? (existing.guest_access_token as string | null) ?? null,
     };
   }
 
@@ -131,7 +133,6 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
       {
         buyer_id: buyerId,
         buyer_email: buyerEmail,
-        guest_access_token: guestToken,
         pickup_address: pickupAddress,
         listing_id: listingId,
         quantity: orderQuantity,
@@ -162,17 +163,21 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
         .maybeSingle();
 
       if (raced) {
+        const stored = await getOrCreatePickupCode(raced.id, buyerId, guestToken);
         return {
           orderId: raced.id as string,
-          code: await getOrCreatePickupCode(raced.id, buyerId),
-          guestToken: (raced.guest_access_token as string | null) ?? null,
+          code: stored.code,
+          guestToken: stored.guestToken ?? (raced.guest_access_token as string | null) ?? null,
         };
       }
     }
     throw orderError;
   }
 
-  const pickupCode = await getOrCreatePickupCode(order.id, buyerId);
+  // What was actually stored wins, in case another request got there first.
+  const stored = await getOrCreatePickupCode(order.id, buyerId, guestToken);
+  const pickupCode = stored.code;
+  const orderGuestToken = stored.guestToken;
 
   // Decrement the listing's available quantity now that payment succeeded.
   const { data: listing } = await supabaseAdmin
@@ -209,8 +214,8 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
       pickupAddress,
       siteUrl,
       orderLink:
-        guestToken && siteUrl
-          ? `${siteUrl}/orders/confirmation?orderId=${order.id}&token=${guestToken}`
+        orderGuestToken && siteUrl
+          ? `${siteUrl}/orders/confirmation?orderId=${order.id}&token=${orderGuestToken}`
           : null,
     });
   }
@@ -233,5 +238,5 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     }
   }
 
-  return { orderId: order.id as string, code: pickupCode, guestToken };
+  return { orderId: order.id as string, code: pickupCode, guestToken: orderGuestToken };
 }
