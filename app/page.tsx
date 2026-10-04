@@ -1,41 +1,24 @@
 import Link from 'next/link';
-import { Sprout, ShoppingBag, ArrowRight, ShieldCheck, HeartHandshake, MapPin } from 'lucide-react';
+import { Sprout, ShoppingBag, ArrowRight, ShieldCheck, HeartHandshake } from 'lucide-react';
 
 export default function SplashLandingPage() {
   return (
     <div className="min-h-screen bg-emerald-50/50 flex flex-col justify-between">
-      {/* Header Navigation */}
-      <header className="max-w-7xl mx-auto w-full px-6 py-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-green-600 text-white rounded-lg">
-            <Sprout className="w-6 h-6" />
-          </div>
-          <span className="text-xl font-bold text-gray-900 tracking-tight">Farm Fresh Direct</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/about" className="text-sm font-medium text-gray-600 hover:text-green-700">
-            Our Mission
-          </Link>
-          <Link
-            href="/browse"
-            className="text-sm font-semibold text-green-700 bg-white border border-green-200 px-4 py-2 rounded-lg shadow-sm hover:bg-green-50 transition-colors"
-          >
-            Browse Food
-          </Link>
-        </div>
-      </header>
-
       {/* Main Hero Section */}
       <main className="max-w-5xl mx-auto px-6 py-12 text-center">
-        <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-          <MapPin className="w-3.5 h-3.5" /> Direct From Neighbor Gardens & Small Local Farms
-        </div>
-
-        <h1 className="text-4xl sm:text-6xl font-extrabold text-gray-900 tracking-tight leading-tight">
-          Connect directly with <span className="text-green-600">local growers</span> in your neighborhood.
+        <h1 className="text-5xl sm:text-7xl font-extrabold text-gray-900 tracking-tight leading-tight">
+          Farm Fresh <span className="text-green-700">Direct</span>
         </h1>
 
-        <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
+        <p className="mt-3 text-2xl sm:text-4xl font-bold text-green-800 tracking-tight">
+          Your Virtual Farmer's Market
+        </p>
+
+        <p className="mt-5 text-lg sm:text-xl font-medium text-gray-700 max-w-2xl mx-auto">
+          Connect directly with Neighbor Gardens &amp; Small Local Farms in your neighborhood
+        </p>
+
+        <p className="mt-4 text-base text-gray-600 max-w-2xl mx-auto">
           Buy ultra-fresh produce harvested at peak flavor, or sell surplus crops from your home garden or small farm with zero setup friction.
         </p>
 
