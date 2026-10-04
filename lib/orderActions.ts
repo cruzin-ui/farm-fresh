@@ -162,7 +162,13 @@ export async function completeOrderAndReleasePayout(order: any, farmerId: string
       const originalQuantity = Number(paymentIntent.metadata?.quantity) || 1;
       const originalSubtotalCents = Number(paymentIntent.metadata?.subtotal_cents) || 0;
       const sellerFeeRate = Number(paymentIntent.metadata?.seller_fee_rate) || 0;
-      const currentQuantity = Number(order.reserved_quantity ?? order.quantity ?? 0);
+      // Never more than was originally paid for: the quantity on the order row
+      // can go down (a reduced order) but a larger number there must not
+      // increase what the farmer is paid.
+      const currentQuantity = Math.min(
+        Number(order.reserved_quantity ?? order.quantity ?? 0),
+        originalQuantity
+      );
       const subtotalCents = Math.round((originalSubtotalCents * currentQuantity) / originalQuantity);
       const payoutCents = calculateFarmerPayoutCents(subtotalCents, sellerFeeRate);
 
@@ -382,7 +388,8 @@ export async function resolveNoShow(params: {
   }
 
   const originalQuantity = Number(paymentIntent.metadata?.quantity) || 1;
-  const currentQuantity = Number(order.reserved_quantity ?? order.quantity ?? 0);
+  // Capped at the quantity originally paid for, as in the payout above.
+  const currentQuantity = Math.min(Number(order.reserved_quantity ?? order.quantity ?? 0), originalQuantity);
   const subtotalCents = Math.round((originalSubtotalCents * currentQuantity) / originalQuantity);
   const restockingCents = Math.round(subtotalCents * NO_SHOW_RESTOCKING_RATE);
   const refundCents = subtotalCents - restockingCents;

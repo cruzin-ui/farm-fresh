@@ -111,8 +111,14 @@ export default function RootLayout({
           <Link href="/about" className="font-semibold hover:text-emerald-700 hover:underline">
             About
           </Link>
+          <Link href="/terms" className="font-semibold hover:text-emerald-700 hover:underline">
+            Terms of Use
+          </Link>
           <Link href="/seller-terms" className="font-semibold hover:text-emerald-700 hover:underline">
             Seller Terms
+          </Link>
+          <Link href="/privacy" className="font-semibold hover:text-emerald-700 hover:underline">
+            Privacy Policy
           </Link>
           </div>
           <p className="mt-3 text-center">

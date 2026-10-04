@@ -91,6 +91,13 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
 };
 
+// Open orders older than this are flagged: the buyer's money is being held
+// and nothing will move it until someone acts.
+const STALE_AFTER_DAYS = 7;
+
+const daysOpen = (order: AdminOrder) =>
+  Math.floor((Date.now() - new Date(order.created_at).getTime()) / (24 * 60 * 60 * 1000));
+
 const isOpen = (order: AdminOrder) =>
   order.status === 'pending_pickup' || order.status === 'ready_for_pickup';
 
@@ -198,6 +205,7 @@ export default function AdminPage() {
   }
 
   const visibleOrders = filter === 'open' ? orders.filter(isOpen) : orders;
+  const staleOrders = orders.filter((o) => isOpen(o) && daysOpen(o) > STALE_AFTER_DAYS);
 
   const summaryMonths = recentMonths();
 
@@ -472,6 +480,20 @@ export default function AdminPage() {
 
       <h2 className="text-lg font-bold text-gray-900">Orders</h2>
 
+      {staleOrders.length > 0 && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800 flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" aria-hidden="true" />
+          <span>
+            <strong>
+              {staleOrders.length} order{staleOrders.length === 1 ? ' has' : 's have'} been open more than{' '}
+              {STALE_AFTER_DAYS} days.
+            </strong>{' '}
+            The buyer has paid and the money is still being held. Check with the farmer, then release the
+            payout, refund the order or close it as a no-show.
+          </span>
+        </div>
+      )}
+
       {visibleOrders.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200 text-sm text-gray-500">
           No {filter === 'open' ? 'open ' : ''}orders.
@@ -504,6 +526,11 @@ export default function AdminPage() {
                     <span className="text-gray-400">
                       Order #{order.id.slice(0, 8)} · {new Date(order.created_at).toLocaleString()}
                     </span>
+                    {isOpen(order) && daysOpen(order) > STALE_AFTER_DAYS && (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-red-100 text-red-800">
+                        Open {daysOpen(order)} days
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-base font-bold text-gray-900">
                     {order.quantity} {order.unit_type} of {order.listing_title}

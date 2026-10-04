@@ -19,7 +19,15 @@ export default function SellerTermsPage() {
       <div className="mt-6 space-y-6 text-sm text-gray-700 leading-relaxed">
         <p>
           These terms apply to everyone who lists products for sale on Farm Fresh Direct. By posting a listing you
-          agree to them.
+          agree to them, in addition to our{' '}
+          <Link href="/terms" className="font-semibold text-emerald-800 underline">
+            Terms of Use
+          </Link>{' '}
+          and{' '}
+          <Link href="/privacy" className="font-semibold text-emerald-800 underline">
+            Privacy Policy
+          </Link>
+          .
         </p>
 
         <section>

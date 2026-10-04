@@ -134,7 +134,15 @@ function PaymentForm({
         <input type="checkbox" required className="mt-0.5 w-4 h-4 shrink-0" />
         <span>
           I understand how pickup works, and I won't give my pickup code to the farmer until I have my
-          produce.
+          produce. I agree to the{' '}
+          <Link href="/terms" target="_blank" className="font-semibold text-emerald-800 underline">
+            Terms of Use
+          </Link>{' '}
+          and{' '}
+          <Link href="/privacy" target="_blank" className="font-semibold text-emerald-800 underline">
+            Privacy Policy
+          </Link>
+          .
         </span>
       </label>
 
