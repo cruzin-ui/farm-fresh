@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { CircleUser, ChevronDown, Receipt, LayoutDashboard, LogOut, LogIn, Mail } from 'lucide-react';
+import { CircleUser, ChevronDown, Receipt, LayoutDashboard, LogOut, LogIn, Mail, Sprout } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
 // The account control in the top header, shown on every screen size. Signed
@@ -75,12 +75,22 @@ export default function AccountMenu() {
     const redirect = pathname && pathname !== '/login' ? `?redirect=${encodeURIComponent(pathname)}` : '';
 
     return (
-      <Link
-        href={`/login${redirect}`}
-        className="flex items-center gap-2 px-3.5 h-10 rounded-xl text-xs font-bold text-emerald-700 border border-emerald-200 hover:bg-emerald-50 transition-colors"
-      >
-        <LogIn className="w-4 h-4" /> Sign In
-      </Link>
+      <div className="flex items-center gap-3">
+        {/* Signed-out visitors have no account menu, so this is their way to
+            the seller side. Desktop only — phones have "Sell" in the tab bar. */}
+        <Link
+          href="/dashboard"
+          className="hidden md:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+        >
+          <Sprout className="w-4 h-4" /> Sell
+        </Link>
+        <Link
+          href={`/login${redirect}`}
+          className="flex items-center gap-2 px-3.5 h-10 rounded-xl text-xs font-bold text-emerald-700 border border-emerald-200 hover:bg-emerald-50 transition-colors"
+        >
+          <LogIn className="w-4 h-4" /> Sign In
+        </Link>
+      </div>
     );
   }
 

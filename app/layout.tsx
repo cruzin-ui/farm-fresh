@@ -4,7 +4,7 @@ import AccountMenu from "@/components/AccountMenu";
 import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
-import { Sprout, ShoppingBag, LayoutDashboard, Receipt } from "lucide-react";
+import { Sprout, ShoppingBag } from "lucide-react";
 
 // Body text: a clean, friendly sans-serif. Headings: a soft serif with a
 // hand-made, market-stall feel. Both are applied in globals.css.
@@ -68,25 +68,15 @@ export default function RootLayout({
             </Link>
 
             <div className="flex items-center gap-3">
-            {/* On phones these links live in the bottom tab bar instead. */}
+            {/* Browse is the one link kept beside the account menu; My Orders
+                and the Seller Dashboard are inside that menu. On phones the
+                bottom tab bar is used instead. */}
             <nav className="hidden md:flex items-center gap-3">
               <Link
                 href="/browse"
                 className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
               >
                 <ShoppingBag className="w-4 h-4" /> Browse
-              </Link>
-              <Link
-                href="/orders"
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
-              >
-                <Receipt className="w-4 h-4" /> My Orders
-              </Link>
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-colors"
-              >
-                <LayoutDashboard className="w-4 h-4" /> Seller Dashboard
               </Link>
             </nav>
             <AccountMenu />
