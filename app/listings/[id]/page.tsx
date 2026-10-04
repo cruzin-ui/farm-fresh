@@ -147,6 +147,13 @@ export default function ListingDetailPage() {
             </p>
           </div>
 
+          {listing.category === 'Fresh Eggs' && (
+            <p className="text-xs text-amber-950 bg-amber-50 border border-amber-300 rounded-xl p-3">
+              Eggs are sold directly by the farmer and aren't inspected by Farm Fresh Direct. Refrigerate them
+              promptly after pickup and cook them thoroughly.
+            </p>
+          )}
+
           <div className="space-y-2">
             {soldOut ? (
               <span className="w-full inline-flex items-center justify-center bg-gray-200 text-gray-500 font-bold py-3 rounded-xl text-sm">

@@ -95,7 +95,62 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'Who can sell on Farm Fresh Direct?',
     answer:
-      "Home gardeners and small local farms. You're responsible for making sure what you sell meets any local rules for selling food in your area.",
+      "Home gardeners and small local farms. You're responsible for making sure what you sell is allowed where you live — see the next two questions.",
+  },
+  {
+    question: 'Are there rules about what I can sell?',
+    answer: (
+      <>
+        <p>
+          Yes, and they depend on your state. Whole, uncut fruits and vegetables are the simplest. Other items
+          often have their own state rules, for example:
+        </p>
+        <ul className="list-disc pl-5 mt-2 space-y-1">
+          <li>
+            <strong>Eggs:</strong> states commonly set rules on refrigeration, carton labeling and reusing
+            cartons, and may require a license above a certain flock size or number of dozens sold.
+          </li>
+          <li>
+            <strong>Seeds:</strong> states commonly require labeling (such as variety, germination rate and test
+            date) and sometimes a seed dealer permit. Seed saved from patented or protected varieties
+            generally can't be resold.
+          </li>
+          <li>
+            <strong>Honey, jam and other prepared foods:</strong> these usually fall under your state's
+            "cottage food" laws, which decide what may be made in a home kitchen and how it must be labeled.
+            Some states don't allow items like pickles, salsa or other canned goods at all.
+          </li>
+        </ul>
+        <p className="mt-2">
+          Before you list anything beyond fresh produce, check with your state's department of agriculture or
+          health department. This list is general information, not legal advice, and it isn't complete.
+        </p>
+      </>
+    ),
+  },
+  {
+    question: 'Who is responsible for making sure my products are legal to sell?',
+    answer: (
+      <>
+        <p>
+          You are. As the seller, you're responsible for knowing and following the federal, state and local
+          laws that apply to what you sell, including any licenses, permits, labeling and food-safety
+          requirements.
+        </p>
+        <p className="mt-2">
+          Farm Fresh Direct is a marketplace that connects buyers and sellers. We don't inspect, test, certify
+          or approve products, and we aren't responsible for items that are sold in violation of the law. We
+          may remove a listing if we learn it isn't permitted.
+        </p>
+        <p className="mt-2">
+          You'll be asked to agree to our{' '}
+          <Link href="/seller-terms" className="font-semibold text-emerald-800 underline">
+            Seller Terms
+          </Link>{' '}
+          before posting your first listing.
+        </p>
+      </>
+    ),
   },
   {
     question: 'What does it cost to sell?',

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { checkListingAllowed, saveListingPickupAddress, MAX_LISTING_TAGS } from '@/lib/listingRules';
+import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,31 @@ export async function POST(request: Request) {
 
     if (notAllowed) {
       return NextResponse.json({ error: notAllowed }, { status: 409 });
+    }
+
+    // Sellers agree to the Seller Terms once, before their first listing. The
+    // acceptance is recorded with a timestamp and the version they agreed to.
+    const { data: acceptance } = await supabaseAdmin
+      .from('seller_terms_acceptances')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!acceptance) {
+      if (body.acceptTerms !== true) {
+        return NextResponse.json(
+          { error: 'Please read and agree to the Seller Terms before posting your first listing.' },
+          { status: 400 }
+        );
+      }
+
+      const { error: acceptError } = await supabaseAdmin
+        .from('seller_terms_acceptances')
+        .upsert({ user_id: user.id, accepted_at: new Date().toISOString(), terms_version: SELLER_TERMS_VERSION });
+
+      if (acceptError) {
+        return NextResponse.json({ error: acceptError.message }, { status: 500 });
+      }
     }
 
     const { data: listing, error: insertError } = await supabaseAdmin

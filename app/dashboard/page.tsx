@@ -44,6 +44,7 @@ const UNIT_TYPE_OPTIONS = [
   { value: 'pints', label: 'Pints' },
   { value: 'quarts', label: 'Quarts' },
   { value: 'jars', label: 'Jars' },
+  { value: 'packets', label: 'Packets (e.g. seed packets)' },
 ];
 
 // Short labels a farmer can attach to a listing; up to MAX_LISTING_TAGS show
@@ -84,6 +85,9 @@ export default function SellerDashboardPage() {
   // null = the farmer hasn't opened or closed the "how selling works" guide
   // themselves, so it follows the default (open until setup is finished).
   const [guideOpen, setGuideOpen] = useState<boolean | null>(null);
+  // Sellers agree to the Seller Terms once, before their first listing.
+  const [sellerTermsAccepted, setSellerTermsAccepted] = useState(false);
+  const [sellerTermsChecked, setSellerTermsChecked] = useState(false);
   const [defaultPickupAddress, setDefaultPickupAddress] = useState('');
   const [title, setTitle] = useState('');
   const [variety, setVariety] = useState('');
@@ -184,6 +188,13 @@ export default function SellerDashboardPage() {
     }));
 
     if (listings) setMyListings(listingsWithAddress);
+
+    const { data: termsRow } = await supabase
+      .from('seller_terms_acceptances')
+      .select('accepted_at')
+      .eq('user_id', currentUserId)
+      .maybeSingle();
+    setSellerTermsAccepted(Boolean(termsRow));
 
     // Start new listings from the most recent pickup address — most farmers
     // only ever have one.
@@ -685,6 +696,7 @@ export default function SellerDashboardPage() {
       // Publishing goes through the server, which refuses duplicate posts of
       // the same crop and enforces the cap on listings on sale at once.
       const createRes = await postWithAuth('/api/listings/create', {
+        acceptTerms: sellerTermsChecked,
         fields: {
           title,
           variety,
@@ -704,6 +716,7 @@ export default function SellerDashboardPage() {
       });
       const createData = await createRes.json();
       if (!createRes.ok) throw new Error(createData.error || 'Could not publish your listing.');
+      setSellerTermsAccepted(true);
 
       setSuccessMsg('Listing successfully published with your farm branding!');
       setTitle('');
@@ -1060,6 +1073,14 @@ export default function SellerDashboardPage() {
                       Never collect cash at pickup — every order is already paid in full online.
                     </li>
                     <li>
+                      You're responsible for making sure what you sell is legal in your state. Eggs, seeds,
+                      honey, jam and other prepared foods often have their own rules — see the{' '}
+                      <a href="/faq" className="font-semibold text-emerald-800 underline">
+                        FAQ
+                      </a>{' '}
+                      before listing them.
+                    </li>
+                    <li>
                       Quantities are whole numbers: buyers can only order whole units (1 lb, 2 lbs, not 0.5
                       lb). To sell smaller amounts, list in a smaller unit such as oz.
                     </li>
@@ -1244,7 +1265,13 @@ export default function SellerDashboardPage() {
                       </label>
                       <select id="dash-category"
                         value={category}
-                        onChange={(e) => setCategory(e.target.value)}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setCategory(next);
+                          // Start from the unit these are usually sold in, if the unit hasn't been chosen yet.
+                          if (unitType === 'lbs' && next === 'Fresh Eggs') setUnitType('dozen');
+                          if (unitType === 'lbs' && next === 'Seeds') setUnitType('packets');
+                        }}
                         disabled={identityLocked}
                         className="w-full px-4 py-2 border rounded-lg text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500"
                       >
@@ -1252,9 +1279,29 @@ export default function SellerDashboardPage() {
                         <option>Fruits & Berries</option>
                         <option>Herbs & Spices</option>
                         <option>Honey & Jam</option>
+                        <option>Fresh Eggs</option>
+                        <option>Seeds</option>
                       </select>
                     </div>
                   </div>
+
+                  {['Fresh Eggs', 'Seeds', 'Honey & Jam'].includes(category) && (
+                    <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">
+                      <p className="font-bold text-sm">Check your state's rules before listing this</p>
+                      <p className="mt-0.5">
+                        {category === 'Fresh Eggs'
+                          ? 'States commonly have rules for selling eggs: keeping them refrigerated, how cartons are labeled, and a license above a certain number of hens or dozens.'
+                          : category === 'Seeds'
+                            ? "States commonly require seed labeling (variety, germination rate, test date) and sometimes a seed dealer permit. Seed from patented or protected varieties generally can't be resold."
+                            : "Honey, jam and other prepared foods usually fall under your state's cottage food laws, which decide what may be made at home and how it must be labeled."}{' '}
+                        You're responsible for making sure it's legal to sell where you are.{' '}
+                        <a href="/faq" target="_blank" rel="noopener" className="font-semibold underline">
+                          Read more in the FAQ
+                        </a>
+                        .
+                      </p>
+                    </div>
+                  )}
 
                   <div>
                     <label htmlFor="dash-description" className="block text-xs font-semibold text-gray-700 mb-1">
@@ -1516,6 +1563,27 @@ export default function SellerDashboardPage() {
                       />
                     </div>
                   </div>
+
+                  {!editingListingId && !sellerTermsAccepted && (
+                    <label className="flex items-start gap-2 p-4 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={sellerTermsChecked}
+                        onChange={(e) => setSellerTermsChecked(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 shrink-0"
+                      />
+                      <span>
+                        I have read and agree to the{' '}
+                        <a href="/seller-terms" target="_blank" rel="noopener" className="font-semibold text-emerald-800 underline">
+                          Seller Terms
+                        </a>
+                        . I'm responsible for making sure everything I sell is legal to sell in my state,
+                        including any licenses, permits, labeling and food-safety requirements. Farm Fresh
+                        Direct does not inspect or approve what I sell.
+                      </span>
+                    </label>
+                  )}
 
                   <button
                     type="submit"

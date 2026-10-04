@@ -100,6 +100,9 @@ export default function RootLayout({
           <Link href="/about" className="font-semibold hover:text-emerald-700 hover:underline">
             About
           </Link>
+          <Link href="/seller-terms" className="font-semibold hover:text-emerald-700 hover:underline">
+            Seller Terms
+          </Link>
         </footer>
 
         <BottomNav />

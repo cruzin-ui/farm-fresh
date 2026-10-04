@@ -60,6 +60,21 @@ const PANTRY_TYPES: typeof VEGETABLE_TYPES = [
   { name: 'Salsa & Sauces', emoji: '🌶️', keywords: ['salsa', 'sauce'] },
 ];
 
+const EGG_TYPES: typeof VEGETABLE_TYPES = [
+  // Plain "eggs" are assumed to be chicken eggs unless another bird is named.
+  { name: 'Chicken Eggs', emoji: '🐔', keywords: ['chicken', 'hen', 'egg'], exclude: ['duck', 'quail', 'goose', 'turkey'] },
+  { name: 'Duck Eggs', emoji: '🦆', keywords: ['duck'] },
+  { name: 'Quail Eggs', emoji: '🐦', keywords: ['quail'] },
+  { name: 'Other Eggs', emoji: '🥚', keywords: ['goose', 'turkey'] },
+];
+
+const SEED_TYPES: typeof VEGETABLE_TYPES = [
+  { name: 'Vegetable Seeds', emoji: '🥕', keywords: ['vegetable', 'tomato', 'pepper', 'squash', 'bean', 'pea', 'corn', 'lettuce', 'carrot', 'cucumber', 'melon', 'pumpkin', 'onion', 'radish', 'kale'] },
+  { name: 'Herb Seeds', emoji: '🌿', keywords: ['herb', 'basil', 'cilantro', 'parsley', 'dill', 'oregano', 'thyme', 'mint', 'sage'] },
+  { name: 'Flower Seeds', emoji: '🌻', keywords: ['flower', 'sunflower', 'marigold', 'zinnia', 'wildflower', 'cosmos', 'poppy'] },
+  { name: 'Seedlings & Starts', emoji: '🌱', keywords: ['seedling', 'start', 'transplant', 'plant'] },
+];
+
 // Which tiles to show under each category button. "All" shows none — the
 // entry here is only a fallback so lookups always succeed.
 const TILE_GROUPS: Record<string, { heading: string; types: typeof VEGETABLE_TYPES }> = {
@@ -68,6 +83,8 @@ const TILE_GROUPS: Record<string, { heading: string; types: typeof VEGETABLE_TYP
   'Fruits & Berries': { heading: 'Shop by Fruit', types: FRUIT_TYPES },
   'Herbs & Spices': { heading: 'Shop by Herb', types: HERB_TYPES },
   'Honey & Jam': { heading: 'Shop Honey, Jam & More', types: PANTRY_TYPES },
+  'Fresh Eggs': { heading: 'Shop Fresh Eggs', types: EGG_TYPES },
+  Seeds: { heading: 'Shop Seeds & Starts', types: SEED_TYPES },
 };
 
 function matchesProduceType(item: { title?: string | null; variety?: string | null }, type: (typeof VEGETABLE_TYPES)[number]) {
@@ -211,7 +228,7 @@ export default function BrowsePage() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {['All', 'Vegetables', 'Fruits & Berries', 'Herbs & Spices', 'Honey & Jam'].map(
+          {['All', 'Vegetables', 'Fruits & Berries', 'Herbs & Spices', 'Honey & Jam', 'Fresh Eggs', 'Seeds'].map(
             (cat) => (
               <button
                 key={cat}
