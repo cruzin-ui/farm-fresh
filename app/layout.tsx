@@ -50,7 +50,7 @@ export default function RootLayout({
         {/* SHARED TOP NAVIGATION */}
         <header className="bg-white/90 backdrop-blur-md border-b border-emerald-100 sticky top-0 z-50 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-            <Link href="/browse" className="font-heading flex items-center gap-2.5 font-black text-xl text-emerald-900">
+            <Link href="/" className="font-heading flex items-center gap-2.5 font-black text-xl text-emerald-900">
               <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-sm">
                 <Sprout className="w-5 h-5" />
               </div>
