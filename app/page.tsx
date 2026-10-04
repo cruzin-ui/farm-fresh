@@ -27,11 +27,13 @@ export default function SplashLandingPage() {
           {/* Buyer Choice */}
           <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all text-left flex flex-col justify-between">
             <div>
-              <div className="w-12 h-12 bg-green-100 text-green-700 rounded-xl flex items-center justify-center mb-4">
-                <ShoppingBag className="w-6 h-6" />
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 shrink-0 bg-green-100 text-green-700 rounded-xl flex items-center justify-center">
+                  <ShoppingBag className="w-6 h-6" aria-hidden="true" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900">I Want to Buy</h2>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">I Want to Buy</h2>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-gray-500 mt-3">
                 Discover homegrown produce, eggs, berries, and honey available for local pickup near your zip code.
               </p>
             </div>
@@ -47,11 +49,13 @@ export default function SplashLandingPage() {
           {/* Seller Choice */}
           <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all text-left flex flex-col justify-between">
             <div>
-              <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center mb-4">
-                <Sprout className="w-6 h-6" />
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
+                  <Sprout className="w-6 h-6" aria-hidden="true" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900">I Want to Sell</h2>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">I Want to Sell</h2>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-gray-500 mt-3">
                 List your upcoming or harvested crops, set custom unit prices, and earn money from your surplus.
               </p>
             </div>
