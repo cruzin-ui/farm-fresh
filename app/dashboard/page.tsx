@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import { resizeImage } from '@/lib/resizeImage';
+import { SELLER_FEE_RATE } from '@/lib/pricing';
 import {
   Sprout,
   AlertCircle,
@@ -1106,6 +1107,10 @@ export default function SellerDashboardPage() {
                         onChange={(e) => setPricePerUnit(e.target.value)}
                         className="w-full px-3 py-2 border rounded-lg text-sm"
                       />
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        You keep {100 - SELLER_FEE_RATE * 100}% — a {SELLER_FEE_RATE * 100}% seller fee comes
+                        out of your payout.
+                      </p>
                     </div>
 
                     <div>
@@ -1342,7 +1347,9 @@ export default function SellerDashboardPage() {
                             Buyer: <span className="font-semibold">{order.buyer_email || 'Buyer'}</span> ({order.reserved_quantity} {order.listing_unit_type})
                           </p>
                           <p className="text-xs font-extrabold text-emerald-700">
-                            Total Paid: ${Number(order.total_price || 0).toFixed(2)}
+                            {order.farmer_payout_amount != null
+                              ? `Your payout at pickup: $${Number(order.farmer_payout_amount).toFixed(2)}`
+                              : `Total Paid: $${Number(order.total_price || 0).toFixed(2)}`}
                           </p>
                         </div>
 
@@ -1747,7 +1754,8 @@ export default function SellerDashboardPage() {
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
                 Buyers pay in full online when they reserve your produce — there's no cash or
                 Venmo collected at pickup. Your earnings for an order are released to your
-                connected payout account when you enter the buyer's pickup code at pickup. Buyers can't
+                connected payout account when you enter the buyer's pickup code at pickup, less a{' '}
+                {SELLER_FEE_RATE * 100}% seller fee on your produce sales. Buyers can't
                 purchase your listings until payout setup is complete.
               </div>
             </div>

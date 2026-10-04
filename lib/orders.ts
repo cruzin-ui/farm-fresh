@@ -2,6 +2,7 @@ import type Stripe from 'stripe';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getOrCreatePickupCode } from '@/lib/pickupCodes';
 import { sendEmail } from '@/lib/email';
+import { calculateFarmerPayoutCents } from '@/lib/pricing';
 
 // The seller's email deliberately leaves out the pickup code — they only get
 // it from the buyer at pickup, and need it to release their payout.
@@ -86,6 +87,8 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
   const listingId = paymentIntent.metadata.listing_id;
   const orderQuantity = Number(paymentIntent.metadata.quantity) || 1;
   const totalPaid = paymentIntent.amount / 100;
+  const subtotalCents = Number(paymentIntent.metadata.subtotal_cents) || 0;
+  const sellerFeeRate = Number(paymentIntent.metadata.seller_fee_rate) || 0;
 
   const { data: buyerUser } = await supabaseAdmin.auth.admin.getUserById(buyerId);
   const buyerEmail = buyerUser?.user?.email || null;
@@ -100,6 +103,10 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
         quantity: orderQuantity,
         reserved_quantity: orderQuantity,
         total_price: totalPaid,
+        // The produce subtotal, and what the farmer will be paid for it once
+        // the order completes (subtotal less the seller fee).
+        subtotal_amount: subtotalCents / 100,
+        farmer_payout_amount: calculateFarmerPayoutCents(subtotalCents, sellerFeeRate) / 100,
         deposit_amount: totalPaid,
         authorized_amount: totalPaid,
         balance_due_at_pickup: 0.00,

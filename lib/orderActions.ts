@@ -1,6 +1,7 @@
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendEmail, escapeHtml } from '@/lib/email';
+import { calculateFarmerPayoutCents } from '@/lib/pricing';
 
 // On a no-show, the farmer keeps this share of the produce subtotal as a
 // restocking fee; the platform keeps its buyer fee; the buyer gets the rest.
@@ -99,12 +100,15 @@ export async function completeOrderAndReleasePayout(order: any, farmerId: string
         );
       }
 
-      // The farmer's share is the produce subtotal, scaled down if the
-      // order's quantity was reduced after checkout.
+      // The farmer's share is the produce subtotal — scaled down if the
+      // order's quantity was reduced after checkout — less the seller fee
+      // that was in force when the buyer paid.
       const originalQuantity = Number(paymentIntent.metadata?.quantity) || 1;
       const originalSubtotalCents = Number(paymentIntent.metadata?.subtotal_cents) || 0;
+      const sellerFeeRate = Number(paymentIntent.metadata?.seller_fee_rate) || 0;
       const currentQuantity = Number(order.reserved_quantity ?? order.quantity ?? 0);
-      const payoutCents = Math.round((originalSubtotalCents * currentQuantity) / originalQuantity);
+      const subtotalCents = Math.round((originalSubtotalCents * currentQuantity) / originalQuantity);
+      const payoutCents = calculateFarmerPayoutCents(subtotalCents, sellerFeeRate);
 
       const chargeId =
         typeof paymentIntent.latest_charge === 'string'
@@ -135,7 +139,11 @@ export async function completeOrderAndReleasePayout(order: any, farmerId: string
 
   const { error: updateError } = await supabaseAdmin
     .from('orders')
-    .update({ status: 'completed', stripe_transfer_id: transferId })
+    .update({
+      status: 'completed',
+      stripe_transfer_id: transferId,
+      ...(payoutAmount > 0 ? { farmer_payout_amount: payoutAmount } : {}),
+    })
     .eq('id', order.id);
 
   if (updateError) {
@@ -221,6 +229,12 @@ export async function refundOrderQuantity(params: {
   const newTotal = newTotalCents / 100;
   const refundAmount = refundCents / 100;
 
+  // Keep the order's produce subtotal and expected farmer payout in step with
+  // the reduced quantity (orders from before these were tracked have neither).
+  const originalSubtotalCents = Number(paymentIntent.metadata?.subtotal_cents) || 0;
+  const sellerFeeRate = Number(paymentIntent.metadata?.seller_fee_rate) || 0;
+  const newSubtotalCents = Math.round((originalSubtotalCents * newQuantity) / originalQuantity);
+
   const { error: updateError } = await supabaseAdmin
     .from('orders')
     .update({
@@ -229,6 +243,12 @@ export async function refundOrderQuantity(params: {
       total_price: newTotal,
       deposit_amount: newTotal,
       authorized_amount: newTotal,
+      ...(originalSubtotalCents
+        ? {
+            subtotal_amount: newSubtotalCents / 100,
+            farmer_payout_amount: calculateFarmerPayoutCents(newSubtotalCents, sellerFeeRate) / 100,
+          }
+        : {}),
       refunded_amount: Number(order.refunded_amount ?? 0) + refundAmount,
       ...(cancelled ? { status: 'cancelled' } : {}),
     })
@@ -360,6 +380,8 @@ export async function resolveNoShow(params: {
       authorized_amount: keptTotal,
       refunded_amount: Number(order.refunded_amount ?? 0) + refundAmount,
       no_show_fee_amount: restockingFee,
+      subtotal_amount: 0,
+      farmer_payout_amount: restockingFee,
       stripe_transfer_id: transferId,
     })
     .eq('id', order.id);

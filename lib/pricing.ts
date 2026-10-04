@@ -6,6 +6,18 @@ export const BUYER_FEE_RATE = 0.05;
 export const BUYER_FEE_FIXED_CENTS = 50;
 export const BUYER_FEE_LABEL = `${BUYER_FEE_RATE * 100}% + $${(BUYER_FEE_FIXED_CENTS / 100).toFixed(2)}`;
 
+// Seller fee: the share of the produce subtotal the platform keeps out of the
+// farmer's payout. It helps cover Stripe's per-farmer Connect charges, which
+// the buyer fee alone doesn't on low-volume farmers. The rate in force at
+// checkout is saved on the payment, so changing it here only affects new
+// orders.
+export const SELLER_FEE_RATE = 0.05;
+
+// What the farmer is paid for a given produce subtotal, in cents.
+export function calculateFarmerPayoutCents(subtotalCents: number, sellerFeeRate: number) {
+  return subtotalCents - Math.round(subtotalCents * sellerFeeRate);
+}
+
 // Stripe's minimum charge for USD.
 export const MIN_CHARGE_CENTS = 50;
 

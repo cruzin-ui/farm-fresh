@@ -24,7 +24,22 @@ type AdminOrder = {
   failed_code_attempts: number;
 };
 
+type SummaryRow = {
+  month: string;
+  farmer_id: string;
+  farm_name: string;
+  orders: number;
+  produce_sales: number;
+  farmer_paid: number;
+  platform_fees: number;
+  estimated_card_fees: number;
+  estimated_net: number;
+};
+
 type OrderFilter = 'open' | 'all';
+
+const formatMonth = (month: string) =>
+  new Date(`${month}-01T12:00:00Z`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
 const STATUS_LABELS: Record<string, string> = {
   pending_pickup: 'Pending Harvest',
@@ -42,6 +57,8 @@ export default function AdminPage() {
   const [notAuthorized, setNotAuthorized] = useState(false);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [filter, setFilter] = useState<OrderFilter>('open');
+  const [summaryRows, setSummaryRows] = useState<SummaryRow[]>([]);
+  const [summaryMonth, setSummaryMonth] = useState<string>('');
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -68,6 +85,14 @@ export default function AdminPage() {
     } else {
       setOrders(data.orders);
     }
+
+    const summaryRes = await postWithAuth('/api/admin/summary');
+    const summaryData = await summaryRes.json();
+    if (summaryRes.ok) {
+      setSummaryRows(summaryData.rows);
+      setSummaryMonth((current) => current || summaryData.rows[0]?.month || '');
+    }
+
     setLoading(false);
   };
 
@@ -115,6 +140,19 @@ export default function AdminPage() {
 
   const visibleOrders = filter === 'open' ? orders.filter(isOpen) : orders;
 
+  const summaryMonths = [...new Set(summaryRows.map((r) => r.month))];
+  const monthRows = summaryRows.filter((r) => r.month === summaryMonth);
+  const monthTotals = monthRows.reduce(
+    (acc, r) => ({
+      produce_sales: acc.produce_sales + r.produce_sales,
+      farmer_paid: acc.farmer_paid + r.farmer_paid,
+      platform_fees: acc.platform_fees + r.platform_fees,
+      estimated_net: acc.estimated_net + r.estimated_net,
+    }),
+    { produce_sales: 0, farmer_paid: 0, platform_fees: 0, estimated_net: 0 }
+  );
+  const farmersAtALoss = monthRows.filter((r) => r.estimated_net < 0).length;
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -161,6 +199,109 @@ export default function AdminPage() {
           <span>{errorMsg}</span>
         </div>
       )}
+
+      {/* FARMER SALES BY MONTH */}
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Farmer Sales by Month</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Completed orders and no-shows, grouped by the month the order was placed.
+            </p>
+          </div>
+          {summaryMonths.length > 0 && (
+            <select
+              value={summaryMonth}
+              onChange={(e) => setSummaryMonth(e.target.value)}
+              className="px-3 py-2 border rounded-xl text-xs font-semibold bg-white"
+            >
+              {summaryMonths.map((m) => (
+                <option key={m} value={m}>
+                  {formatMonth(m)}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {monthRows.length === 0 ? (
+          <p className="text-sm text-gray-500 py-4 text-center">
+            No completed sales in the last six months yet.
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 bg-gray-50 rounded-xl">
+                <p className="text-gray-500">Active farmers</p>
+                <p className="text-lg font-black text-gray-900">{monthRows.length}</p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-xl">
+                <p className="text-gray-500">Produce sold</p>
+                <p className="text-lg font-black text-gray-900">${monthTotals.produce_sales.toFixed(2)}</p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-xl">
+                <p className="text-gray-500">Estimated platform net</p>
+                <p
+                  className={`text-lg font-black ${
+                    monthTotals.estimated_net < 0 ? 'text-red-600' : 'text-emerald-700'
+                  }`}
+                >
+                  ${monthTotals.estimated_net.toFixed(2)}
+                </p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-xl">
+                <p className="text-gray-500">Farmers below break-even</p>
+                <p className="text-lg font-black text-gray-900">
+                  {farmersAtALoss} of {monthRows.length}
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="text-gray-500 border-b">
+                  <tr>
+                    <th className="py-2 pr-4 font-semibold">Farm</th>
+                    <th className="py-2 pr-4 font-semibold text-right">Orders</th>
+                    <th className="py-2 pr-4 font-semibold text-right">Produce sold</th>
+                    <th className="py-2 pr-4 font-semibold text-right">Paid to farmer</th>
+                    <th className="py-2 pr-4 font-semibold text-right">Platform fees</th>
+                    <th className="py-2 pr-4 font-semibold text-right">Est. card fees</th>
+                    <th className="py-2 font-semibold text-right">Est. net</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {monthRows.map((r) => (
+                    <tr key={r.farmer_id}>
+                      <td className="py-2 pr-4 font-semibold text-gray-900">{r.farm_name}</td>
+                      <td className="py-2 pr-4 text-right">{r.orders}</td>
+                      <td className="py-2 pr-4 text-right">${r.produce_sales.toFixed(2)}</td>
+                      <td className="py-2 pr-4 text-right">${r.farmer_paid.toFixed(2)}</td>
+                      <td className="py-2 pr-4 text-right">${r.platform_fees.toFixed(2)}</td>
+                      <td className="py-2 pr-4 text-right">${r.estimated_card_fees.toFixed(2)}</td>
+                      <td
+                        className={`py-2 text-right font-bold ${
+                          r.estimated_net < 0 ? 'text-red-600' : 'text-emerald-700'
+                        }`}
+                      >
+                        ${r.estimated_net.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-[11px] text-gray-400">
+              Estimated net = platform fees − card fees (2.9% + 30¢ per order) − Stripe's $2 monthly fee per
+              active farmer. It leaves out Stripe's per-payout fees, 1099 fees and disputes, so the real figure is
+              a little lower. Orders placed before fee tracking was added may be slightly off.
+            </p>
+          </>
+        )}
+      </div>
+
+      <h2 className="text-lg font-bold text-gray-900">Orders</h2>
 
       {visibleOrders.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200 text-sm text-gray-500">

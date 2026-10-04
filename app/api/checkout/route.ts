@@ -2,15 +2,15 @@ import { NextResponse } from 'next/server';
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
-import { calculateOrderTotals, MIN_CHARGE_CENTS } from '@/lib/pricing';
+import { calculateOrderTotals, MIN_CHARGE_CENTS, SELLER_FEE_RATE } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
 // Step 1 of checkout: creates a Stripe PaymentIntent on the platform account.
 // The whole payment is held by the platform; the farmer's share (the produce
-// subtotal) is only transferred to their connected account when the order is
-// marked completed — see /api/orders/complete. The buyer fee stays with the
-// platform. The order itself is recorded by /api/checkout/complete once
+// subtotal, less the seller fee) is only transferred to their connected
+// account when the order is marked completed — see /api/orders/complete. The
+// buyer fee and seller fee stay with the platform. The order itself is recorded by /api/checkout/complete once
 // payment succeeds.
 export async function POST(request: Request) {
   try {
@@ -86,6 +86,8 @@ export async function POST(request: Request) {
         buyer_id: user.id,
         // The farmer's share for the full quantity, paid out on completion.
         subtotal_cents: String(subtotalCents),
+        // The platform's cut of that share, fixed at the time of purchase.
+        seller_fee_rate: String(SELLER_FEE_RATE),
       },
     });
 
