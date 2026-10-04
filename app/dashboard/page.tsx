@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
+import { resizeImage } from '@/lib/resizeImage';
 import {
   Sprout,
   AlertCircle,
@@ -487,12 +488,13 @@ export default function SellerDashboardPage() {
       let uploadedAvatarUrl = avatarUrl;
 
       if (avatarFile) {
-        const fileExt = avatarFile.name.split('.').pop();
+        const uploadFile = await resizeImage(avatarFile, 800);
+        const fileExt = uploadFile.name.split('.').pop();
         const fileName = `avatars/${user.id}-${Date.now()}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('produce-images')
-          .upload(fileName, avatarFile, { upsert: true });
+          .upload(fileName, uploadFile, { upsert: true });
 
         if (uploadError) throw uploadError;
 
@@ -544,12 +546,13 @@ export default function SellerDashboardPage() {
       let cropImageUrl = null;
 
       if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop();
+        const uploadFile = await resizeImage(imageFile);
+        const fileExt = uploadFile.name.split('.').pop();
         const fileName = `crops/${user.id}-${Date.now()}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('produce-images')
-          .upload(fileName, imageFile);
+          .upload(fileName, uploadFile);
 
         if (uploadError) throw uploadError;
 
@@ -716,10 +719,10 @@ export default function SellerDashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex flex-col md:flex-row gap-8">
-        <aside className="w-full md:w-64 bg-white p-5 rounded-2xl border border-gray-200 shadow-sm shrink-0 self-start">
-          <div className="flex items-center gap-3 pb-6 mb-6 border-b border-gray-100">
+    <div className="max-w-7xl mx-auto md:px-4 py-2 md:py-8">
+      <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+        <aside className="w-full md:w-64 bg-white p-3 md:p-5 rounded-2xl border border-gray-200 shadow-sm shrink-0 self-start">
+          <div className="flex items-center gap-3 pb-3 mb-3 md:pb-6 md:mb-6 border-b border-gray-100">
             {avatarUrl ? (
               <img
                 src={avatarUrl}
@@ -739,14 +742,15 @@ export default function SellerDashboardPage() {
             </div>
           </div>
 
-          <nav className="space-y-1">
+          {/* A horizontal, swipeable tab strip on phones; a vertical menu on desktop. */}
+          <nav className="flex gap-2 overflow-x-auto pb-1 md:block md:space-y-1 md:overflow-visible md:pb-0">
             <button
               onClick={() => {
                 setActiveTab('listings');
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`shrink-0 whitespace-nowrap md:w-full flex items-center justify-between gap-2 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'listings' || activeTab === 'new'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -766,7 +770,7 @@ export default function SellerDashboardPage() {
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`shrink-0 whitespace-nowrap md:w-full flex items-center justify-between gap-2 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'orders'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -788,7 +792,7 @@ export default function SellerDashboardPage() {
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'history'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -803,7 +807,7 @@ export default function SellerDashboardPage() {
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'profile'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -818,7 +822,7 @@ export default function SellerDashboardPage() {
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'settings'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -828,7 +832,7 @@ export default function SellerDashboardPage() {
             </button>
           </nav>
 
-          <div className="pt-6 mt-6 border-t border-gray-100 space-y-2">
+          <div className="pt-2 mt-2 md:pt-6 md:mt-6 border-t border-gray-100 space-y-2">
             <button
               onClick={handleSignOut}
               className="w-full flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -838,7 +842,7 @@ export default function SellerDashboardPage() {
           </div>
         </aside>
 
-        <main className="flex-1 bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 shadow-sm">
+        <main className="flex-1 min-w-0 bg-white p-4 sm:p-8 rounded-2xl border border-gray-200 shadow-sm">
           {successMsg && (
             <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
@@ -925,7 +929,7 @@ export default function SellerDashboardPage() {
                             onClick={() => startEditListing(item)}
                             aria-label="Edit listing"
                             title="Edit listing"
-                            className="p-2 text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                            className="p-3 md:p-2 text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
@@ -933,7 +937,7 @@ export default function SellerDashboardPage() {
                             onClick={() => handleDeleteListing(item.id)}
                             aria-label={listingIdsWithOrders.has(item.id) ? 'Take down listing' : 'Delete listing'}
                             title={listingIdsWithOrders.has(item.id) ? 'Take down listing' : 'Delete listing'}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-3 md:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1342,11 +1346,12 @@ export default function SellerDashboardPage() {
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2 self-start md:self-auto">
+                        {/* Full-width stacked buttons on phones; a row on larger screens. */}
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 w-full md:w-auto">
                           {order.status === 'pending_pickup' && readyDraftOrderId !== order.id && (
                             <button
                               onClick={() => openReadyDraft(order)}
-                              className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+                              className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-3 sm:py-2 rounded-xl transition-colors shadow-sm"
                             >
                               <PackageCheck className="w-4 h-4" /> Mark Ready for Pickup
                             </button>
@@ -1354,7 +1359,7 @@ export default function SellerDashboardPage() {
                           {completeOrderId !== order.id && (
                             <button
                               onClick={() => openComplete(order)}
-                              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+                              className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-3 sm:py-2 rounded-xl transition-colors shadow-sm"
                             >
                               <Check className="w-4 h-4" /> Mark Completed
                             </button>
@@ -1362,7 +1367,7 @@ export default function SellerDashboardPage() {
                           {order.stripe_payment_intent_id && adjustOrderId !== order.id && (
                             <button
                               onClick={() => openAdjust(order)}
-                              className="inline-flex items-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                              className="inline-flex items-center justify-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3.5 py-3 sm:py-2 rounded-xl transition-colors"
                             >
                               <X className="w-4 h-4" /> Cancel / Adjust
                             </button>

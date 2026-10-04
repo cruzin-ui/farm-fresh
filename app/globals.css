@@ -16,3 +16,14 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* iOS Safari zooms the whole page in when a focused form field's text is
+   smaller than 16px, and doesn't zoom back out. Our fields use 14px text, so
+   bump them to 16px on phone-sized screens only. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

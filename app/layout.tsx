@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import BottomNav from "@/components/BottomNav";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
@@ -17,6 +18,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Farm Fresh Direct | Local Agricultural Marketplace",
   description: "Connect local growers and buyers for fresh farm produce.",
+};
+
+// viewportFit "cover" lets the bottom tab bar pad itself clear of the iPhone
+// home indicator.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#059669",
 };
 
 export default function RootLayout({
@@ -39,7 +49,8 @@ export default function RootLayout({
               <span>Farm Fresh <span className="text-emerald-600 font-medium">Direct</span></span>
             </Link>
 
-            <nav className="flex items-center gap-3">
+            {/* On phones these links live in the bottom tab bar instead. */}
+            <nav className="hidden md:flex items-center gap-3">
               <Link
                 href="/browse"
                 className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
@@ -63,9 +74,11 @@ export default function RootLayout({
         </header>
 
         {/* MAIN BODY WRAPPER */}
-        <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6">
+        <main className="flex-1 w-full max-w-7xl mx-auto p-4 pb-24 md:p-6">
           {children}
         </main>
+
+        <BottomNav />
       </body>
     </html>
   );

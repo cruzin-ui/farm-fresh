@@ -124,7 +124,7 @@ export default function BrowsePage() {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+                className={`px-4 py-3 md:py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
                   selectedCategory === cat
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -214,6 +214,7 @@ export default function BrowsePage() {
                     <img
                       src={item.image_url}
                       alt={item.title}
+                      loading="lazy"
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -301,7 +302,7 @@ export default function BrowsePage() {
 
                     <Link
                       href={`/checkout?id=${item.id}`}
-                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition-colors"
+                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-3 md:py-2.5 rounded-xl shadow-sm transition-colors"
                     >
                       <ShoppingBag className="w-3.5 h-3.5" /> Reserve
                     </Link>
