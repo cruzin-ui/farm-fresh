@@ -12,20 +12,25 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   try {
     const user = await getRequestUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'You must be signed in to complete checkout.' }, { status: 401 });
-    }
 
     const body = await request.json();
-    const { paymentIntentId } = body;
+    const { paymentIntentId, clientSecret } = body;
 
     if (!paymentIntentId) {
       return NextResponse.json({ error: 'Missing payment reference.' }, { status: 400 });
     }
 
     const paymentIntent = await stripeAdmin.paymentIntents.retrieve(paymentIntentId);
+    const buyerId = paymentIntent.metadata?.buyer_id;
 
-    if (paymentIntent.metadata?.buyer_id !== user.id) {
+    // The caller must be the person who paid. A signed-in buyer is matched by
+    // account; a guest proves it with the payment's client secret, which only
+    // the browser that made the payment was given.
+    const isBuyer = buyerId
+      ? user?.id === buyerId
+      : Boolean(clientSecret) && clientSecret === paymentIntent.client_secret;
+
+    if (!isBuyer) {
       return NextResponse.json({ error: 'Payment not found.' }, { status: 404 });
     }
 
@@ -33,9 +38,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Payment has not completed.' }, { status: 400 });
     }
 
-    const { orderId, code } = await recordOrderForPaymentIntent(paymentIntent);
+    const { orderId, code, guestToken } = await recordOrderForPaymentIntent(
+      paymentIntent,
+      new URL(request.url).origin
+    );
 
-    return NextResponse.json({ success: true, orderId, code });
+    return NextResponse.json({ success: true, orderId, code, guestToken });
   } catch (err: any) {
     console.error('Checkout completion error:', err);
     return NextResponse.json(

@@ -206,8 +206,20 @@ export default function SellerDashboardPage() {
         setIncomingOrders(
           merged.filter((o) => o.status === 'pending_pickup' || o.status === 'ready_for_pickup')
         );
+        // Pickup codes are hidden from farmers until an order is completed;
+        // after that they're shown in Sales History as a record.
+        let completedCodes: Record<string, string> = {};
+        try {
+          const codesRes = await postWithAuth('/api/orders/completed-codes');
+          if (codesRes.ok) completedCodes = (await codesRes.json()).codes || {};
+        } catch (codesErr) {
+          console.error('Failed to fetch completed pickup codes:', codesErr);
+        }
+
         setSalesHistory(
-          merged.filter((o) => o.status === 'completed' || o.status === 'cancelled')
+          merged
+            .filter((o) => o.status === 'completed' || o.status === 'cancelled')
+            .map((o) => ({ ...o, used_pickup_code: completedCodes[o.id] || null }))
         );
       }
     } else {
@@ -1562,6 +1574,12 @@ export default function SellerDashboardPage() {
                           {new Date(order.created_at).toLocaleDateString()}
                           {Number(order.refunded_amount || 0) > 0 &&
                             ` · $${Number(order.refunded_amount).toFixed(2)} refunded`}
+                          {order.used_pickup_code && (
+                            <>
+                              {' · '}pickup code entered:{' '}
+                              <span className="font-mono font-bold text-gray-700">{order.used_pickup_code}</span>
+                            </>
+                          )}
                           {Number(order.no_show_fee_amount || 0) > 0 &&
                             ` · buyer no-show, $${Number(order.no_show_fee_amount).toFixed(2)} restocking fee paid to you`}
                         </p>

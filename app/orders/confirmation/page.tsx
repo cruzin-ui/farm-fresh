@@ -10,6 +10,8 @@ function ConfirmationContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
   const code = searchParams.get('code');
+  // Present for guest orders: stands in for being signed in.
+  const guestToken = searchParams.get('token');
 
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +23,18 @@ function ConfirmationContent() {
         return;
       }
       try {
+        if (guestToken) {
+          const res = await fetch('/api/orders/guest-view', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId, token: guestToken }),
+          });
+          const guestData = await res.json();
+          if (!res.ok) throw new Error(guestData.error || 'Order not found.');
+          setOrder(guestData.order);
+          return;
+        }
+
         const { data, error } = await supabase
           .from('orders')
           .select('*')
@@ -44,10 +58,13 @@ function ConfirmationContent() {
       }
     }
     fetchOrder();
-  }, [orderId]);
+  }, [orderId, guestToken]);
 
-  const pickupCode = code || order?.pickup_code || 'FFD-0000';
+  const status: string = order?.status || 'pending_pickup';
+  const isOpen = status === 'pending_pickup' || status === 'ready_for_pickup';
+  const pickupCode = order?.pickup_code || code || 'FFD-0000';
   const totalPaid = order?.total_price ?? 0.00;
+  const refunded = Number(order?.refunded_amount || 0);
 
   if (loading) {
     return (
@@ -63,16 +80,61 @@ function ConfirmationContent() {
       {/* Success Banner */}
       <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center space-y-2">
         <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-        <h1 className="text-2xl font-extrabold text-emerald-950">Payment Successful & Reserved!</h1>
-        <p className="text-sm text-emerald-800">Your produce is fully pre-paid and locked in with the grower.</p>
+        <h1 className="text-2xl font-extrabold text-emerald-950">
+          {status === 'completed'
+            ? 'Order Picked Up'
+            : status === 'cancelled'
+              ? 'Order Cancelled'
+              : status === 'ready_for_pickup'
+                ? 'Ready for Pickup!'
+                : 'Payment Successful & Reserved!'}
+        </h1>
+        <p className="text-sm text-emerald-800">
+          {status === 'completed'
+            ? 'This order has been collected. Thank you for buying local!'
+            : status === 'cancelled'
+              ? refunded > 0
+                ? `This order was cancelled and ${refunded.toFixed(2)} was refunded to your payment method.`
+                : 'This order was cancelled.'
+              : status === 'ready_for_pickup'
+                ? 'The farmer has your order ready — pickup details are below.'
+                : 'Your produce is fully pre-paid and locked in with the grower.'}
+        </p>
+        {order?.listing_title && (
+          <p className="text-sm font-semibold text-emerald-950">
+            {order.quantity} {order.listing_unit_type} of {order.listing_title}
+          </p>
+        )}
       </div>
 
+      {status === 'ready_for_pickup' && order?.pickup_details && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 text-sm text-blue-900">
+          <p className="font-bold mb-1">Pickup details from the farmer</p>
+          <p className="whitespace-pre-wrap">{order.pickup_details}</p>
+        </div>
+      )}
+
       {/* Pickup Code Display */}
+      {(isOpen || order?.pickup_code) && (
       <div className="bg-white border-2 border-dashed border-emerald-300 rounded-2xl p-6 text-center space-y-2 shadow-sm bg-gradient-to-b from-emerald-50/30 to-white">
-        <span className="text-xs font-bold uppercase tracking-widest text-emerald-800">Pickup Verification Code</span>
+        <span className="text-xs font-bold uppercase tracking-widest text-emerald-800">
+          {isOpen
+            ? 'Pickup Verification Code'
+            : status === 'completed'
+              ? 'Pickup Code (used at pickup)'
+              : 'Pickup Code (order cancelled)'}
+        </span>
         <div className="text-4xl font-black text-emerald-900 tracking-wider font-mono">{pickupCode}</div>
-        <p className="text-xs text-gray-500">Give this code to the farmer only when you collect your harvest — it confirms you received your order and releases their payment.</p>
+        {isOpen && <p className="text-xs text-gray-500">Give this code to the farmer only when you collect your harvest — it confirms you received your order and releases their payment.</p>}
       </div>
+      )}
+
+      {guestToken && isOpen && (
+        <p className="text-xs text-gray-500 text-center">
+          You checked out as a guest. We've emailed you a link to this page — keep that email or bookmark this
+          page to get back to your order and pickup code.
+        </p>
+      )}
 
       {/* Payment & Status Summary */}
       <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-3 text-sm">
@@ -100,10 +162,10 @@ function ConfirmationContent() {
           <Printer className="w-4 h-4 text-gray-500" /> Print Receipt
         </button>
         <Link
-          href="/orders"
+          href={guestToken ? '/browse' : '/orders'}
           className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 text-center shadow-md"
         >
-          View My Orders
+          {guestToken ? 'Back to Marketplace' : 'View My Orders'}
         </Link>
       </div>
     </div>

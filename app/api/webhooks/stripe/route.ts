@@ -35,9 +35,11 @@ export async function POST(request: Request) {
     if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object;
 
-      // Only payments created by our checkout carry this metadata.
-      if (paymentIntent.metadata?.listing_id && paymentIntent.metadata?.buyer_id) {
-        await recordOrderForPaymentIntent(paymentIntent);
+      // Only payments created by our checkout carry this metadata. Guest
+      // checkouts have no buyer_id, so they are recognised by their email.
+      const { listing_id, buyer_id, buyer_email } = paymentIntent.metadata || {};
+      if (listing_id && (buyer_id || buyer_email)) {
+        await recordOrderForPaymentIntent(paymentIntent, new URL(request.url).origin);
       }
     }
 

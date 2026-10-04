@@ -64,6 +64,11 @@ export async function POST(request: Request) {
             <p style="white-space: pre-wrap;">${escapeHtml(String(pickupDetails))}</p>
             <p>Your pickup code: <strong>${pickupCode}</strong></p>
             <p>Give this code to the farmer only when you collect your produce — it releases their payment.</p>
+            ${
+              order.guest_access_token
+                ? `<p><a href="${new URL(request.url).origin}/orders/confirmation?orderId=${order.id}&token=${order.guest_access_token}">View your order</a></p>`
+                : ''
+            }
           </div>
         `,
       });

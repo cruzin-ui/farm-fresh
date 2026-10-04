@@ -124,6 +124,38 @@ export default function MyOrdersPage() {
 
           return (
             <div key={order.id} className="p-5 bg-white border border-gray-200 rounded-2xl shadow-sm space-y-3">
+              {order.display_code && (
+                <div
+                  className={`rounded-xl p-4 text-center border-2 ${
+                    open ? 'border-emerald-500 bg-emerald-50' : 'border-dashed border-gray-300 bg-gray-50'
+                  }`}
+                >
+                  <span
+                    className={`text-[11px] font-bold uppercase tracking-widest ${
+                      open ? 'text-emerald-800' : 'text-gray-500'
+                    }`}
+                  >
+                    {open
+                      ? 'Your Pickup Code'
+                      : order.status === 'completed'
+                        ? 'Pickup Code (used at pickup)'
+                        : 'Pickup Code (order cancelled)'}
+                  </span>
+                  <div
+                    className={`text-4xl font-black tracking-wider font-mono ${
+                      open ? 'text-emerald-900' : 'text-gray-400'
+                    }`}
+                  >
+                    {order.display_code}
+                  </div>
+                  {open && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      Give this code to the farmer only when you collect your produce — it releases
+                      their payment.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="flex justify-between items-start gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -161,20 +193,6 @@ export default function MyOrdersPage() {
                 </div>
               )}
 
-              {open && order.display_code && (
-                <div className="border-2 border-dashed border-emerald-300 rounded-xl p-3 text-center bg-emerald-50/40">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-800">
-                    Pickup Code
-                  </span>
-                  <div className="text-2xl font-black text-emerald-900 tracking-wider font-mono">
-                    {order.display_code}
-                  </div>
-                  <p className="text-[11px] text-gray-500">
-                    Give this code to the farmer only when you collect your produce — it releases
-                    their payment.
-                  </p>
-                </div>
-              )}
             </div>
           );
         })}

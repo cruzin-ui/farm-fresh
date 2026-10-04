@@ -1,5 +1,6 @@
 import type Stripe from 'stripe';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { randomBytes } from 'crypto';
 import { getOrCreatePickupCode } from '@/lib/pickupCodes';
 import { sendEmail } from '@/lib/email';
 import { calculateFarmerPayoutCents } from '@/lib/pricing';
@@ -44,8 +45,9 @@ async function sendBuyerConfirmation(params: {
   unitType: string;
   totalPrice: number;
   pickupCode: string;
+  orderLink: string | null;
 }) {
-  const { buyerEmail, listingTitle, quantity, unitType, totalPrice, pickupCode } = params;
+  const { buyerEmail, listingTitle, quantity, unitType, totalPrice, pickupCode, orderLink } = params;
 
   await sendEmail({
     to: buyerEmail,
@@ -61,6 +63,7 @@ async function sendBuyerConfirmation(params: {
           confirms you received your order and releases their payment. We'll email you when
           your order is ready for pickup.
         </p>
+        ${orderLink ? `<p><a href="${orderLink}">View your order and pickup code</a> at any time — keep this email, the link is how you get back to it.</p>` : ''}
       </div>
     `,
   });
@@ -71,17 +74,26 @@ async function sendBuyerConfirmation(params: {
 // from both /api/checkout/complete (the buyer's browser) and the Stripe
 // webhook, so it is idempotent: whichever arrives second gets the existing
 // order back and nothing is decremented or emailed twice.
-export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentIntent) {
-  const buyerId = paymentIntent.metadata.buyer_id;
+//
+// Guest orders have no buyer account: buyer_id is null, the email comes from
+// what the guest typed at checkout, and a random access token stands in for
+// being signed in when they view the order later. `siteUrl` is used to build
+// that link for the confirmation email.
+export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentIntent, siteUrl?: string) {
+  const buyerId = paymentIntent.metadata.buyer_id || null;
 
   const { data: existing } = await supabaseAdmin
     .from('orders')
-    .select('id')
+    .select('id, guest_access_token')
     .eq('stripe_payment_intent_id', paymentIntent.id)
     .maybeSingle();
 
   if (existing) {
-    return { orderId: existing.id as string, code: await getOrCreatePickupCode(existing.id, buyerId) };
+    return {
+      orderId: existing.id as string,
+      code: await getOrCreatePickupCode(existing.id, buyerId),
+      guestToken: (existing.guest_access_token as string | null) ?? null,
+    };
   }
 
   const listingId = paymentIntent.metadata.listing_id;
@@ -90,8 +102,13 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
   const subtotalCents = Number(paymentIntent.metadata.subtotal_cents) || 0;
   const sellerFeeRate = Number(paymentIntent.metadata.seller_fee_rate) || 0;
 
-  const { data: buyerUser } = await supabaseAdmin.auth.admin.getUserById(buyerId);
-  const buyerEmail = buyerUser?.user?.email || null;
+  let buyerEmail: string | null = paymentIntent.metadata.buyer_email || null;
+  if (buyerId) {
+    const { data: buyerUser } = await supabaseAdmin.auth.admin.getUserById(buyerId);
+    buyerEmail = buyerUser?.user?.email || buyerEmail;
+  }
+
+  const guestToken = buyerId ? null : randomBytes(24).toString('hex');
 
   const { data: order, error: orderError } = await supabaseAdmin
     .from('orders')
@@ -99,6 +116,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
       {
         buyer_id: buyerId,
         buyer_email: buyerEmail,
+        guest_access_token: guestToken,
         listing_id: listingId,
         quantity: orderQuantity,
         reserved_quantity: orderQuantity,
@@ -123,12 +141,16 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     if (orderError.code === '23505') {
       const { data: raced } = await supabaseAdmin
         .from('orders')
-        .select('id')
+        .select('id, guest_access_token')
         .eq('stripe_payment_intent_id', paymentIntent.id)
         .maybeSingle();
 
       if (raced) {
-        return { orderId: raced.id as string, code: await getOrCreatePickupCode(raced.id, buyerId) };
+        return {
+          orderId: raced.id as string,
+          code: await getOrCreatePickupCode(raced.id, buyerId),
+          guestToken: (raced.guest_access_token as string | null) ?? null,
+        };
       }
     }
     throw orderError;
@@ -168,6 +190,10 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
       unitType,
       totalPrice: totalPaid,
       pickupCode,
+      orderLink:
+        guestToken && siteUrl
+          ? `${siteUrl}/orders/confirmation?orderId=${order.id}&token=${guestToken}`
+          : null,
     });
   }
 
@@ -189,5 +215,5 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     }
   }
 
-  return { orderId: order.id as string, code: pickupCode };
+  return { orderId: order.id as string, code: pickupCode, guestToken };
 }

@@ -15,13 +15,23 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   try {
     const user = await getRequestUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'You must be signed in to complete checkout.' }, { status: 401 });
-    }
 
     const body = await request.json();
     const { listingId } = body;
     const orderQuantity = Number(body.quantity);
+
+    // Buyers either sign in or check out as a guest with just an email
+    // address, which is where their confirmation and pickup code are sent.
+    const guestEmail = typeof body.guestEmail === 'string' ? body.guestEmail.trim().toLowerCase() : '';
+
+    if (!user && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail)) {
+      return NextResponse.json(
+        { error: 'Enter a valid email address so we can send your confirmation and pickup code.' },
+        { status: 400 }
+      );
+    }
+
+    const buyerEmail = user ? user.email || '' : guestEmail;
 
     if (!listingId) {
       return NextResponse.json({ error: 'Missing listing reference.' }, { status: 400 });
@@ -83,7 +93,9 @@ export async function POST(request: Request) {
       metadata: {
         listing_id: String(listingId),
         quantity: String(orderQuantity),
-        buyer_id: user.id,
+        // Empty for guest checkouts, which are identified by email alone.
+        buyer_id: user?.id || '',
+        buyer_email: buyerEmail,
         // The farmer's share for the full quantity, paid out on completion.
         subtotal_cents: String(subtotalCents),
         // The platform's cut of that share, fixed at the time of purchase.

@@ -19,7 +19,11 @@ function PaymentForm({
   maxQty,
   unitType,
   grandTotal,
+  signedIn,
+  loginHref,
 }: {
+  signedIn: boolean;
+  loginHref: string;
   listingId: string;
   quantity: number;
   maxQty: number;
@@ -32,6 +36,7 @@ function PaymentForm({
 
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [guestEmail, setGuestEmail] = useState('');
 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +55,11 @@ function PaymentForm({
       const { error: submitError } = await elements.submit();
       if (submitError) throw new Error(submitError.message || 'Please check your card details.');
 
-      const intentRes = await postWithAuth('/api/checkout', { listingId, quantity });
+      const intentRes = await postWithAuth('/api/checkout', {
+        listingId,
+        quantity,
+        ...(signedIn ? {} : { guestEmail }),
+      });
       const intentData = await intentRes.json();
       if (!intentRes.ok) throw new Error(intentData.error || 'Could not start payment.');
 
@@ -64,8 +73,11 @@ function PaymentForm({
       if (confirmError) throw new Error(confirmError.message || 'Payment failed.');
       if (paymentIntent?.status !== 'succeeded') throw new Error('Payment was not completed.');
 
+      // Guests have no session, so the payment's client secret is what proves
+      // to the server that this browser made the payment.
       const completeRes = await postWithAuth('/api/checkout/complete', {
         paymentIntentId: paymentIntent.id,
+        clientSecret: intentData.clientSecret,
       });
       const completeData = await completeRes.json();
       if (!completeRes.ok) {
@@ -74,7 +86,10 @@ function PaymentForm({
         );
       }
 
-      router.push(`/orders/confirmation?orderId=${completeData.orderId}&code=${completeData.code}`);
+      router.push(
+        `/orders/confirmation?orderId=${completeData.orderId}&code=${completeData.code}` +
+          (completeData.guestToken ? `&token=${completeData.guestToken}` : '')
+      );
     } catch (err: any) {
       setPaymentError(err.message || 'Payment processing failed.');
     } finally {
@@ -88,6 +103,27 @@ function PaymentForm({
         <CreditCard className="w-5 h-5 text-emerald-600" />
         Payment Details
       </h2>
+
+      {!signedIn && (
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Email for your confirmation *</label>
+          <input
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={guestEmail}
+            onChange={(e) => setGuestEmail(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg text-sm"
+          />
+          <p className="text-[11px] text-gray-500 mt-1">
+            Checking out as a guest. Your pickup code is sent here, so double-check the spelling.{' '}
+            <Link href={loginHref} className="font-semibold text-emerald-700 hover:underline">
+              Sign in instead
+            </Link>
+          </p>
+        </div>
+      )}
 
       <div className="min-h-[100px]">
         <PaymentElement />
@@ -124,17 +160,16 @@ function CheckoutContent() {
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [authChecked, setAuthChecked] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
 
   const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
     async function checkAuth() {
+      // Signing in is optional — buyers without an account check out as a
+      // guest with just an email address.
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        const redirectTarget = listingId ? `/checkout?id=${listingId}` : '/checkout';
-        router.push(`/login?redirect=${encodeURIComponent(redirectTarget)}`);
-        return;
-      }
+      setSignedIn(Boolean(user));
       setAuthChecked(true);
     }
     checkAuth();
@@ -300,6 +335,8 @@ function CheckoutContent() {
               }}
             >
               <PaymentForm
+                signedIn={signedIn}
+                loginHref={`/login?redirect=${encodeURIComponent(`/checkout?id=${listing.id}`)}`}
                 listingId={listing.id}
                 quantity={quantity}
                 maxQty={maxQty}

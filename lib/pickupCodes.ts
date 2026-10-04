@@ -20,7 +20,8 @@ export function normalizePickupCode(code: string) {
 
 // Returns the order's code, creating one if it doesn't have one yet. Safe to
 // call concurrently — the first insert wins and everyone reads the same code.
-export async function getOrCreatePickupCode(orderId: string, buyerId: string) {
+// `buyerId` is null for guest orders.
+export async function getOrCreatePickupCode(orderId: string, buyerId: string | null) {
   await supabaseAdmin
     .from('order_pickup_codes')
     .upsert(

@@ -160,7 +160,7 @@ export default function ListingDetailPage() {
               </Link>
             )}
             <p className="text-[11px] text-gray-400 text-center">
-              You'll be asked to sign in to reserve. Paid in full online, plus a {BUYER_FEE_LABEL} service
+              No account needed — check out as a guest or sign in. Paid in full online, plus a {BUYER_FEE_LABEL} service
               fee — exact pickup details are sent once the farmer marks your order ready.
             </p>
           </div>
