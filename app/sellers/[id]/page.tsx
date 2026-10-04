@@ -73,11 +73,15 @@ export default function PublicSellerProfilePage() {
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm mb-8">
         <div className="h-48 bg-emerald-700 relative flex items-center justify-center text-white">
           {profile?.cover_image_url ? (
-            <img src={profile.cover_image_url} alt="Cover" className="w-full h-full object-cover" />
+            <img
+              src={profile.cover_image_url}
+              alt={`${profile.farm_name || 'Farm'} banner`}
+              className="w-full h-full object-cover"
+            />
           ) : (
             <div className="flex items-center gap-2 opacity-80">
               <Sprout className="w-10 h-10" />
-              <span className="text-2xl font-bold tracking-wide">Local Farm Partner</span>
+              <span className="text-2xl font-bold tracking-wide">{profile?.farm_name || 'Local Farm Partner'}</span>
             </div>
           )}
         </div>

@@ -111,6 +111,10 @@ export default function SellerDashboardPage() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  // Banner shown across the top of the farm's public page
+  const [coverUrl, setCoverUrl] = useState('');
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const [bio, setBio] = useState('');
   const [profileLocation, setProfileLocation] = useState('');
   const [profileZip, setProfileZip] = useState('');
@@ -118,6 +122,7 @@ export default function SellerDashboardPage() {
 
   const avatarCameraInputRef = useRef<HTMLInputElement>(null);
   const avatarLibraryInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   // Stripe Connect onboarding state
   const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
@@ -196,6 +201,7 @@ export default function SellerDashboardPage() {
     if (profile) {
       setFarmName(profile.farm_name || '');
       setAvatarUrl(profile.avatar_url || '');
+      setCoverUrl(profile.cover_image_url || '');
       setBio(profile.bio || '');
       setProfileLocation(profile.location || '');
       setProfileZip(profile.zip_code || '');
@@ -557,10 +563,32 @@ export default function SellerDashboardPage() {
         setAvatarUrl(uploadedAvatarUrl);
       }
 
+      let uploadedCoverUrl = coverUrl;
+
+      if (coverFile) {
+        const uploadFile = await resizeImage(coverFile, 1600);
+        const fileExt = uploadFile.name.split('.').pop();
+        const fileName = `covers/${user.id}-${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('produce-images')
+          .upload(fileName, uploadFile, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('produce-images')
+          .getPublicUrl(fileName);
+
+        uploadedCoverUrl = publicUrlData.publicUrl;
+        setCoverUrl(uploadedCoverUrl);
+      }
+
       const profilePayload = {
         id: user.id,
         farm_name: farmName,
         avatar_url: uploadedAvatarUrl,
+        cover_image_url: uploadedCoverUrl || null,
         bio,
         location: profileLocation,
         zip_code: profileZip,
@@ -576,6 +604,8 @@ export default function SellerDashboardPage() {
       setSuccessMsg('Farm profile and image successfully updated!');
       setAvatarFile(null);
       setAvatarPreviewUrl(null);
+      setCoverFile(null);
+      setCoverPreviewUrl(null);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to update farm profile.');
     } finally {
@@ -754,6 +784,11 @@ export default function SellerDashboardPage() {
   const handleCropFileSelected = (file: File | null) => {
     setImageFile(file);
     setImagePreviewUrl(file ? URL.createObjectURL(file) : null);
+  };
+
+  const handleCoverFileSelected = (file: File | null) => {
+    setCoverFile(file);
+    setCoverPreviewUrl(file ? URL.createObjectURL(file) : null);
   };
 
   const handleAvatarFileSelected = (file: File | null) => {
@@ -1735,6 +1770,64 @@ export default function SellerDashboardPage() {
                     This photo will display beside every harvest listing you publish.
                   </p>
                 </div>
+              </div>
+
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+                <div>
+                  <p id="dash-banner-label" className="text-xs font-semibold text-gray-700">
+                    Farm Banner Photo (Optional)
+                  </p>
+                  <p className="text-[10px] text-gray-400">
+                    A wide photo shown across the top of your public farm page — your fields, your stand or
+                    your harvest. Landscape photos work best; the middle of the photo is what shows.
+                  </p>
+                </div>
+
+                {/* Previewed at the same shape it has on the public page. */}
+                <div className="h-32 sm:h-40 rounded-xl overflow-hidden bg-emerald-700 flex items-center justify-center text-white">
+                  {coverPreviewUrl || coverUrl ? (
+                    <img
+                      src={coverPreviewUrl || coverUrl}
+                      alt="Farm banner preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2 opacity-80">
+                      <Sprout className="w-8 h-8" aria-hidden="true" />
+                      <span className="text-sm font-bold">No banner yet</span>
+                    </div>
+                  )}
+                </div>
+
+                <div role="group" aria-labelledby="dash-banner-label" className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => coverInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-xs font-semibold text-gray-700 hover:bg-white bg-white"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" /> {coverPreviewUrl || coverUrl ? 'Change Banner' : 'Choose Banner'}
+                  </button>
+                  {(coverPreviewUrl || coverUrl) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCoverFileSelected(null);
+                        setCoverUrl('');
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-xs font-semibold text-gray-700 hover:bg-white bg-white"
+                    >
+                      <X className="w-3.5 h-3.5" /> Remove
+                    </button>
+                  )}
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleCoverFileSelected(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400">Click "Save Profile &amp; Branding" below to apply.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
