@@ -81,9 +81,19 @@ export default function RootLayout({
         </header>
 
         {/* MAIN BODY WRAPPER */}
-        <main className="flex-1 w-full max-w-7xl mx-auto p-4 pb-24 md:p-6">
+        <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6">
           {children}
         </main>
+
+        {/* Extra bottom padding on phones keeps the footer clear of the tab bar. */}
+        <footer className="print:hidden w-full max-w-7xl mx-auto px-4 pt-4 pb-24 md:pb-6 text-xs text-gray-500 flex items-center justify-center gap-4">
+          <Link href="/contact" className="font-semibold hover:text-emerald-700 hover:underline">
+            Contact Us
+          </Link>
+          <Link href="/about" className="font-semibold hover:text-emerald-700 hover:underline">
+            About
+          </Link>
+        </footer>
 
         <BottomNav />
       </body>

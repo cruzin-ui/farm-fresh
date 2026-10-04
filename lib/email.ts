@@ -15,7 +15,7 @@ export function escapeHtml(text: string) {
 }
 
 // Never throws — a missed email shouldn't undo a real sale or refund.
-export async function sendEmail(params: { to: string; subject: string; html: string }) {
+export async function sendEmail(params: { to: string | string[]; subject: string; html: string; replyTo?: string }) {
   if (!process.env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not set — skipping email:', params.subject);
     return;
@@ -30,7 +30,8 @@ export async function sendEmail(params: { to: string; subject: string; html: str
       },
       body: JSON.stringify({
         from: process.env.EMAIL_FROM || DEFAULT_FROM,
-        to: [params.to],
+        to: Array.isArray(params.to) ? params.to : [params.to],
+        ...(params.replyTo ? { reply_to: params.replyTo } : {}),
         subject: params.subject,
         html: params.html,
       }),

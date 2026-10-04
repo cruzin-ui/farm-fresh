@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { sendEmail, escapeHtml } from '@/lib/email';
+import { buyerGuidanceEmailHtml } from '@/lib/buyerGuidance';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
             ${order.pickup_address ? `<p>Pickup address: <strong>${escapeHtml(order.pickup_address)}</strong></p>` : ''}
             <p>Your pickup code: <strong>${pickupCode}</strong></p>
             <p>Give this code to the farmer only when you collect your produce — it releases their payment.</p>
+            ${buyerGuidanceEmailHtml(new URL(request.url).origin)}
             ${
               order.guest_access_token
                 ? `<p><a href="${new URL(request.url).origin}/orders/confirmation?orderId=${order.id}&token=${order.guest_access_token}">View your order</a></p>`

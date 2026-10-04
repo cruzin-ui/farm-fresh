@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { CircleUser, ChevronDown, Receipt, LayoutDashboard, LogOut, LogIn } from 'lucide-react';
+import { CircleUser, ChevronDown, Receipt, LayoutDashboard, LogOut, LogIn, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
 // The account control in the top header, shown on every screen size. Signed
@@ -118,6 +118,13 @@ export default function AccountMenu() {
             className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
           >
             <LayoutDashboard className="w-4 h-4" /> Seller Dashboard
+          </Link>
+          <Link
+            href="/contact"
+            role="menuitem"
+            className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
+          >
+            <Mail className="w-4 h-4" /> Contact Us
           </Link>
           <button
             onClick={handleSignOut}

@@ -36,6 +36,16 @@ type SummaryRow = {
   estimated_net: number;
 };
 
+type ContactMessage = {
+  id: string;
+  created_at: string;
+  email: string;
+  subject: string;
+  message: string;
+  resolved: boolean;
+  user_id: string | null;
+};
+
 type OrderFilter = 'open' | 'all';
 
 const formatMonth = (month: string) =>
@@ -59,6 +69,8 @@ export default function AdminPage() {
   const [filter, setFilter] = useState<OrderFilter>('open');
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>([]);
   const [summaryMonth, setSummaryMonth] = useState<string>('');
+  const [messages, setMessages] = useState<ContactMessage[]>([]);
+  const [showResolvedMessages, setShowResolvedMessages] = useState(false);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -93,7 +105,20 @@ export default function AdminPage() {
       setSummaryMonth((current) => current || summaryData.rows[0]?.month || '');
     }
 
+    const messagesRes = await postWithAuth('/api/admin/messages');
+    const messagesData = await messagesRes.json();
+    if (messagesRes.ok) setMessages(messagesData.messages);
+
     setLoading(false);
+  };
+
+  const setMessageResolved = async (message: ContactMessage, resolved: boolean) => {
+    const res = await postWithAuth('/api/admin/messages', { id: message.id, resolved });
+    if (res.ok) {
+      setMessages((current) => current.map((m) => (m.id === message.id ? { ...m, resolved } : m)));
+    } else {
+      setErrorMsg('Could not update that message.');
+    }
   };
 
   useEffect(() => {
@@ -153,6 +178,9 @@ export default function AdminPage() {
   );
   const farmersAtALoss = monthRows.filter((r) => r.estimated_net < 0).length;
 
+  const openMessages = messages.filter((m) => !m.resolved);
+  const visibleMessages = showResolvedMessages ? messages : openMessages;
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -199,6 +227,65 @@ export default function AdminPage() {
           <span>{errorMsg}</span>
         </div>
       )}
+
+      {/* CONTACT MESSAGES */}
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">
+              Contact Messages{openMessages.length > 0 ? ` (${openMessages.length} open)` : ''}
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Sent through the Contact Us page. Each one is also emailed to you; replying to that email
+              answers the sender.
+            </p>
+          </div>
+          {messages.length > openMessages.length && (
+            <button
+              onClick={() => setShowResolvedMessages((current) => !current)}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border text-gray-600 hover:bg-gray-50"
+            >
+              {showResolvedMessages ? 'Hide resolved' : 'Show resolved'}
+            </button>
+          )}
+        </div>
+
+        {visibleMessages.length === 0 ? (
+          <p className="text-sm text-gray-500 py-2 text-center">No open messages.</p>
+        ) : (
+          <div className="space-y-3">
+            {visibleMessages.map((m) => (
+              <div
+                key={m.id}
+                className={`p-4 border rounded-xl text-sm ${m.resolved ? 'bg-gray-50 border-gray-200' : 'border-amber-200 bg-amber-50/40'}`}
+              >
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-900 break-words">{m.subject}</p>
+                    <p className="text-xs text-gray-500">
+                      From{' '}
+                      <a
+                        href={`mailto:${m.email}?subject=${encodeURIComponent(`Re: ${m.subject}`)}`}
+                        className="font-semibold text-emerald-700 underline break-all"
+                      >
+                        {m.email}
+                      </a>
+                      {m.user_id ? ' (signed-in user)' : ''} · {new Date(m.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setMessageResolved(m, !m.resolved)}
+                    className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-white border text-gray-600 hover:bg-gray-50"
+                  >
+                    {m.resolved ? 'Reopen' : 'Mark Resolved'}
+                  </button>
+                </div>
+                <p className="mt-2 text-gray-700 whitespace-pre-wrap break-words">{m.message}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* FARMER SALES BY MONTH */}
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">

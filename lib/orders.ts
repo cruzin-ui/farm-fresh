@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import { getOrCreatePickupCode } from '@/lib/pickupCodes';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { calculateFarmerPayoutCents } from '@/lib/pricing';
+import { buyerGuidanceEmailHtml } from '@/lib/buyerGuidance';
 
 // The seller's email deliberately leaves out the pickup code — they only get
 // it from the buyer at pickup, and need it to release their payout.
@@ -47,14 +48,15 @@ async function sendBuyerConfirmation(params: {
   pickupCode: string;
   pickupAddress: string | null;
   orderLink: string | null;
+  siteUrl?: string;
 }) {
-  const { buyerEmail, listingTitle, quantity, unitType, totalPrice, pickupCode, pickupAddress, orderLink } = params;
+  const { buyerEmail, listingTitle, quantity, unitType, totalPrice, pickupCode, pickupAddress, orderLink, siteUrl } = params;
 
   await sendEmail({
     to: buyerEmail,
     subject: `Order confirmed: ${quantity} ${unitType} of ${listingTitle}`,
     html: `
-      <div style="font-family: sans-serif; max-width: 480px;">
+      <div style="font-family: sans-serif; max-width: 520px;">
         <h2 style="color: #059669;">Your order is confirmed!</h2>
         <p><strong>${listingTitle}</strong> — ${quantity} ${unitType}</p>
         <p>Total paid: ${totalPrice.toFixed(2)}</p>
@@ -65,6 +67,7 @@ async function sendBuyerConfirmation(params: {
           confirms you received your order and releases their payment. We'll email you when
           your order is ready for pickup.
         </p>
+        ${buyerGuidanceEmailHtml(siteUrl)}
         ${orderLink ? `<p><a href="${orderLink}">View your order and pickup code</a> at any time — keep this email, the link is how you get back to it.</p>` : ''}
       </div>
     `,
@@ -204,6 +207,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
       totalPrice: totalPaid,
       pickupCode,
       pickupAddress,
+      siteUrl,
       orderLink:
         guestToken && siteUrl
           ? `${siteUrl}/orders/confirmation?orderId=${order.id}&token=${guestToken}`

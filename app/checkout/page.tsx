@@ -8,6 +8,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
+import BuyerGuidance from '@/components/BuyerGuidance';
 import { calculateOrderTotals, BUYER_FEE_LABEL, MIN_CHARGE_CENTS } from '@/lib/pricing';
 
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
@@ -128,6 +129,14 @@ function PaymentForm({
       <div className="min-h-[100px]">
         <PaymentElement />
       </div>
+
+      <label className="flex items-start gap-2 text-xs text-gray-700">
+        <input type="checkbox" required className="mt-0.5 w-4 h-4 shrink-0" />
+        <span>
+          I understand how pickup works, and I won't give my pickup code to the farmer until I have my
+          produce.
+        </span>
+      </label>
 
       {paymentError && (
         <p role="alert" className="text-xs text-red-600 bg-red-50 border border-red-200 p-2 rounded-lg">{paymentError}</p>
@@ -313,6 +322,8 @@ function CheckoutContent() {
               <span>$0.00 (Pre-Paid)</span>
             </div>
           </div>
+
+          <BuyerGuidance />
         </div>
 
         <div className="md:col-span-2">
