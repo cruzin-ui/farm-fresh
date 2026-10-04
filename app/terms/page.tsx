@@ -71,9 +71,10 @@ export default function TermsPage() {
               whatever you will not receive, including the matching share of the service fee.
             </li>
             <li>
-              <strong>If you cannot collect your order,</strong> contact us as early as you can. If an order is
-              not collected, the service fee is not refunded and the seller keeps a {NO_SHOW_FEE} restocking
-              fee; the rest of what you paid for the produce is refunded.
+              <strong>If you cannot collect your order,</strong> contact us as early as you can. If a seller
+              reports that an order was not collected, we email you, and you have 48 hours to tell us if that
+              is wrong. If an order is not collected, the service fee is not refunded and the seller keeps a{' '}
+              {NO_SHOW_FEE} restocking fee; the rest of what you paid for the produce is refunded.
             </li>
             <li>
               <strong>If there is a problem with your order at pickup,</strong> do not give the seller your

@@ -4,6 +4,8 @@ import { getRequestUser } from '@/lib/apiAuth';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { NO_SHOW_RESTOCKING_RATE } from '@/lib/orderActions';
+import { NO_SHOW_REVIEW_HOURS } from '@/lib/noShow';
+import { signNoShowDispute } from '@/lib/noShowDispute';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,8 +19,9 @@ function adminRecipients() {
 }
 
 // Lets a farmer report that a buyer never came for an order that was ready.
-// This moves no money: it flags the order for an admin and emails the buyer
-// so they can respond. The admin reviews it and
+// This moves no money: it flags the order and emails the buyer so they can
+// respond. If the buyer doesn't respond within the review period, a scheduled
+// job closes the order as a no-show; otherwise an admin reviews it and
 // then closes it as a no-show (or dismisses the report) from the admin page.
 // Farmers can't close a no-show themselves, because doing so pays them a
 // restocking fee.
@@ -110,6 +113,7 @@ export async function POST(request: Request) {
       const siteUrl = new URL(request.url).origin;
       const quantity = Number(order.reserved_quantity ?? order.quantity ?? 0);
       const guestToken = order.buyer_id ? null : (await getPickupCodeRecord(order.id))?.guestToken;
+      const disputeLink = `${siteUrl}/orders/dispute?orderId=${order.id}&sig=${signNoShowDispute(String(order.id))}`;
       const orderLink = guestToken
         ? `${siteUrl}/orders/confirmation?orderId=${order.id}&token=${guestToken}`
         : `${siteUrl}/orders`;
@@ -127,12 +131,15 @@ export async function POST(request: Request) {
               it wasn't collected.
             </p>
             <p>
-              <strong>If that's not right, or you still want to pick it up, please let us know as soon as you
-              can</strong> by replying to this email or through our
-              <a href="${siteUrl}/contact">contact page</a>. Nothing has been decided yet.
+              <strong>If that's not right, or you still want to pick it up, tell us within
+              ${NO_SHOW_REVIEW_HOURS} hours.</strong> Nothing has been decided yet.
             </p>
             <p>
-              If we don't hear from you, the order will be closed as not picked up. You'll then be refunded
+              <a href="${disputeLink}" style="display: inline-block; background: #047857; color: #ffffff; text-decoration: none; font-weight: bold; padding: 10px 18px; border-radius: 8px;">This isn't right — review my order</a>
+            </p>
+            <p>
+              If we don't hear from you within ${NO_SHOW_REVIEW_HOURS} hours, the order will be closed as not
+              picked up. You'll then be refunded
               what you paid for the produce, less a ${NO_SHOW_RESTOCKING_RATE * 100}% restocking fee for the
               farmer. The service fee isn't refunded on missed pickups.
             </p>

@@ -72,8 +72,10 @@ const BUYER_FAQS: Faq[] = [
         <Link href="/contact" className="font-semibold text-emerald-800 underline">
           contact us
         </Link>{' '}
-        as early as you can. If an order is never collected, the service fee isn't refunded and the farmer keeps
-        a {NO_SHOW_FEE} restocking fee; the rest of what you paid for the produce is refunded.
+        as early as you can. If a farmer reports that you didn't pick up an order, we email you and you have 48
+        hours to tell us if that's wrong, using the button in that email. If an order is never collected, the
+        service fee isn't refunded and the farmer keeps a {NO_SHOW_FEE} restocking fee; the rest of what you
+        paid for the produce is refunded.
       </>
     ),
   },
@@ -203,7 +205,8 @@ const SELLER_FAQS: Faq[] = [
     answer: (
       <>
         Once you've marked an order ready, you can report a no-show with the Buyer Did Not Show button in your
-        Seller Dashboard. We review each report. When an order is closed as a no-show you receive a{' '}
+        Seller Dashboard. The buyer is emailed and has 48 hours to respond; if they don't, the order is closed automatically, and if
+        they do, we review it. When an order is closed as a no-show you receive a{' '}
         {NO_SHOW_FEE} restocking fee, and the quantity goes back on your listing. You can also{' '}
         <Link href="/contact" className="font-semibold text-emerald-800 underline">
           contact us

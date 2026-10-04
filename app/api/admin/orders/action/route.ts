@@ -18,6 +18,7 @@ export const dynamic = 'force-dynamic';
 //   no_show        — buyer never collected: platform keeps its fee, the farmer
 //                    gets a restocking fee, the buyer is refunded the rest
 //   dismiss_no_show — clear a farmer's no-show report without closing the order
+//   hold_no_show   — keep a reported no-show from being closed automatically
 //   reset_attempts — unlock an order after too many wrong pickup codes
 export async function POST(request: Request) {
   try {
@@ -49,11 +50,26 @@ export async function POST(request: Request) {
     if (action === 'dismiss_no_show') {
       const { error } = await supabaseAdmin
         .from('orders')
-        .update({ no_show_reported_at: null })
+        .update({ no_show_reported_at: null, no_show_disputed_at: null })
         .eq('id', order.id);
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ success: true, message: 'No-show report dismissed. The order is still open.' });
+    }
+
+    // Stops a no-show report from being closed automatically — for when the
+    // buyer answered by email, which the scheduled job can't see.
+    if (action === 'hold_no_show') {
+      const { error } = await supabaseAdmin
+        .from('orders')
+        .update({ no_show_disputed_at: new Date().toISOString() })
+        .eq('id', order.id);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({
+        success: true,
+        message: 'On hold — this order will not be closed automatically. It needs your decision.',
+      });
     }
 
     if (action === 'reset_attempts') {

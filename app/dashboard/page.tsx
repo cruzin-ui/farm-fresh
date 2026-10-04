@@ -1738,7 +1738,8 @@ export default function SellerDashboardPage() {
                       {order.no_show_reported_at && (
                         <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3">
                           You reported this buyer as a no-show on{' '}
-                          {new Date(order.no_show_reported_at).toLocaleDateString()}. We're reviewing it. If the
+                          {new Date(order.no_show_reported_at).toLocaleDateString()}. The buyer has 48 hours to respond; if
+                          they don't, the order is closed and you're paid a restocking fee. If the
                           buyer does turn up, you can still complete the order with their pickup code.
                         </p>
                       )}

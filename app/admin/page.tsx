@@ -23,6 +23,8 @@ type AdminOrder = {
   pickup_code: string | null;
   failed_code_attempts: number;
   no_show_reported_at: string | null;
+  no_show_disputed_at: string | null;
+  no_show_auto_approve_at: string | null;
 };
 
 type SummaryRow = {
@@ -488,11 +490,15 @@ export default function AdminPage() {
           <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" aria-hidden="true" />
           <span>
             <strong>
-              {reportedNoShows.length} no-show report{reportedNoShows.length === 1 ? '' : 's'} waiting for your
-              decision.
+              {reportedNoShows.length} open no-show report{reportedNoShows.length === 1 ? '' : 's'}
+              {reportedNoShows.some((o) => o.no_show_disputed_at)
+                ? `, ${reportedNoShows.filter((o) => o.no_show_disputed_at).length} needing your decision`
+                : ''}
+              .
             </strong>{' '}
-            A farmer says the buyer never came. Check with the buyer if you need to, then use No-Show to close
-            the order and issue the refund, or Dismiss Report to leave it open.
+            Reports the buyer doesn't answer are closed automatically after 48 hours. Ones marked "Buyer
+            responded" wait for you: use No-Show to close the order and issue the refund, or Dismiss Report to
+            leave it open. If a buyer replies to you by email, click Hold for Review to stop the clock.
           </span>
         </div>
       )}
@@ -551,6 +557,16 @@ export default function AdminPage() {
                     {isOpen(order) && order.no_show_reported_at && (
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-amber-200 text-amber-950">
                         No-show reported {new Date(order.no_show_reported_at).toLocaleDateString()}
+                      </span>
+                    )}
+                    {isOpen(order) && order.no_show_reported_at && order.no_show_disputed_at && (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-red-100 text-red-800">
+                        Buyer responded — needs your decision
+                      </span>
+                    )}
+                    {isOpen(order) && order.no_show_auto_approve_at && (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                        Closes automatically after {new Date(order.no_show_auto_approve_at).toLocaleString()}
                       </span>
                     )}
                   </div>
@@ -631,6 +647,21 @@ export default function AdminPage() {
                       className="bg-white border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
                     >
                       Cancel & Refund
+                    </button>
+                  )}
+                  {isOpen(order) && order.no_show_reported_at && !order.no_show_disputed_at && (
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        runAction(
+                          order,
+                          'hold_no_show',
+                          'Put this report on hold? It will not be closed automatically and will wait for your decision.'
+                        )
+                      }
+                      className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                    >
+                      Hold for Review
                     </button>
                   )}
                   {isOpen(order) && order.no_show_reported_at && (

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
+import { noShowAutoApproveAt } from '@/lib/noShow';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,6 +72,12 @@ export async function POST(request: Request) {
         pickup_code: code?.code || o.pickup_code || o.verification_code || null,
         failed_code_attempts: Number(code?.failed_attempts ?? 0),
         no_show_reported_at: o.no_show_reported_at || null,
+        // The buyer responded (or an admin put it on hold): no automatic closing.
+        no_show_disputed_at: o.no_show_disputed_at || null,
+        no_show_auto_approve_at:
+          o.no_show_reported_at && !o.no_show_disputed_at
+            ? noShowAutoApproveAt(o.no_show_reported_at).toISOString()
+            : null,
       };
     });
 
