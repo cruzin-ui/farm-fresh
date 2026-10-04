@@ -43,7 +43,7 @@ export default function PublicSellerProfilePage() {
       .select('*')
       .eq('farmer_id', sellerId)
       .eq('status', 'active')
-      .gt('available_quantity', 0)
+      .gte('available_quantity', 1)
       .order('created_at', { ascending: false });
 
     // Fetch Seller Reviews

@@ -2,7 +2,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 // SERVER-ONLY. Rules that keep one farmer from crowding Browse: no two
 // listings on sale for the same crop and variety, and a cap on how many
-// listings a farmer can have on sale at once. "On sale" means it has stock —
+// listings a farmer can have on sale at once. "On sale" means it has at least one whole unit in stock —
 // sold-out and taken-down listings don't count.
 
 export const MAX_ACTIVE_LISTINGS = 25;
@@ -39,7 +39,7 @@ export async function checkListingAllowed(params: {
     .from('produce_listings')
     .select('id, title, variety')
     .eq('farmer_id', farmerId)
-    .gt('available_quantity', 0);
+    .gte('available_quantity', 1);
 
   if (error) throw error;
 

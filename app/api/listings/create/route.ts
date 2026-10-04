@@ -35,8 +35,10 @@ export async function POST(request: Request) {
     if (!Number.isFinite(price) || price < 0) {
       return NextResponse.json({ error: 'Enter a valid price.' }, { status: 400 });
     }
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      return NextResponse.json({ error: 'Enter a quantity greater than zero.' }, { status: 400 });
+    // Buyers order whole units, so a fractional quantity would leave a
+    // remainder nobody can buy.
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return NextResponse.json({ error: 'Enter the quantity as a whole number of at least 1.' }, { status: 400 });
     }
     if (!fields.harvest_ready_date) {
       return NextResponse.json({ error: 'A ready date is required.' }, { status: 400 });

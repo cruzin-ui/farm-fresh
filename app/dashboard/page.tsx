@@ -280,8 +280,8 @@ export default function SellerDashboardPage() {
   // "Your Listings" shows what's on sale. Sold-out and taken-down listings are
   // tucked behind a toggle — their sales are already in Sales History — but
   // kept reachable so the farmer can restock one instead of reposting it.
-  const activeListings = myListings.filter((l) => Number(l.available_quantity ?? 0) > 0);
-  const inactiveListings = myListings.filter((l) => Number(l.available_quantity ?? 0) <= 0);
+  const activeListings = myListings.filter((l) => Number(l.available_quantity ?? 0) >= 1);
+  const inactiveListings = myListings.filter((l) => Number(l.available_quantity ?? 0) < 1);
   const visibleListings = showInactiveListings ? [...activeListings, ...inactiveListings] : activeListings;
 
   // The getting-started steps a farmer has already done, for the guide.
@@ -1059,6 +1059,10 @@ export default function SellerDashboardPage() {
                     <li>
                       Never collect cash at pickup — every order is already paid in full online.
                     </li>
+                    <li>
+                      Quantities are whole numbers: buyers can only order whole units (1 lb, 2 lbs, not 0.5
+                      lb). To sell smaller amounts, list in a smaller unit such as oz.
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -1103,7 +1107,7 @@ export default function SellerDashboardPage() {
               {activeTab === 'listings' && visibleListings.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {visibleListings.map((item) => {
-                    const qty = Number(item.available_quantity ?? 0);
+                    const qty = Math.floor(Number(item.available_quantity ?? 0));
                     return (
                       <div
                         key={item.id}
@@ -1343,13 +1347,18 @@ export default function SellerDashboardPage() {
                       </label>
                       <input id="dash-est-total"
                         type="number"
-                        step="0.1"
+                        step="1"
+                        min={editingListingId ? 0 : 1}
                         required
                         placeholder="25"
                         value={availableQuantity}
                         onChange={(e) => setAvailableQuantity(e.target.value)}
                         className="w-full px-3 py-2 border rounded-lg text-sm"
                       />
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Whole numbers only — buyers order whole {unitType}. Selling smaller amounts? Pick a
+                        smaller unit, like oz.
+                      </p>
                     </div>
                   </div>
 

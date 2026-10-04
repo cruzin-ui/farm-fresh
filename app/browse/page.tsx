@@ -127,12 +127,13 @@ export default function BrowsePage() {
   const fetchListings = async () => {
     setLoading(true);
 
-    // Only fetch listings that still have stock, so sold-out posts
+    // Only fetch listings with at least one whole unit left (buyers can't
+    // order less than one), so sold-out posts
     // disappear from Browse entirely rather than showing a "Sold Out" badge.
     const { data: listingsData, error: listingsError } = await supabase
       .from('produce_listings')
       .select('*')
-      .gt('available_quantity', 0)
+      .gte('available_quantity', 1)
       .order('created_at', { ascending: false });
 
     if (listingsError) {
@@ -298,7 +299,7 @@ export default function BrowsePage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredListings.map((item) => {
-            const availableQty = Number(item.available_quantity ?? 0);
+            const availableQty = Math.floor(Number(item.available_quantity ?? 0));
 
             return (
               <div

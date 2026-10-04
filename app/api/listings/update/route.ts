@@ -90,8 +90,10 @@ export async function POST(request: Request) {
 
     if (fields.available_quantity !== undefined) {
       const quantity = Number(fields.available_quantity);
-      if (!Number.isFinite(quantity) || quantity < 0) {
-        return NextResponse.json({ error: 'Enter a valid quantity.' }, { status: 400 });
+      // Buyers order whole units, so a fractional quantity would leave a
+      // remainder nobody can buy.
+      if (!Number.isInteger(quantity) || quantity < 0) {
+        return NextResponse.json({ error: 'Enter the quantity as a whole number.' }, { status: 400 });
       }
       update.available_quantity = quantity;
     }
@@ -124,8 +126,8 @@ export async function POST(request: Request) {
     // If the listing will be on sale after this edit, it must not duplicate
     // another of the farmer's listings. Putting a sold-out or taken-down
     // listing back on sale also counts toward the cap.
-    const wasOnSale = Number(listing.available_quantity ?? 0) > 0;
-    const willBeOnSale = Number(update.available_quantity ?? listing.available_quantity ?? 0) > 0;
+    const wasOnSale = Number(listing.available_quantity ?? 0) >= 1;
+    const willBeOnSale = Number(update.available_quantity ?? listing.available_quantity ?? 0) >= 1;
 
     if (willBeOnSale) {
       const notAllowed = await checkListingAllowed({

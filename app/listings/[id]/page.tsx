@@ -68,7 +68,8 @@ export default function ListingDetailPage() {
     );
   }
 
-  const availableQty = Number(listing.available_quantity ?? 0);
+  // Whole units only: buyers can't order a fraction, so one isn't shown as available.
+  const availableQty = Math.floor(Number(listing.available_quantity ?? 0));
   const unitType = listing.unit_type || 'lbs';
   const soldOut = availableQty <= 0;
 

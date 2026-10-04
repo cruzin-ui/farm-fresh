@@ -214,7 +214,8 @@ function CheckoutContent() {
   }, [listingId]);
 
   const itemPrice = listing ? Number(listing.price_per_unit ?? 0) : 0;
-  const maxQty = listing ? Math.max(0, Number(listing.available_quantity ?? 0)) : 0;
+  // Rounded down: orders are whole units, so a leftover fraction can't be bought.
+  const maxQty = listing ? Math.max(0, Math.floor(Number(listing.available_quantity ?? 0))) : 0;
   const unitType = listing?.unit_type || 'lbs';
 
   const { subtotalCents, feeCents, totalCents } = calculateOrderTotals(itemPrice, quantity);

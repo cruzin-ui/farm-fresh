@@ -98,6 +98,58 @@ export default function SplashLandingPage() {
           </div>
         </section>
 
+        {/* How It Works */}
+        <section className="mt-12 max-w-3xl mx-auto text-left">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 text-center">How It Works</h2>
+
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[
+              {
+                heading: 'If you want to buy',
+                steps: [
+                  ["Browse what's growing nearby",'See fresh listings from gardens and small farms in your area.'],
+                  ['Reserve and pay online', 'No account needed. We hold your payment until you have your produce.'],
+                  ['Wait for the "ready" email', 'The farmer tells you when and where to pick up.'],
+                  ['Pick up and share your code', 'Hand over your pickup code once the produce is in your hands.'],
+                ],
+              },
+              {
+                heading: 'If you want to sell',
+                steps: [
+                  ['Set up your farm profile', 'Add your farm name and photo, and connect a payout account.'],
+                  ['Post your harvest', 'List the crop, price, quantity and pickup address. Posting is free.'],
+                  ['Mark orders ready', 'When the produce is ready, send the buyer your pickup hours.'],
+                  ['Enter the pickup code to get paid', 'The buyer gives you a code at pickup. Entering it releases your payment.'],
+                ],
+              },
+            ].map((column) => (
+              <div key={column.heading} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-gray-900">{column.heading}</h3>
+                <ol className="mt-4 space-y-4">
+                  {column.steps.map(([title, detail], index) => (
+                    <li key={title} className="flex items-start gap-3">
+                      <span className="w-7 h-7 shrink-0 rounded-full bg-green-700 text-white text-sm font-bold flex items-center justify-center">
+                        {index + 1}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{title}</p>
+                        <p className="text-sm text-gray-600">{detail}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-6 text-center text-sm text-gray-600">
+            More questions?{' '}
+            <Link href="/faq" className="font-semibold text-green-800 underline">
+              Read the FAQ
+            </Link>
+          </p>
+        </section>
+
         {/* Value Props */}
         <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left border-t border-gray-200/60 pt-10">
           <div className="flex items-start gap-3">
