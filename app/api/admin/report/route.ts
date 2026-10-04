@@ -66,6 +66,7 @@ export async function POST(request: Request) {
     const rows = (orders || []).map((o) => {
       const listing = listingById.get(o.listing_id);
       const buyerPaid = Number(o.total_price ?? 0);
+      const taxCollected = Number(o.tax_amount ?? 0);
       const refunded = Number(o.refunded_amount ?? 0);
       const noShowFee = Number(o.no_show_fee_amount ?? 0);
       const completed = o.status === 'completed';
@@ -99,7 +100,9 @@ export async function POST(request: Request) {
         refunded_to_buyer: round(refunded),
         paid_to_farmer: round(paidToFarmer),
         // Only meaningful once the order is finished; an open order's money is still held.
-        platform_fees_kept: settled ? round(buyerPaid - paidToFarmer) : '',
+        // Held for the state, not income: kept out of the fees column.
+        sales_tax_collected: round(taxCollected),
+        platform_fees_kept: settled ? round(buyerPaid - paidToFarmer - taxCollected) : '',
         estimated_card_fee: estimatedCardFee,
         payout_released: o.stripe_transfer_id ? 'yes' : 'no',
         stripe_payment_id: o.stripe_payment_intent_id || '',

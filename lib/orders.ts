@@ -141,6 +141,8 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
         // The produce subtotal, and what the farmer will be paid for it once
         // the order completes (subtotal less the seller fee).
         subtotal_amount: subtotalCents / 100,
+        // Sales tax collected on this order (0 while tax collection is off).
+        tax_amount: (Number(paymentIntent.metadata.tax_cents) || 0) / 100,
         farmer_payout_amount: calculateFarmerPayoutCents(subtotalCents, sellerFeeRate) / 100,
         deposit_amount: totalPaid,
         authorized_amount: totalPaid,

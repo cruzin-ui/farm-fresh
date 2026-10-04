@@ -105,7 +105,8 @@ export async function POST(request: Request) {
       row.orders += 1;
       row.produce_sales += produceSales;
       row.farmer_paid += farmerPaid;
-      row.platform_fees += buyerPaid - farmerPaid;
+      // Sales tax is collected for the state, so it isn't counted as fees.
+      row.platform_fees += buyerPaid - farmerPaid - Number(o.tax_amount ?? 0);
       row.estimated_card_fees += originallyCharged * CARD_FEE_RATE + CARD_FEE_FIXED;
 
       rows.set(key, row);

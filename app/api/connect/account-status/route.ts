@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
+import { setWeeklyPayouts } from '@/lib/payoutSchedule';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,12 @@ export async function POST(request: Request) {
     const transfersStatus =
       account.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.status ?? null;
     const complete = transfersStatus === 'active';
+
+    // Make sure a farmer who has finished setup is on the weekly payout
+    // schedule (also covers accounts created before the schedule was set).
+    if (complete) {
+      await setWeeklyPayouts(profile.stripe_account_id);
+    }
 
     await supabaseAdmin
       .from('seller_profiles')

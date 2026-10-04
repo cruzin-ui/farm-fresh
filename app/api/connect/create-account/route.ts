@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
+import { setWeeklyPayouts } from '@/lib/payoutSchedule';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,6 +62,10 @@ export async function POST(request: Request) {
         },
       },
     });
+
+    // Weekly payouts instead of Stripe's daily default. Tried again when
+    // onboarding completes, in case the account isn't ready for it yet.
+    await setWeeklyPayouts(account.id);
 
     const { error: updateError } = await supabaseAdmin
       .from('seller_profiles')

@@ -61,8 +61,6 @@ const PANTRY_TYPES: typeof VEGETABLE_TYPES = [
   { name: 'Honeycomb & Bee Products', emoji: '🐝', keywords: ['honeycomb', 'beeswax', 'pollen', 'propolis'] },
   { name: 'Jam & Jelly', emoji: '🥫', keywords: ['jam', 'jelly', 'preserve', 'marmalade'] },
   { name: 'Syrup', emoji: '🥞', keywords: ['syrup', 'agave'] },
-  { name: 'Pickles', emoji: '🥒', keywords: ['pickle'] },
-  { name: 'Salsa & Sauces', emoji: '🌶️', keywords: ['salsa', 'sauce'] },
 ];
 
 const EGG_TYPES: typeof VEGETABLE_TYPES = [

@@ -29,7 +29,7 @@ const BUYER_FAQS: Faq[] = [
   },
   {
     question: 'Are there any fees?',
-    answer: `Buyers pay a service fee of ${BUYER_FEE_LABEL} on top of the produce price. You'll see the exact amount at checkout before you pay.`,
+    answer: `Buyers pay a service fee of ${BUYER_FEE_LABEL} on top of the produce price. Where sales tax applies, it is added too. You'll see the exact amounts at checkout before you pay.`,
   },
   {
     question: 'When does the farmer get my money?',
@@ -188,7 +188,7 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'How and when do I get paid?',
     answer:
-      "At pickup, ask the buyer for their pickup code and enter it in your Seller Dashboard. That releases your payment to your Stripe account, and Stripe deposits it to your bank on its regular schedule. Each open order shows the exact amount you'll receive.",
+      "At pickup, ask the buyer for their pickup code and enter it in your Seller Dashboard. That releases your payment to your Stripe account, and Stripe deposits it to your bank once a week, on Fridays. Each open order shows the exact amount you'll receive.",
   },
   {
     question: 'Is my address public?',

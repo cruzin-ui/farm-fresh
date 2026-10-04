@@ -226,7 +226,48 @@ function CheckoutContent() {
   const maxQty = listing ? Math.max(0, Math.floor(Number(listing.available_quantity ?? 0))) : 0;
   const unitType = listing?.unit_type || 'lbs';
 
-  const { subtotalCents, feeCents, totalCents } = calculateOrderTotals(itemPrice, quantity);
+  const { subtotalCents, feeCents, totalCents: preTaxTotalCents } = calculateOrderTotals(itemPrice, quantity);
+
+  // Sales tax comes from the server, since it depends on the pickup location.
+  // `quote` is the answer for the quantity it was asked about; until it
+  // arrives (or while tax collection is off) the tax is zero.
+  const [quote, setQuote] = useState<{ quantity: number; taxCents: number; taxEnabled: boolean } | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const listingIdForQuote = listing?.id;
+
+  useEffect(() => {
+    if (!listingIdForQuote) return;
+    let cancelled = false;
+
+    // A short pause so typing a quantity doesn't ask for a price on every keystroke.
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/checkout/quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listingId: listingIdForQuote, quantity }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) throw new Error(data.error || 'Could not price this order.');
+        setQuote({ quantity, taxCents: data.taxCents, taxEnabled: data.taxEnabled });
+        setQuoteError(null);
+      } catch (err: any) {
+        if (!cancelled) setQuoteError(err.message || 'Could not price this order.');
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [listingIdForQuote, quantity]);
+
+  // Payment waits until the price for the current quantity has come back.
+  const quoteReady = quote !== null && quote.quantity === quantity;
+  const taxCents = quoteReady ? quote.taxCents : 0;
+  const totalCents = preTaxTotalCents + taxCents;
+
   const subtotal = subtotalCents / 100;
   const buyerFee = feeCents / 100;
   const grandTotal = totalCents / 100;
@@ -320,6 +361,12 @@ function CheckoutContent() {
               <span>Platform & Processing Fee ({BUYER_FEE_LABEL}):</span>
               <span className="font-semibold">${buyerFee.toFixed(2)}</span>
             </div>
+            {quote?.taxEnabled && (
+              <div className="flex justify-between items-center text-gray-700">
+                <span>Sales Tax:</span>
+                <span className="font-semibold">{quoteReady ? `$${(taxCents / 100).toFixed(2)}` : 'Calculating...'}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center font-bold text-lg text-emerald-950 border-t border-emerald-200 pt-2">
               <span>Total Due Today (100% Online):</span>
               <span>${grandTotal.toFixed(2)}</span>
@@ -339,6 +386,14 @@ function CheckoutContent() {
           {!stripePromise ? (
             <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-red-500 text-center">
               Payment configuration is missing. Please contact support.
+            </p>
+          ) : quoteError ? (
+            <p role="alert" className="bg-white border rounded-xl p-5 shadow-sm text-xs text-red-600 text-center">
+              {quoteError}
+            </p>
+          ) : !quoteReady ? (
+            <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-gray-500 text-center">
+              Calculating your total...
             </p>
           ) : totalCents < MIN_CHARGE_CENTS ? (
             <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-gray-500 text-center">

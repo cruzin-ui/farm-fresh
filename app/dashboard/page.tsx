@@ -1085,7 +1085,7 @@ export default function SellerDashboardPage() {
                     </li>
                     <li>
                       Entering the pickup code sends that amount to your Stripe account, and Stripe deposits
-                      it to your bank on its regular schedule, usually within a few business days.
+                      it to your bank once a week, on Fridays.
                     </li>
                     <li>
                       Short on produce? Use <strong>Cancel / Adjust</strong> on the order to reduce or cancel

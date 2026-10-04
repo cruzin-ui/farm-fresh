@@ -326,6 +326,10 @@ export async function refundOrderQuantity(params: {
       total_price: newTotal,
       deposit_amount: newTotal,
       authorized_amount: newTotal,
+      // The refund above is a share of the whole charge, tax included, so the
+      // tax recorded on the order shrinks by the same share.
+      tax_amount:
+        Math.round(((Number(paymentIntent.metadata?.tax_cents) || 0) * newQuantity) / originalQuantity) / 100,
       ...(originalSubtotalCents
         ? {
             subtotal_amount: newSubtotalCents / 100,
@@ -409,7 +413,18 @@ export async function resolveNoShow(params: {
   const currentQuantity = Math.min(Number(order.reserved_quantity ?? order.quantity ?? 0), originalQuantity);
   const subtotalCents = Math.round((originalSubtotalCents * currentQuantity) / originalQuantity);
   const restockingCents = Math.round(subtotalCents * NO_SHOW_RESTOCKING_RATE);
-  const refundCents = subtotalCents - restockingCents;
+  // What the buyer gets back before tax, and the tax that goes with it. The
+  // tax is refunded in the same proportion as the rest of the charge, which is
+  // also how Stripe reverses it in its tax records.
+  const preTaxRefundCents = subtotalCents - restockingCents;
+  const currentPaidCents = Math.round(Number(order.total_price ?? 0) * 100);
+  const currentTaxCents = Math.round(Number(order.tax_amount ?? 0) * 100);
+  const preTaxPaidCents = currentPaidCents - currentTaxCents;
+  const taxRefundCents =
+    currentTaxCents > 0 && preTaxPaidCents > 0
+      ? Math.round((currentTaxCents * preTaxRefundCents) / preTaxPaidCents)
+      : 0;
+  const refundCents = preTaxRefundCents + taxRefundCents;
 
   const { data: seller } = await supabaseAdmin
     .from('seller_profiles')
@@ -464,6 +479,7 @@ export async function resolveNoShow(params: {
       authorized_amount: keptTotal,
       refunded_amount: Number(order.refunded_amount ?? 0) + refundAmount,
       no_show_fee_amount: restockingFee,
+      tax_amount: (currentTaxCents - taxRefundCents) / 100,
       subtotal_amount: 0,
       farmer_payout_amount: restockingFee,
       stripe_transfer_id: transferId,

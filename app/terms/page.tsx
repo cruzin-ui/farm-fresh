@@ -48,7 +48,7 @@ export default function TermsPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">3. Orders and payment</h2>
           <p>
             You pay in full online when you place an order. In addition to the price of the produce, you pay a
-            service fee of {BUYER_FEE_LABEL}, shown at checkout before you pay. Payments are processed by
+            service fee of {BUYER_FEE_LABEL}, and any sales tax that applies, both shown at checkout before you pay. Payments are processed by
             Stripe. We hold your payment and release it to the seller when the order is picked up.
           </p>
         </section>

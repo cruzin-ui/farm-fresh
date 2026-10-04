@@ -3,6 +3,7 @@ import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { calculateOrderTotals, MIN_CHARGE_CENTS, SELLER_FEE_RATE } from '@/lib/pricing';
+import { calculateOrderTax, TaxError } from '@/lib/tax';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
 
     const { data: listing, error: listingFetchError } = await supabaseAdmin
       .from('produce_listings')
-      .select('available_quantity, price_per_unit, title, farmer_id')
+      .select('available_quantity, price_per_unit, title, farmer_id, category, zip_code')
       .eq('id', listingId)
       .single();
 
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
 
     // Totals are always computed server-side from the listing price — never
     // trusted from the client.
-    const { subtotalCents, totalCents } = calculateOrderTotals(
+    const { subtotalCents, feeCents, totalCents } = calculateOrderTotals(
       Number(listing.price_per_unit ?? 0),
       orderQuantity
     );
@@ -84,8 +85,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Order total is below the minimum charge of $0.50.' }, { status: 400 });
     }
 
+    // Sales tax, if tax collection is switched on (zero otherwise). Linking
+    // the calculation to the payment lets Stripe record the tax when the
+    // payment succeeds and reverse it automatically on refunds.
+    const { taxCents, calculationId } = await calculateOrderTax({
+      category: listing.category,
+      pickupZip: listing.zip_code,
+      subtotalCents,
+      feeCents,
+    });
+
     const paymentIntent = await stripeAdmin.paymentIntents.create({
-      amount: totalCents,
+      amount: totalCents + taxCents,
+      ...(calculationId ? { hooks: { inputs: { tax: { calculation: calculationId } } } } : {}),
       currency: 'usd',
       allowed_payment_method_types: ['card'],
       transfer_group: `order-${crypto.randomUUID()}`,
@@ -100,11 +112,16 @@ export async function POST(request: Request) {
         subtotal_cents: String(subtotalCents),
         // The platform's cut of that share, fixed at the time of purchase.
         seller_fee_rate: String(SELLER_FEE_RATE),
+        // Sales tax included in the amount charged.
+        tax_cents: String(taxCents),
       },
     });
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (err: any) {
+    if (err instanceof TaxError) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
     console.error('Checkout PaymentIntent error:', err);
     return NextResponse.json(
       { error: err.message || 'Payment processing failed.' },
