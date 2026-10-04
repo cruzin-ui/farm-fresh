@@ -38,6 +38,34 @@ export default function AboutPage() {
           </div>
         </div>
       </div>
+
+      <section className="mt-10 bg-white border border-green-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+        <h2 className="text-2xl font-bold text-gray-900">The Mission</h2>
+
+        <p className="mt-3 text-lg font-semibold text-green-800">
+          When local growers meet local buyers, we all win.
+        </p>
+
+        <div className="mt-4 space-y-4 text-base text-gray-700 leading-relaxed">
+          <p>
+            We're here to connect you with the people growing food in your area. Fixing our food system starts
+            with making local connections, one neighbor at a time.
+          </p>
+          <p>
+            Our mission isn't to make massive profits. It's to introduce you to a local grower you can go back
+            to again and again. If you build a relationship with them outside this platform, that's great! We
+            want you directly connected to your food, even if that means without us.
+          </p>
+          <p>
+            All we ask is that you think of us whenever you're looking for fresh, delicious, locally grown food.
+            And if you'd like to help keep the lights on,{' '}
+            <Link href="/contact" className="font-semibold text-green-800 underline">
+              get in touch
+            </Link>
+            .
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

@@ -31,6 +31,54 @@ h3,
   color: var(--color-gray-500);
 }
 
+/* White text on Tailwind's emerald-600 is about 3.8:1, under the 4.5:1 that
+   WCAG AA asks for. The site's main button colour is therefore one shade
+   darker (about 5.5:1), and its hover state one darker again. */
+.bg-emerald-600 {
+  background-color: var(--color-emerald-700);
+}
+.hover\:bg-emerald-700:hover {
+  background-color: var(--color-emerald-800);
+}
+
+/* The "Fresh This Week" strip on the home page: a row of cards drifting right
+   to left in a loop. The track holds the cards twice, so sliding it by half
+   its width lands exactly where it started. */
+.wheel {
+  overflow: hidden;
+}
+.wheel-track {
+  display: flex;
+  width: max-content;
+  padding: 4px 0 8px;
+  animation: wheel-scroll var(--wheel-duration, 60s) linear infinite;
+}
+.wheel:hover .wheel-track,
+.wheel:focus-within .wheel-track,
+.wheel[data-paused='true'] .wheel-track {
+  animation-play-state: paused;
+}
+@keyframes wheel-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+/* Visitors who ask for reduced motion get a still row they can scroll. */
+@media (prefers-reduced-motion: reduce) {
+  .wheel {
+    overflow-x: auto;
+  }
+  .wheel-track {
+    animation: none;
+  }
+  .wheel-pause {
+    display: none;
+  }
+}
+
 /* iOS Safari zooms the whole page in when a focused form field's text is
    smaller than 16px, and doesn't zoom back out. Our fields use 14px text, so
    bump them to 16px on phone-sized screens only. */

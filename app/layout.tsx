@@ -26,6 +26,16 @@ export const metadata: Metadata = {
     template: "%s | Farm Fresh Direct",
   },
   description: "Connect local growers and buyers for fresh farm produce.",
+  // The image and text shown when a link to the site is shared by text
+  // message or on social media.
+  metadataBase: new URL("https://www.farmfreshdirect.online"),
+  openGraph: {
+    title: "Farm Fresh Direct — Your Online Farm Stand",
+    description: "Buy fresh produce directly from neighbor gardens and small local farms.",
+    siteName: "Farm Fresh Direct",
+    type: "website",
+    images: [{ url: "/share-preview.jpg", width: 1200, height: 630, alt: "Crates of fresh fruit and vegetables at a market stall" }],
+  },
 };
 
 // viewportFit "cover" lets the bottom tab bar pad itself clear of the iPhone
@@ -34,7 +44,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#059669",
+  themeColor: "#047857",
 };
 
 export default function RootLayout({
@@ -90,7 +100,8 @@ export default function RootLayout({
         </main>
 
         {/* Extra bottom padding on phones keeps the footer clear of the tab bar. */}
-        <footer className="print:hidden w-full max-w-7xl mx-auto px-4 pt-4 pb-24 md:pb-6 text-xs text-gray-500 flex items-center justify-center gap-4">
+        <footer className="print:hidden w-full max-w-7xl mx-auto px-4 pt-4 pb-24 md:pb-6 text-xs text-gray-500">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
           <Link href="/faq" className="font-semibold hover:text-emerald-700 hover:underline">
             FAQ
           </Link>
@@ -103,6 +114,10 @@ export default function RootLayout({
           <Link href="/seller-terms" className="font-semibold hover:text-emerald-700 hover:underline">
             Seller Terms
           </Link>
+          </div>
+          <p className="mt-3 text-center">
+            © {new Date().getFullYear()} Farm Fresh Direct. Connecting local food communities.
+          </p>
         </footer>
 
         <BottomNav />

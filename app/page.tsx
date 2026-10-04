@@ -1,34 +1,82 @@
 import Link from 'next/link';
 import { Sprout, ShoppingBag, ArrowRight, ShieldCheck, HeartHandshake } from 'lucide-react';
+import FreshListingsWheel from '@/components/FreshListingsWheel';
+
+const HOW_IT_WORKS = [
+  {
+    heading: 'If you want to buy',
+    steps: [
+      ["Browse what's growing nearby", 'See fresh listings from gardens and small farms in your area.'],
+      ['Reserve and pay online', 'No account needed. We hold your payment until you have your produce.'],
+      ['Wait for the "ready" email', 'The farmer tells you when and where to pick up.'],
+      ['Pick up and share your code', 'Hand over your pickup code once the produce is in your hands.'],
+    ],
+  },
+  {
+    heading: 'If you want to sell',
+    steps: [
+      ['Set up your farm profile', 'Add your farm name and photo, and connect a payout account.'],
+      ['Post your harvest', 'List the crop, price, quantity and pickup address. Posting is free.'],
+      ['Mark orders ready', 'When the produce is ready, send the buyer your pickup hours.'],
+      ['Enter the pickup code to get paid', 'The buyer gives you a code at pickup. Entering it releases your payment.'],
+    ],
+  },
+];
 
 export default function SplashLandingPage() {
   return (
-    <div className="min-h-screen bg-emerald-50/50 flex flex-col justify-between">
-      {/* Main Hero Section */}
-      <main className="max-w-5xl mx-auto px-6 py-12 text-center">
-        <h1 className="text-5xl sm:text-7xl font-extrabold text-gray-900 tracking-tight leading-tight">
-          Farm Fresh <span className="text-green-700">Direct</span>
-        </h1>
+    <div className="pb-8">
+      {/* Hero: market stall photo with the headline over it */}
+      <section className="relative rounded-3xl overflow-hidden shadow-sm">
+        <img
+          src="/hero-market.jpg"
+          alt="Crates of colorful fresh fruit and vegetables at a farmers' market stall"
+          // The photo is square and the hero is wide, so only a band of it
+          // shows; this keeps the band on the produce, below the tent roof.
+          className="absolute inset-0 w-full h-full object-cover object-[center_62%]"
+        />
+        {/* Darkens the photo so the white text stays readable over it. */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/55 to-black/70" aria-hidden="true" />
 
-        <p className="mt-3 text-2xl sm:text-4xl font-bold text-green-800 tracking-tight">
-          Your Virtual Farmer's Market
-        </p>
+        <div className="relative px-6 py-16 sm:py-24 text-center text-white">
+          <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight leading-tight">
+            Farm Fresh <span className="text-emerald-300">Direct</span>
+          </h1>
 
-        <p className="mt-5 text-lg sm:text-xl font-medium text-gray-700 max-w-2xl mx-auto">
-          Connect directly with Neighbor Gardens &amp; Small Local Farms in your neighborhood
-        </p>
+          <p className="mt-3 text-2xl sm:text-4xl font-bold tracking-tight">Your Online Farm Stand</p>
 
-        <p className="mt-4 text-base text-gray-600 max-w-2xl mx-auto">
-          Buy ultra-fresh produce harvested at peak flavor, or sell surplus crops from your home garden or small farm with zero setup friction.
-        </p>
+          <p className="mt-5 text-lg sm:text-xl font-medium max-w-2xl mx-auto">
+            Connect directly with Neighbor Gardens &amp; Small Local Farms in your neighborhood
+          </p>
 
-        {/* Dual Buyer / Seller Action Cards */}
-        <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/browse"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-colors"
+            >
+              <ShoppingBag className="w-4 h-4" aria-hidden="true" /> Browse Fresh Produce
+            </Link>
+            <Link
+              href="/dashboard"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white hover:bg-gray-100 text-gray-900 font-bold py-3 px-6 rounded-xl shadow-md transition-colors"
+            >
+              <Sprout className="w-4 h-4" aria-hidden="true" /> Sell Your Harvest
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Current listings, drifting right to left */}
+      <FreshListingsWheel />
+
+      {/* Dual Buyer / Seller Action Cards */}
+      <section className="mt-14 max-w-5xl mx-auto px-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
           {/* Buyer Choice */}
           <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all text-left flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 shrink-0 bg-green-100 text-green-700 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
                   <ShoppingBag className="w-6 h-6" aria-hidden="true" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900">I Want to Buy</h2>
@@ -39,7 +87,7 @@ export default function SplashLandingPage() {
             </div>
             <Link
               href="/browse"
-              className="mt-6 inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors shadow-sm"
+              className="mt-6 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm sm:text-base font-semibold py-3 px-4 sm:px-6 rounded-xl transition-colors shadow-sm whitespace-nowrap"
             >
               Browse Produce Nearby
               <ArrowRight className="w-4 h-4" />
@@ -61,74 +109,44 @@ export default function SplashLandingPage() {
             </div>
             <Link
               href="/dashboard"
-              className="mt-6 inline-flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-xl transition-colors shadow-sm"
+              className="mt-6 inline-flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white text-sm sm:text-base font-semibold py-3 px-4 sm:px-6 rounded-xl transition-colors shadow-sm whitespace-nowrap"
             >
               Post Harvest Listing
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
+      </section>
 
-        {/* The Mission */}
-        <section className="mt-16 max-w-3xl mx-auto text-left bg-white border border-green-200 rounded-2xl p-6 sm:p-8 shadow-sm">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 text-center">The Mission</h2>
+      {/* The Mission, in brief — the full version is on the About page. A
+          full-width tinted band, to break up the run of white cards. */}
+      <section className="mt-14 bg-emerald-800 text-white rounded-3xl px-6 py-12 text-center">
+        <h2 className="text-2xl sm:text-3xl font-bold">The Mission</h2>
+        <p className="mt-4 text-xl sm:text-2xl font-semibold max-w-2xl mx-auto">
+          When local growers meet local buyers, we all win.
+        </p>
+        <p className="mt-4 text-base text-emerald-50 max-w-2xl mx-auto leading-relaxed">
+          Fixing our food system starts with making local connections. We aren't here to make massive profits;
+          we're here to introduce you to a local grower you can go back to again and again.
+        </p>
+        <Link href="/about" className="mt-5 inline-block font-semibold underline">
+          Read our full mission
+        </Link>
+      </section>
 
-          <p className="mt-4 text-lg font-semibold text-green-800 text-center">
-            When local growers meet local buyers, we all win.
-          </p>
-
-          <div className="mt-4 space-y-4 text-base text-gray-700 leading-relaxed">
-            <p>
-              We're here to connect you with the people growing food in your area. Fixing our food system
-              starts with making local connections, one neighbor at a time.
-            </p>
-            <p>
-              Our mission isn't to make massive profits. It's to introduce you to a local grower you can go
-              back to again and again. If you build a relationship with them outside this platform, that's
-              great! We want you directly connected to your food, even if that means without us.
-            </p>
-            <p>
-              All we ask is that you think of us whenever you're looking for fresh, delicious, locally grown
-              food. And if you'd like to help keep the lights on,{' '}
-              <Link href="/contact" className="font-semibold text-green-800 underline">
-                get in touch
-              </Link>
-              .
-            </p>
-          </div>
-        </section>
-
-        {/* How It Works */}
-        <section className="mt-12 max-w-3xl mx-auto text-left">
+      {/* How It Works */}
+      <section className="mt-14 max-w-5xl mx-auto px-6">
+        <div className="max-w-3xl mx-auto text-left">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 text-center">How It Works</h2>
 
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[
-              {
-                heading: 'If you want to buy',
-                steps: [
-                  ["Browse what's growing nearby",'See fresh listings from gardens and small farms in your area.'],
-                  ['Reserve and pay online', 'No account needed. We hold your payment until you have your produce.'],
-                  ['Wait for the "ready" email', 'The farmer tells you when and where to pick up.'],
-                  ['Pick up and share your code', 'Hand over your pickup code once the produce is in your hands.'],
-                ],
-              },
-              {
-                heading: 'If you want to sell',
-                steps: [
-                  ['Set up your farm profile', 'Add your farm name and photo, and connect a payout account.'],
-                  ['Post your harvest', 'List the crop, price, quantity and pickup address. Posting is free.'],
-                  ['Mark orders ready', 'When the produce is ready, send the buyer your pickup hours.'],
-                  ['Enter the pickup code to get paid', 'The buyer gives you a code at pickup. Entering it releases your payment.'],
-                ],
-              },
-            ].map((column) => (
+            {HOW_IT_WORKS.map((column) => (
               <div key={column.heading} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
                 <h3 className="text-lg font-bold text-gray-900">{column.heading}</h3>
                 <ol className="mt-4 space-y-4">
                   {column.steps.map(([title, detail], index) => (
                     <li key={title} className="flex items-start gap-3">
-                      <span className="w-7 h-7 shrink-0 rounded-full bg-green-700 text-white text-sm font-bold flex items-center justify-center">
+                      <span className="w-7 h-7 shrink-0 rounded-full bg-emerald-700 text-white text-sm font-bold flex items-center justify-center">
                         {index + 1}
                       </span>
                       <div>
@@ -144,41 +162,37 @@ export default function SplashLandingPage() {
 
           <p className="mt-6 text-center text-sm text-gray-600">
             More questions?{' '}
-            <Link href="/faq" className="font-semibold text-green-800 underline">
+            <Link href="/faq" className="font-semibold text-emerald-800 underline">
               Read the FAQ
             </Link>
           </p>
-        </section>
+        </div>
 
         {/* Value Props */}
-        <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left border-t border-gray-200/60 pt-10">
+        <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left border-t border-gray-200/60 pt-10">
           <div className="flex items-start gap-3">
-            <ShieldCheck className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+            <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <h3 className="font-semibold text-gray-900 text-sm">Protected Until Pickup</h3>
               <p className="text-xs text-gray-500 mt-0.5">Your payment is held until you collect your order and hand over your pickup code.</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <HeartHandshake className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+            <HeartHandshake className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <h3 className="font-semibold text-gray-900 text-sm">Support Local Growers</h3>
               <p className="text-xs text-gray-500 mt-0.5">Keep food dollars within your local community and neighborhood economy.</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <Sprout className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+            <Sprout className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <h3 className="font-semibold text-gray-900 text-sm">Peak Harvest Quality</h3>
               <p className="text-xs text-gray-500 mt-0.5">Skip long grocery store supply chains and eat food picked fresh today.</p>
             </div>
           </div>
         </div>
-      </main>
-
-      <footer className="border-t border-gray-200 py-6 text-center text-xs text-gray-500">
-        © {new Date().getFullYear()} Farm Fresh Direct. Connecting local food communities.
-      </footer>
+      </section>
     </div>
   );
 }
