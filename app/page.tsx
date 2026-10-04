@@ -99,8 +99,8 @@ export default function SplashLandingPage() {
           <div className="flex items-start gap-3">
             <ShieldCheck className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-semibold text-gray-900 text-sm">Verified at Pickup</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Pay only after inspecting items in person with adjustable weights.</p>
+              <h3 className="font-semibold text-gray-900 text-sm">Protected Until Pickup</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Your payment is held until you collect your order and hand over your pickup code.</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
