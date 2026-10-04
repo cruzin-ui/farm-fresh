@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import BottomNav from "@/components/BottomNav";
+import AccountMenu from "@/components/AccountMenu";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
@@ -49,6 +50,7 @@ export default function RootLayout({
               <span>Farm Fresh <span className="text-emerald-600 font-medium">Direct</span></span>
             </Link>
 
+            <div className="flex items-center gap-3">
             {/* On phones these links live in the bottom tab bar instead. */}
             <nav className="hidden md:flex items-center gap-3">
               <Link
@@ -70,6 +72,8 @@ export default function RootLayout({
                 <LayoutDashboard className="w-4 h-4" /> Seller Dashboard
               </Link>
             </nav>
+            <AccountMenu />
+            </div>
           </div>
         </header>
 

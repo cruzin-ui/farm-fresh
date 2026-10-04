@@ -23,7 +23,53 @@ const VEGETABLE_TYPES: { name: string; emoji: string; keywords: string[]; exclud
   { name: 'Sweet Potatoes', emoji: '🍠', keywords: ['sweet potato', 'yam'] },
 ];
 
-function matchesVegetableType(item: { title?: string | null; variety?: string | null }, type: (typeof VEGETABLE_TYPES)[number]) {
+const FRUIT_TYPES: typeof VEGETABLE_TYPES = [
+  { name: 'Apples', emoji: '🍎', keywords: ['apple'], exclude: ['pineapple'] },
+  { name: 'Strawberries', emoji: '🍓', keywords: ['strawberr'] },
+  { name: 'Berries', emoji: '🫐', keywords: ['blueberr', 'blackberr', 'raspberr', 'mulberr', 'boysenberr'] },
+  { name: 'Peaches & Nectarines', emoji: '🍑', keywords: ['peach', 'nectarine', 'apricot', 'plum'] },
+  { name: 'Citrus', emoji: '🍊', keywords: ['orange', 'lemon', 'lime', 'grapefruit', 'tangerine', 'mandarin', 'citrus'] },
+  { name: 'Grapes', emoji: '🍇', keywords: ['grape'], exclude: ['grapefruit'] },
+  { name: 'Melons', emoji: '🍉', keywords: ['melon', 'cantaloupe', 'honeydew'] },
+  { name: 'Cherries', emoji: '🍒', keywords: ['cherr'], exclude: ['tomato'] },
+  { name: 'Pears', emoji: '🍐', keywords: ['pear'] },
+  { name: 'Avocados', emoji: '🥑', keywords: ['avocado'] },
+];
+
+// There are no emoji for individual herbs, so most share a generic leaf.
+const HERB_TYPES: typeof VEGETABLE_TYPES = [
+  { name: 'Basil', emoji: '🌿', keywords: ['basil'] },
+  { name: 'Cilantro', emoji: '🌿', keywords: ['cilantro', 'coriander'] },
+  { name: 'Mint', emoji: '🍃', keywords: ['mint'] },
+  { name: 'Rosemary', emoji: '🌿', keywords: ['rosemary'] },
+  { name: 'Parsley', emoji: '🌿', keywords: ['parsley'] },
+  { name: 'Thyme', emoji: '🌱', keywords: ['thyme'] },
+  { name: 'Oregano', emoji: '🌱', keywords: ['oregano', 'marjoram'] },
+  { name: 'Dill', emoji: '🌿', keywords: ['dill'] },
+  { name: 'Sage', emoji: '🍃', keywords: ['sage'] },
+  { name: 'Lavender', emoji: '🌸', keywords: ['lavender'] },
+  { name: 'Chiles & Spices', emoji: '🌶️', keywords: ['chile', 'chili', 'pepper', 'spice', 'paprika', 'cumin'] },
+];
+
+const PANTRY_TYPES: typeof VEGETABLE_TYPES = [
+  { name: 'Honey', emoji: '🍯', keywords: ['honey'], exclude: ['honeycomb', 'honeydew'] },
+  { name: 'Honeycomb & Bee Products', emoji: '🐝', keywords: ['honeycomb', 'beeswax', 'pollen', 'propolis'] },
+  { name: 'Jam & Jelly', emoji: '🥫', keywords: ['jam', 'jelly', 'preserve', 'marmalade'] },
+  { name: 'Syrup', emoji: '🥞', keywords: ['syrup', 'agave'] },
+  { name: 'Pickles', emoji: '🥒', keywords: ['pickle'] },
+  { name: 'Salsa & Sauces', emoji: '🌶️', keywords: ['salsa', 'sauce'] },
+];
+
+// Which tiles to show under each category button. "All" shows vegetables.
+const TILE_GROUPS: Record<string, { heading: string; types: typeof VEGETABLE_TYPES }> = {
+  All: { heading: 'Shop by Vegetable', types: VEGETABLE_TYPES },
+  Vegetables: { heading: 'Shop by Vegetable', types: VEGETABLE_TYPES },
+  'Fruits & Berries': { heading: 'Shop by Fruit', types: FRUIT_TYPES },
+  'Herbs & Spices': { heading: 'Shop by Herb', types: HERB_TYPES },
+  'Honey & Jam': { heading: 'Shop Honey, Jam & More', types: PANTRY_TYPES },
+};
+
+function matchesProduceType(item: { title?: string | null; variety?: string | null }, type: (typeof VEGETABLE_TYPES)[number]) {
   const text = `${item.title || ''} ${item.variety || ''}`.toLowerCase();
   if (type.exclude?.some((phrase) => text.includes(phrase))) return false;
   return type.keywords.some((keyword) => text.includes(keyword));
@@ -71,7 +117,7 @@ export default function BrowsePage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedVegetable, setSelectedVegetable] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
 
   useEffect(() => {
     fetchListings();
@@ -125,6 +171,12 @@ export default function BrowsePage() {
     setLoading(false);
   };
 
+  // The tiles under the category buttons follow the selected category, and
+  // count only that category's listings.
+  const tileGroup = TILE_GROUPS[selectedCategory] ?? TILE_GROUPS.All;
+  const categoryListings =
+    selectedCategory === 'All' ? listings : listings.filter((item) => item.category === selectedCategory);
+
   const filteredListings = listings.filter((item) => {
     const matchesSearch =
       item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -134,8 +186,8 @@ export default function BrowsePage() {
     const matchesCategory =
       selectedCategory === 'All' || item.category === selectedCategory;
 
-    const vegetableType = VEGETABLE_TYPES.find((t) => t.name === selectedVegetable);
-    const matchesVegetable = !vegetableType || matchesVegetableType(item, vegetableType);
+    const produceType = tileGroup.types.find((t) => t.name === selectedType);
+    const matchesVegetable = !produceType || matchesProduceType(item, produceType);
 
     return matchesSearch && matchesCategory && matchesVegetable;
   });
@@ -160,7 +212,10 @@ export default function BrowsePage() {
             (cat) => (
               <button
                 key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                onClick={() => {
+                  setSelectedCategory(cat);
+                  setSelectedType(null);
+                }}
                 className={`px-4 py-3 md:py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
                   selectedCategory === cat
                     ? 'bg-emerald-600 text-white shadow-sm'
@@ -176,16 +231,16 @@ export default function BrowsePage() {
 
       {/* SHOP BY VEGETABLE */}
       <div>
-        <h2 className="text-lg font-extrabold text-gray-900 mb-3">Shop by Vegetable</h2>
+        <h2 className="text-lg font-extrabold text-gray-900 mb-3">{tileGroup.heading}</h2>
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-          {VEGETABLE_TYPES.map((type) => {
-            const count = listings.filter((item) => matchesVegetableType(item, type)).length;
-            const selected = selectedVegetable === type.name;
+          {tileGroup.types.map((type) => {
+            const count = categoryListings.filter((item) => matchesProduceType(item, type)).length;
+            const selected = selectedType === type.name;
 
             return (
               <button
                 key={type.name}
-                onClick={() => setSelectedVegetable(selected ? null : type.name)}
+                onClick={() => setSelectedType(selected ? null : type.name)}
                 aria-pressed={selected}
                 className={`flex flex-col items-center gap-1 p-3 rounded-2xl border text-center transition-all ${
                   selected
@@ -208,11 +263,11 @@ export default function BrowsePage() {
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-extrabold text-gray-900">
-          {selectedVegetable ? `${selectedVegetable} Available Now` : 'Fresh Harvest Available Now'}
+          {selectedType ? `${selectedType} Available Now` : 'Fresh Harvest Available Now'}
         </h2>
-        {selectedVegetable && (
+        {selectedType && (
           <button
-            onClick={() => setSelectedVegetable(null)}
+            onClick={() => setSelectedType(null)}
             className="text-xs font-semibold text-emerald-700 hover:underline"
           >
             Show all produce
