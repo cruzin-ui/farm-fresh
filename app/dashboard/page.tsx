@@ -79,6 +79,7 @@ export default function SellerDashboardPage() {
   // Listing Form State
   // Set while the listing form is editing an existing post instead of creating one
   const [editingListingId, setEditingListingId] = useState<string | null>(null);
+  const [showInactiveListings, setShowInactiveListings] = useState(false);
   const [title, setTitle] = useState('');
   const [variety, setVariety] = useState('');
   const [category, setCategory] = useState('Vegetables');
@@ -240,6 +241,13 @@ export default function SellerDashboardPage() {
   const listingIdsWithOrders = new Set(
     [...incomingOrders, ...salesHistory].map((o) => o.listing_id)
   );
+
+  // "Your Listings" shows what's on sale. Sold-out and taken-down listings are
+  // tucked behind a toggle — their sales are already in Sales History — but
+  // kept reachable so the farmer can restock one instead of reposting it.
+  const activeListings = myListings.filter((l) => Number(l.available_quantity ?? 0) > 0);
+  const inactiveListings = myListings.filter((l) => Number(l.available_quantity ?? 0) <= 0);
+  const visibleListings = showInactiveListings ? [...activeListings, ...inactiveListings] : activeListings;
 
   const handleDeleteListing = async (id: string) => {
     const hasOrders = listingIdsWithOrders.has(id);
@@ -771,7 +779,7 @@ export default function SellerDashboardPage() {
                 <LayoutDashboard className="w-4 h-4" /> Your Listings
               </span>
               <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px]">
-                {myListings.length}
+                {activeListings.length}
               </span>
             </button>
 
@@ -889,27 +897,32 @@ export default function SellerDashboardPage() {
                 )}
               </div>
 
-              {activeTab === 'listings' && myListings.length === 0 && (
+              {activeTab === 'listings' && activeListings.length === 0 && !showInactiveListings && (
                 <div className="text-center py-16 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                   <Sprout className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                  <h3 className="text-base font-semibold text-gray-900">No Active Posts Yet</h3>
+                  <h3 className="text-base font-semibold text-gray-900">
+                    {myListings.length === 0 ? 'No Active Posts Yet' : 'Nothing On Sale Right Now'}
+                  </h3>
                   <button
                     onClick={startNewListing}
                     className="mt-4 inline-flex items-center gap-2 bg-emerald-600 text-white font-semibold py-2.5 px-5 rounded-lg text-xs shadow-sm hover:bg-emerald-700"
                   >
-                    <PlusCircle className="w-4 h-4" /> Post Your First Produce Item
+                    <PlusCircle className="w-4 h-4" />{' '}
+                    {myListings.length === 0 ? 'Post Your First Produce Item' : 'Post New Harvest'}
                   </button>
                 </div>
               )}
 
-              {activeTab === 'listings' && myListings.length > 0 && (
+              {activeTab === 'listings' && visibleListings.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {myListings.map((item) => {
+                  {visibleListings.map((item) => {
                     const qty = Number(item.available_quantity ?? 0);
                     return (
                       <div
                         key={item.id}
-                        className="p-4 border rounded-xl border-gray-200 shadow-sm bg-white flex justify-between items-start"
+                        className={`p-4 border rounded-xl border-gray-200 shadow-sm flex justify-between items-start ${
+                          qty <= 0 ? 'bg-gray-50' : 'bg-white'
+                        }`}
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -932,7 +945,7 @@ export default function SellerDashboardPage() {
                               qty <= 0 ? 'text-red-600' : 'text-emerald-700'
                             }`}
                           >
-                            {qty <= 0 ? 'Not on sale — sold out or taken down' : `${qty} ${item.unit_type} left`}
+                            {qty <= 0 ? 'Sold out or taken down — edit the quantity to restock' : `${qty} ${item.unit_type} left`}
                           </p>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
@@ -944,6 +957,7 @@ export default function SellerDashboardPage() {
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
+                          {!(qty <= 0 && listingIdsWithOrders.has(item.id)) && (
                           <button
                             onClick={() => handleDeleteListing(item.id)}
                             aria-label={listingIdsWithOrders.has(item.id) ? 'Take down listing' : 'Delete listing'}
@@ -952,11 +966,23 @@ export default function SellerDashboardPage() {
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
+                          )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
+              )}
+
+              {activeTab === 'listings' && inactiveListings.length > 0 && (
+                <button
+                  onClick={() => setShowInactiveListings((current) => !current)}
+                  className="mt-4 text-xs font-semibold text-gray-500 hover:text-emerald-700 hover:underline"
+                >
+                  {showInactiveListings
+                    ? 'Hide sold-out and taken-down listings'
+                    : `Show ${inactiveListings.length} sold-out or taken-down listing${inactiveListings.length === 1 ? '' : 's'}`}
+                </button>
               )}
 
               {activeTab === 'new' && (
@@ -1569,6 +1595,11 @@ export default function SellerDashboardPage() {
                         <h4 className="text-sm font-bold text-gray-800">
                           {order.listing_title}
                         </h4>
+                        <p className="text-xs text-gray-600 break-all">
+                          Buyer: <span className="font-semibold">{order.buyer_email || 'Unknown'}</span>
+                          {order.reserved_quantity != null &&
+                            ` (${order.reserved_quantity} ${order.listing_unit_type})`}
+                        </p>
                         <p className="text-xs text-gray-500">
                           {order.status === 'cancelled' ? 'Cancelled — ordered' : 'Completed — ordered'} on{' '}
                           {new Date(order.created_at).toLocaleDateString()}
