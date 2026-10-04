@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
-import { checkListingAllowed, MAX_LISTING_TAGS } from '@/lib/listingRules';
+import { checkListingAllowed, saveListingPickupAddress, MAX_LISTING_TAGS } from '@/lib/listingRules';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +27,7 @@ export async function POST(request: Request) {
     const price = Number(fields.price_per_unit);
     const quantity = Number(fields.available_quantity);
     const locationName = typeof fields.location_name === 'string' ? fields.location_name.trim() : '';
+    const pickupAddress = typeof fields.pickup_address === 'string' ? fields.pickup_address.trim() : '';
 
     if (!title) {
       return NextResponse.json({ error: 'Crop name is required.' }, { status: 400 });
@@ -42,6 +43,9 @@ export async function POST(request: Request) {
     }
     if (!locationName) {
       return NextResponse.json({ error: 'A city or area is required.' }, { status: 400 });
+    }
+    if (!pickupAddress) {
+      return NextResponse.json({ error: 'A pickup address is required.' }, { status: 400 });
     }
 
     const notAllowed = await checkListingAllowed({
@@ -84,6 +88,13 @@ export async function POST(request: Request) {
 
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    try {
+      await saveListingPickupAddress(listing.id, user.id, pickupAddress);
+    } catch (addressError) {
+      await supabaseAdmin.from('produce_listings').delete().eq('id', listing.id);
+      throw addressError;
     }
 
     return NextResponse.json({ success: true, listingId: listing.id });

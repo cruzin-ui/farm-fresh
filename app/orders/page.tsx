@@ -186,6 +186,15 @@ export default function MyOrdersPage() {
                 </div>
               </div>
 
+              {open && order.pickup_address && (
+                <p className="text-xs text-gray-700 flex items-start gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>
+                    Pickup address: <span className="font-semibold">{order.pickup_address}</span>
+                  </span>
+                </p>
+              )}
+
               {order.status === 'ready_for_pickup' && order.pickup_details && (
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900">
                   <p className="font-bold mb-1">Pickup details from the farmer</p>

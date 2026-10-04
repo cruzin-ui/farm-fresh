@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
-import { checkListingAllowed, MAX_LISTING_TAGS } from '@/lib/listingRules';
+import { checkListingAllowed, saveListingPickupAddress, MAX_LISTING_TAGS } from '@/lib/listingRules';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,6 +109,12 @@ export async function POST(request: Request) {
     if (typeof fields.image_url === 'string' && fields.image_url) update.image_url = fields.image_url;
     if (Array.isArray(fields.tags)) {
       update.tags = fields.tags.filter((t: unknown) => typeof t === 'string').slice(0, MAX_LISTING_TAGS);
+    }
+
+    // Stored separately from the listing row; applies to orders placed from now on.
+    const pickupAddress = typeof fields.pickup_address === 'string' ? fields.pickup_address.trim() : '';
+    if (pickupAddress) {
+      await saveListingPickupAddress(listingId, user.id, pickupAddress);
     }
 
     if (Object.keys(update).length === 0) {

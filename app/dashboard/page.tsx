@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import { resizeImage } from '@/lib/resizeImage';
 import { SELLER_FEE_RATE } from '@/lib/pricing';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 import {
   Sprout,
   AlertCircle,
@@ -80,6 +81,7 @@ export default function SellerDashboardPage() {
   // Set while the listing form is editing an existing post instead of creating one
   const [editingListingId, setEditingListingId] = useState<string | null>(null);
   const [showInactiveListings, setShowInactiveListings] = useState(false);
+  const [defaultPickupAddress, setDefaultPickupAddress] = useState('');
   const [title, setTitle] = useState('');
   const [variety, setVariety] = useState('');
   const [category, setCategory] = useState('Vegetables');
@@ -91,7 +93,10 @@ export default function SellerDashboardPage() {
   const [harvestEndDate, setHarvestEndDate] = useState('');
   const [locationName, setLocationName] = useState('');
   const [zipCode, setZipCode] = useState('');
-  const [pickupInstructions, setPickupInstructions] = useState('');
+  const [pickupAddress, setPickupAddress] = useState('');
+  // True when the address was picked from the lookup suggestions (or was
+  // already saved), rather than typed freehand.
+  const [pickupAddressVerified, setPickupAddressVerified] = useState(false);
   const [listingTags, setListingTags] = useState<string[]>([]);
   const [lookingUpZip, setLookingUpZip] = useState(false);
   const [zipNotFound, setZipNotFound] = useState(false);
@@ -159,7 +164,28 @@ export default function SellerDashboardPage() {
       .eq('farmer_id', currentUserId)
       .order('created_at', { ascending: false });
 
-    if (listings) setMyListings(listings);
+    const { data: addressRows } = await supabase
+      .from('listing_pickup_addresses')
+      .select('listing_id, address')
+      .eq('farmer_id', currentUserId);
+
+    const addressByListing = new Map((addressRows || []).map((a) => [a.listing_id, a.address]));
+    const listingsWithAddress = (listings || []).map((l) => ({
+      ...l,
+      pickup_address: addressByListing.get(l.id) || '',
+    }));
+
+    if (listings) setMyListings(listingsWithAddress);
+
+    // Start new listings from the most recent pickup address — most farmers
+    // only ever have one.
+    const lastAddress = listingsWithAddress.find((l) => l.pickup_address)?.pickup_address || '';
+    setDefaultPickupAddress(lastAddress);
+    setPickupAddress((current) => {
+      if (current || !lastAddress) return current;
+      setPickupAddressVerified(true);
+      return lastAddress;
+    });
 
     const { data: profile } = await supabase
       .from('seller_profiles')
@@ -289,7 +315,8 @@ export default function SellerDashboardPage() {
     setAvailableQuantity('');
     setHarvestReadyDate('');
     setHarvestEndDate('');
-    setPickupInstructions('');
+    setPickupAddress(defaultPickupAddress);
+    setPickupAddressVerified(Boolean(defaultPickupAddress));
     setListingTags([]);
     setImageFile(null);
     setImagePreviewUrl(null);
@@ -315,7 +342,8 @@ export default function SellerDashboardPage() {
     setAvailableQuantity(item.available_quantity != null ? String(item.available_quantity) : '');
     setHarvestReadyDate(item.harvest_ready_date || '');
     setHarvestEndDate(item.harvest_end_date || '');
-    setPickupInstructions(item.pickup_instructions || '');
+    setPickupAddress(item.pickup_address || '');
+    setPickupAddressVerified(Boolean(item.pickup_address));
     setListingTags(Array.isArray(item.tags) ? item.tags.slice(0, MAX_LISTING_TAGS) : []);
     setZipCode(item.zip_code || '');
     setLocationName(item.location_name || '');
@@ -365,9 +393,11 @@ export default function SellerDashboardPage() {
   const openReadyDraft = (order: any) => {
     setReadyDraftOrderId(order.id);
     setReadyDraftText(
-      order.listing_pickup_instructions
-        ? order.listing_pickup_instructions
-        : 'Your order is ready! Please pick up at [location] during [hours].'
+      order.pickup_address
+        ? `Your order is ready! Pick up at ${order.pickup_address} during [hours]. [Any other instructions, e.g. where to park or who to ask for.]`
+        : order.listing_pickup_instructions
+          ? order.listing_pickup_instructions
+          : 'Your order is ready! Please pick up at [location] during [hours].'
     );
   };
 
@@ -598,7 +628,7 @@ export default function SellerDashboardPage() {
             harvest_end_date: harvestEndDate || null,
             location_name: locationName,
             zip_code: zipCode,
-            pickup_instructions: pickupInstructions,
+            pickup_address: pickupAddress,
             tags: listingTags,
             ...(cropImageUrl ? { image_url: cropImageUrl } : {}),
           },
@@ -628,7 +658,7 @@ export default function SellerDashboardPage() {
           harvest_end_date: harvestEndDate || null,
           location_name: locationName || profileLocation,
           zip_code: zipCode || profileZip,
-          pickup_instructions: pickupInstructions,
+          pickup_address: pickupAddress,
           tags: listingTags,
           image_url: cropImageUrl,
         },
@@ -644,7 +674,6 @@ export default function SellerDashboardPage() {
       setAvailableQuantity('');
       setHarvestReadyDate('');
       setHarvestEndDate('');
-      setPickupInstructions('');
       setListingTags([]);
       setImageFile(null);
       setImagePreviewUrl(null);
@@ -674,7 +703,10 @@ export default function SellerDashboardPage() {
     setDescription(previous.description || '');
     setUnitType(previous.unit_type || 'lbs');
     setPricePerUnit(previous.price_per_unit != null ? String(previous.price_per_unit) : '');
-    setPickupInstructions(previous.pickup_instructions || '');
+    if (previous.pickup_address) {
+      setPickupAddress(previous.pickup_address);
+      setPickupAddressVerified(true);
+    }
     setListingTags(Array.isArray(previous.tags) ? previous.tags.slice(0, MAX_LISTING_TAGS) : []);
     if (previous.zip_code) setZipCode(previous.zip_code);
     if (previous.location_name) setLocationName(previous.location_name);
@@ -1232,17 +1264,31 @@ export default function SellerDashboardPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Pickup Instructions
+                      Pickup Address *
                     </label>
-                    <textarea
-                      rows={2}
-                      placeholder="e.g., Pickup at the blue farm stand, Sat & Sun 9am-1pm. Text (602) 555-0199 when you arrive."
-                      value={pickupInstructions}
-                      onChange={(e) => setPickupInstructions(e.target.value)}
-                      className="w-full px-4 py-2 border rounded-lg text-sm"
+                    <AddressAutocomplete
+                      required
+                      placeholder="e.g., 1234 W Farm Rd, Phoenix"
+                      value={pickupAddress}
+                      verified={pickupAddressVerified}
+                      onChange={(text) => {
+                        setPickupAddress(text);
+                        setPickupAddressVerified(false);
+                      }}
+                      onSelect={(suggestion) => {
+                        setPickupAddress(suggestion.address);
+                        setPickupAddressVerified(true);
+                        // Keep the public city and zip in step with the address.
+                        if (suggestion.zip) setZipCode(suggestion.zip.slice(0, 5));
+                        if (suggestion.city) {
+                          setLocationName([suggestion.city, suggestion.state].filter(Boolean).join(', '));
+                        }
+                      }}
                     />
                     <p className="text-[10px] text-gray-400 mt-1">
-                      This gets suggested automatically as the pickup message when you mark an order ready.
+                      Only shown to buyers after they've paid — your listing shows just the city and zip
+                      code. Hours and other instructions go in the message you send when you mark an order
+                      ready.
                     </p>
                   </div>
 

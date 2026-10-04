@@ -52,6 +52,7 @@ export async function POST(request: Request) {
         refunded_amount: Number(order.refunded_amount ?? 0),
         pickup_details: order.status === 'ready_for_pickup' ? order.pickup_details || null : null,
         pickup_code: codeRecord?.code || null,
+        pickup_address: order.pickup_address || null,
         listing_title: listing?.title || 'Harvest Crop',
         listing_unit_type: listing?.unit_type || 'units',
         listing_location: listing?.location_name || '',

@@ -107,6 +107,21 @@ function ConfirmationContent() {
         )}
       </div>
 
+      {isOpen && order?.pickup_address && (
+        <div className="bg-white border rounded-2xl p-5 shadow-sm text-sm text-gray-700 flex items-start gap-2">
+          <MapPin className="w-5 h-5 text-emerald-600 shrink-0" />
+          <div>
+            <p className="font-bold text-gray-900">Pickup address</p>
+            <p>{order.pickup_address}</p>
+            {status !== 'ready_for_pickup' && (
+              <p className="text-xs text-gray-500 mt-1">
+                Please wait until the farmer marks your order ready before heading over.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {status === 'ready_for_pickup' && order?.pickup_details && (
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 text-sm text-blue-900">
           <p className="font-bold mb-1">Pickup details from the farmer</p>

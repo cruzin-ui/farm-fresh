@@ -62,6 +62,7 @@ export async function POST(request: Request) {
             <h2 style="color: #059669;">Your harvest is ready!</h2>
             <p><strong>${escapeHtml(listing.title || 'Your order')}</strong> is ready for pickup.</p>
             <p style="white-space: pre-wrap;">${escapeHtml(String(pickupDetails))}</p>
+            ${order.pickup_address ? `<p>Pickup address: <strong>${escapeHtml(order.pickup_address)}</strong></p>` : ''}
             <p>Your pickup code: <strong>${pickupCode}</strong></p>
             <p>Give this code to the farmer only when you collect your produce — it releases their payment.</p>
             ${

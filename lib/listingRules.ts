@@ -8,6 +8,17 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 export const MAX_ACTIVE_LISTINGS = 25;
 export const MAX_LISTING_TAGS = 3;
 
+// The full pickup address is kept out of the publicly readable listing row
+// (which only carries the city and zip) so a farmer's address isn't exposed
+// to anyone browsing. Buyers receive it on their order once they've paid.
+export async function saveListingPickupAddress(listingId: string, farmerId: string, address: string) {
+  const { error } = await supabaseAdmin
+    .from('listing_pickup_addresses')
+    .upsert({ listing_id: listingId, farmer_id: farmerId, address }, { onConflict: 'listing_id' });
+
+  if (error) throw error;
+}
+
 function normalize(text: string | null | undefined) {
   return (text || '').toLowerCase().replace(/\s+/g, ' ').trim();
 }

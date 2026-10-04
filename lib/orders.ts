@@ -2,7 +2,7 @@ import type Stripe from 'stripe';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { randomBytes } from 'crypto';
 import { getOrCreatePickupCode } from '@/lib/pickupCodes';
-import { sendEmail } from '@/lib/email';
+import { sendEmail, escapeHtml } from '@/lib/email';
 import { calculateFarmerPayoutCents } from '@/lib/pricing';
 
 // The seller's email deliberately leaves out the pickup code — they only get
@@ -45,9 +45,10 @@ async function sendBuyerConfirmation(params: {
   unitType: string;
   totalPrice: number;
   pickupCode: string;
+  pickupAddress: string | null;
   orderLink: string | null;
 }) {
-  const { buyerEmail, listingTitle, quantity, unitType, totalPrice, pickupCode, orderLink } = params;
+  const { buyerEmail, listingTitle, quantity, unitType, totalPrice, pickupCode, pickupAddress, orderLink } = params;
 
   await sendEmail({
     to: buyerEmail,
@@ -56,7 +57,8 @@ async function sendBuyerConfirmation(params: {
       <div style="font-family: sans-serif; max-width: 480px;">
         <h2 style="color: #059669;">Your order is confirmed!</h2>
         <p><strong>${listingTitle}</strong> — ${quantity} ${unitType}</p>
-        <p>Total paid: $${totalPrice.toFixed(2)}</p>
+        <p>Total paid: ${totalPrice.toFixed(2)}</p>
+        ${pickupAddress ? `<p>Pickup address: <strong>${escapeHtml(pickupAddress)}</strong><br />Please wait for the "ready for pickup" email before heading over.</p>` : ''}
         <p>Your pickup code: <strong style="font-size: 20px;">${pickupCode}</strong></p>
         <p>
           Give this code to the farmer <strong>only when you collect your produce</strong> — it
@@ -110,6 +112,16 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
 
   const guestToken = buyerId ? null : randomBytes(24).toString('hex');
 
+  // Copy the listing's pickup address onto the order: the buyer can then read
+  // it from their own order, and later edits to the listing don't change
+  // where this order is collected.
+  const { data: addressRow } = await supabaseAdmin
+    .from('listing_pickup_addresses')
+    .select('address')
+    .eq('listing_id', listingId)
+    .maybeSingle();
+  const pickupAddress: string | null = addressRow?.address || null;
+
   const { data: order, error: orderError } = await supabaseAdmin
     .from('orders')
     .insert([
@@ -117,6 +129,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
         buyer_id: buyerId,
         buyer_email: buyerEmail,
         guest_access_token: guestToken,
+        pickup_address: pickupAddress,
         listing_id: listingId,
         quantity: orderQuantity,
         reserved_quantity: orderQuantity,
@@ -190,6 +203,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
       unitType,
       totalPrice: totalPaid,
       pickupCode,
+      pickupAddress,
       orderLink:
         guestToken && siteUrl
           ? `${siteUrl}/orders/confirmation?orderId=${order.id}&token=${guestToken}`
