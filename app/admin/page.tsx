@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { ShieldCheck, AlertCircle, CheckCircle2, RefreshCw, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 
@@ -48,6 +48,39 @@ type ContactMessage = {
 
 type OrderFilter = 'open' | 'all';
 
+// The last twelve months, newest first, as "YYYY-MM" — the months a report
+// can be downloaded for.
+function recentMonths() {
+  const now = new Date();
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    return d.toISOString().slice(0, 7);
+  });
+}
+
+// Turns rows of data into a CSV file and hands it to the browser to save.
+function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
+  if (rows.length === 0) return;
+
+  const columns = Object.keys(rows[0]);
+  const cell = (value: unknown) => {
+    const text = value == null ? '' : String(value);
+    // Quote anything a spreadsheet could misread, and neutralise values that
+    // would otherwise be run as a formula.
+    // (Only text is treated this way, so negative numbers stay numbers.)
+    const safe = typeof value === 'string' && /^[=+\-@]/.test(text) ? "'" + text : text;
+    return /[",\n]/.test(safe) ? '"' + safe.replace(/"/g, '""') + '"' : safe;
+  };
+
+  const csv = [columns.join(','), ...rows.map((row) => columns.map((c) => cell(row[c])).join(','))].join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 const formatMonth = (month: string) =>
   new Date(`${month}-01T12:00:00Z`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
@@ -71,6 +104,7 @@ export default function AdminPage() {
   const [summaryMonth, setSummaryMonth] = useState<string>('');
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [showResolvedMessages, setShowResolvedMessages] = useState(false);
+  const [downloadingReport, setDownloadingReport] = useState(false);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -102,7 +136,7 @@ export default function AdminPage() {
     const summaryData = await summaryRes.json();
     if (summaryRes.ok) {
       setSummaryRows(summaryData.rows);
-      setSummaryMonth((current) => current || summaryData.rows[0]?.month || '');
+      setSummaryMonth((current) => current || summaryData.rows[0]?.month || recentMonths()[0]);
     }
 
     const messagesRes = await postWithAuth('/api/admin/messages');
@@ -165,7 +199,27 @@ export default function AdminPage() {
 
   const visibleOrders = filter === 'open' ? orders.filter(isOpen) : orders;
 
-  const summaryMonths = [...new Set(summaryRows.map((r) => r.month))];
+  const summaryMonths = recentMonths();
+
+  // One row per order placed in the selected month, for bookkeeping.
+  const downloadOrdersReport = async () => {
+    setDownloadingReport(true);
+    setErrorMsg(null);
+    try {
+      const res = await postWithAuth('/api/admin/report', { month: summaryMonth });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not build the report.');
+      if (data.rows.length === 0) {
+        setErrorMsg(`No orders were placed in ${formatMonth(summaryMonth)}.`);
+        return;
+      }
+      downloadCsv(`farm-fresh-direct-orders-${summaryMonth}.csv`, data.rows);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Could not build the report.');
+    } finally {
+      setDownloadingReport(false);
+    }
+  };
   const monthRows = summaryRows.filter((r) => r.month === summaryMonth);
   const monthTotals = monthRows.reduce(
     (acc, r) => ({
@@ -296,7 +350,7 @@ export default function AdminPage() {
               Completed orders and no-shows, grouped by the month the order was placed.
             </p>
           </div>
-          {summaryMonths.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
             <select
               aria-label="Month"
               value={summaryMonth}
@@ -309,12 +363,39 @@ export default function AdminPage() {
                 </option>
               ))}
             </select>
-          )}
+            <button
+              onClick={downloadOrdersReport}
+              disabled={downloadingReport || !summaryMonth}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              {downloadingReport ? 'Preparing...' : 'Orders report (CSV)'}
+            </button>
+            <button
+              onClick={() =>
+                downloadCsv(
+                  `farm-fresh-direct-farmer-summary-${summaryMonth}.csv`,
+                  monthRows.map(({ farmer_id, ...row }) => row)
+                )
+              }
+              disabled={monthRows.length === 0}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white border text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              Farmer summary (CSV)
+            </button>
+          </div>
         </div>
+
+        <p className="text-[11px] text-gray-400">
+          The orders report lists every order placed in the month, one per row, with the buyer's payment,
+          refunds, the farmer's payout, your fees and the pickup city and zip. Open it in Excel or Google
+          Sheets, or send it to your accountant.
+        </p>
 
         {monthRows.length === 0 ? (
           <p className="text-sm text-gray-500 py-4 text-center">
-            No completed sales in the last six months yet.
+            No completed sales in {summaryMonth ? formatMonth(summaryMonth) : 'this month'}.
           </p>
         ) : (
           <>

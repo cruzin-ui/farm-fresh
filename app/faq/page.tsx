@@ -153,6 +153,28 @@ const SELLER_FAQS: Faq[] = [
     ),
   },
   {
+    question: 'Do I have to pay taxes on what I sell here?',
+    answer: (
+      <>
+        <p>
+          Money you earn from sales is generally taxable income, and reporting it is your responsibility. That
+          includes any income tax, self-employment tax, and any state or local taxes, licenses or permits that
+          apply to you as a seller.
+        </p>
+        <p className="mt-2">
+          Farm Fresh Direct doesn't withhold taxes from your payouts and can't give tax advice. If your sales
+          through the platform reach the IRS reporting threshold for the year, you'll receive a 1099 tax form
+          showing them, and the same figures are reported to the IRS. The tax details you enter when you set up
+          payouts are what that form uses, so keep them accurate.
+        </p>
+        <p className="mt-2">
+          Your Sales History in the Seller Dashboard is a record of your completed sales. If you're unsure
+          what you owe, talk to a tax professional.
+        </p>
+      </>
+    ),
+  },
+  {
     question: 'What does it cost to sell?',
     answer: `Posting is free. We keep a ${SELLER_FEE} seller fee from each completed sale, taken out of your payout. There are no monthly or listing fees.`,
   },
