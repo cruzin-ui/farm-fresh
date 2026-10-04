@@ -1,19 +1,23 @@
 import type { Metadata, Viewport } from "next";
 import BottomNav from "@/components/BottomNav";
 import AccountMenu from "@/components/AccountMenu";
-import { Geist, Geist_Mono } from "next/font/google";
+import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
 import { Sprout, ShoppingBag, LayoutDashboard, Receipt } from "lucide-react";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Body text: a clean, friendly sans-serif. Headings: a soft serif with a
+// hand-made, market-stall feel. Both are applied in globals.css.
+const bodyFont = DM_Sans({
+  variable: "--font-body",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const headingFont = Fraunces({
+  variable: "--font-heading",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -41,12 +45,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-emerald-50/30 text-gray-900 min-h-screen flex flex-col`}
+        className={`${bodyFont.variable} ${headingFont.variable} antialiased bg-emerald-50/30 text-gray-900 min-h-screen flex flex-col`}
       >
         {/* SHARED TOP NAVIGATION */}
         <header className="bg-white/90 backdrop-blur-md border-b border-emerald-100 sticky top-0 z-50 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-            <Link href="/browse" className="flex items-center gap-2.5 font-black text-xl text-emerald-900">
+            <Link href="/browse" className="font-heading flex items-center gap-2.5 font-black text-xl text-emerald-900">
               <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-sm">
                 <Sprout className="w-5 h-5" />
               </div>

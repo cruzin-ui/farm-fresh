@@ -14,7 +14,14 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), Arial, Helvetica, sans-serif;
+}
+
+h1,
+h2,
+h3,
+.font-heading {
+  font-family: var(--font-heading), Georgia, 'Times New Roman', serif;
 }
 
 /* Tailwind's gray-400 is too light for text on white (about 2.5:1, against
