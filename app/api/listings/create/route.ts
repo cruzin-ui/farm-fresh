@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { checkListingAllowed, saveListingPickupAddress, MAX_LISTING_TAGS } from '@/lib/listingRules';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
+import { geocodeZip } from '@/lib/geo';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,6 +88,11 @@ export async function POST(request: Request) {
       }
     }
 
+    // The centre of the listing's zip code, so buyers can search by distance.
+    // A failed lookup just leaves the listing without a location.
+    const zipCode = typeof fields.zip_code === 'string' ? fields.zip_code.trim() : '';
+    const coordinates = await geocodeZip(zipCode);
+
     const { data: listing, error: insertError } = await supabaseAdmin
       .from('produce_listings')
       .insert([
@@ -102,7 +108,9 @@ export async function POST(request: Request) {
           harvest_ready_date: fields.harvest_ready_date,
           harvest_end_date: fields.harvest_end_date || null,
           location_name: locationName,
-          zip_code: typeof fields.zip_code === 'string' ? fields.zip_code.trim() : '',
+          zip_code: zipCode,
+          latitude: coordinates?.latitude ?? null,
+          longitude: coordinates?.longitude ?? null,
           pickup_instructions: typeof fields.pickup_instructions === 'string' ? fields.pickup_instructions : '',
           tags: Array.isArray(fields.tags)
             ? fields.tags.filter((t: unknown) => typeof t === 'string').slice(0, MAX_LISTING_TAGS)

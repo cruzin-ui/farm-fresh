@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ShoppingBag, MapPin } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import ReviewForm from '@/components/ReviewForm';
 
 const STATUS_STYLES: Record<string, { label: string; className: string }> = {
   pending_pickup: { label: 'Being Prepared', className: 'bg-amber-100 text-amber-800' },
@@ -57,8 +58,14 @@ export default function MyOrdersPage() {
         ? await supabase.from('order_pickup_codes').select('order_id, code').in('order_id', orderIds)
         : { data: [] as any[] };
 
+      // Which of these orders already have a review.
+      const { data: reviews } = orderIds.length
+        ? await supabase.from('seller_reviews').select('order_id').in('order_id', orderIds)
+        : { data: [] as any[] };
+
       const listingById = new Map((listings || []).map((l) => [l.id, l]));
       const codeByOrderId = new Map((codes || []).map((c) => [c.order_id, c.code]));
+      const reviewedOrderIds = new Set((reviews || []).map((r) => r.order_id));
 
       setOrders(
         (myOrders || []).map((o) => ({
@@ -67,6 +74,7 @@ export default function MyOrdersPage() {
           listing_unit_type: listingById.get(o.listing_id)?.unit_type || 'units',
           listing_location: listingById.get(o.listing_id)?.location_name || '',
           display_code: codeByOrderId.get(o.id) || o.pickup_code || null,
+          reviewed: reviewedOrderIds.has(o.id),
         }))
       );
       setLoading(false);
@@ -200,6 +208,10 @@ export default function MyOrdersPage() {
                   <p className="font-bold mb-1">Pickup details from the farmer</p>
                   <p className="whitespace-pre-wrap">{order.pickup_details}</p>
                 </div>
+              )}
+
+              {order.status === 'completed' && (
+                <ReviewForm orderId={order.id} alreadyReviewed={order.reviewed} />
               )}
 
             </div>

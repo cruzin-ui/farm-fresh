@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle2, MapPin, Store, ArrowLeft, Printer, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import ReviewForm from '@/components/ReviewForm';
 
 function ConfirmationContent() {
   const searchParams = useSearchParams();
@@ -50,7 +51,13 @@ function ConfirmationContent() {
           .eq('order_id', orderId)
           .maybeSingle();
 
-        setOrder({ ...data, pickup_code: codeRow?.code || data.pickup_code });
+        const { data: reviewRow } = await supabase
+          .from('seller_reviews')
+          .select('order_id')
+          .eq('order_id', orderId)
+          .maybeSingle();
+
+        setOrder({ ...data, pickup_code: codeRow?.code || data.pickup_code, reviewed: Boolean(reviewRow) });
       } catch (err) {
         console.error('Error fetching order:', err);
       } finally {
@@ -149,6 +156,10 @@ function ConfirmationContent() {
           You checked out as a guest. We've emailed you a link to this page — keep that email or bookmark this
           page to get back to your order and pickup code.
         </p>
+      )}
+
+      {status === 'completed' && orderId && order && (
+        <ReviewForm orderId={orderId} token={guestToken} alreadyReviewed={Boolean(order.reviewed)} />
       )}
 
       {/* Payment & Status Summary */}

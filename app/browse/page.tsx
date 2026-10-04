@@ -4,6 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Search, MapPin, Calendar, ShoppingBag, Sprout, User } from 'lucide-react';
 import Link from 'next/link';
+import { geocodeZip, milesBetween, type Coordinates } from '@/lib/geo';
+
+const RADIUS_OPTIONS = [10, 25, 50, 100];
+// Where the buyer's zip code is remembered between visits (this browser only).
+const ZIP_STORAGE_KEY = 'ffd-near-zip';
 
 // "Shop by vegetable" tiles. Listings have free-text crop names, so a listing
 // belongs to a tile when its title or variety contains one of the keywords (and none of
@@ -134,6 +139,87 @@ export default function BrowsePage() {
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // "Near me": the buyer's zip code, how far they'll travel, and where that
+  // zip code is. `zipCoords` caches lookups for listing zips that have no
+  // stored location (listings posted before locations were saved).
+  const [nearZip, setNearZip] = useState('');
+  const [radius, setRadius] = useState(25);
+  const [origin, setOrigin] = useState<Coordinates | null>(null);
+  const [zipNotFound, setZipNotFound] = useState(false);
+  const [zipCoords, setZipCoords] = useState<Record<string, Coordinates | null>>({});
+
+  // Start from a zip passed in the link (the home page's search box) or the
+  // one this visitor used last time.
+  useEffect(() => {
+    const fromLink = new URLSearchParams(window.location.search).get('zip') || '';
+    let remembered = '';
+    try {
+      remembered = window.localStorage.getItem(ZIP_STORAGE_KEY) || '';
+    } catch {}
+    const initial = (fromLink || remembered).replace(/\D/g, '').slice(0, 5);
+    if (initial) setNearZip(initial);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (nearZip.length !== 5) {
+      setOrigin(null);
+      setZipNotFound(false);
+      if (nearZip.length === 0) {
+        try {
+          window.localStorage.removeItem(ZIP_STORAGE_KEY);
+        } catch {}
+      }
+      return;
+    }
+
+    geocodeZip(nearZip).then((coordinates) => {
+      if (cancelled) return;
+      setOrigin(coordinates);
+      setZipNotFound(!coordinates);
+      if (coordinates) {
+        try {
+          window.localStorage.setItem(ZIP_STORAGE_KEY, nearZip);
+        } catch {}
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [nearZip]);
+
+  // Once the buyer has a location, look up any listing zip codes that don't
+  // have a stored location yet.
+  useEffect(() => {
+    if (!origin) return;
+
+    const missing = [
+      ...new Set(
+        listings
+          .filter((l) => l.latitude == null && /^\d{5}/.test(l.zip_code || ''))
+          .map((l) => String(l.zip_code).slice(0, 5))
+      ),
+    ].filter((zip) => !(zip in zipCoords));
+
+    if (missing.length === 0) return;
+
+    Promise.all(missing.map(async (zip) => [zip, await geocodeZip(zip)] as const)).then((results) => {
+      setZipCoords((current) => ({ ...current, ...Object.fromEntries(results) }));
+    });
+  }, [origin, listings, zipCoords]);
+
+  // Miles from the buyer's zip code to a listing's, or null if either is unknown.
+  const distanceTo = (item: any): number | null => {
+    if (!origin) return null;
+    const coordinates: Coordinates | null =
+      item.latitude != null && item.longitude != null
+        ? { latitude: Number(item.latitude), longitude: Number(item.longitude) }
+        : zipCoords[String(item.zip_code || '').slice(0, 5)] || null;
+    return coordinates ? milesBetween(origin, coordinates) : null;
+  };
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedType, setSelectedType] = useState<string | null>(null);
 
@@ -208,8 +294,19 @@ export default function BrowsePage() {
     const produceType = tileGroup.types.find((t) => t.name === selectedType);
     const matchesVegetable = !produceType || matchesProduceType(item, produceType);
 
-    return matchesSearch && matchesCategory && matchesVegetable;
+    // With a zip code entered, keep listings within the chosen distance.
+    // Listings whose location isn't known are kept (and shown last) rather
+    // than hidden.
+    const distance = distanceTo(item);
+    const matchesDistance = !origin || radius === 0 || distance === null || distance <= radius;
+
+    return matchesSearch && matchesCategory && matchesVegetable && matchesDistance;
   });
+
+  // Closest first when searching by location; otherwise the take-turns order.
+  const displayedListings = origin
+    ? [...filteredListings].sort((a, b) => (distanceTo(a) ?? Infinity) - (distanceTo(b) ?? Infinity))
+    : filteredListings;
 
   return (
     <div className="space-y-6">
@@ -225,6 +322,56 @@ export default function BrowsePage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
           />
+        </div>
+
+        {/* NEAR ME */}
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <MapPin className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
+          <label htmlFor="browse-near-zip" className="font-semibold text-gray-700">
+            Near zip code
+          </label>
+          <input
+            id="browse-near-zip"
+            type="text"
+            inputMode="numeric"
+            autoComplete="postal-code"
+            placeholder="85001"
+            value={nearZip}
+            onChange={(e) => setNearZip(e.target.value.replace(/\D/g, '').slice(0, 5))}
+            className="w-24 px-3 py-2 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+          />
+          <label htmlFor="browse-radius" className="sr-only">
+            Distance
+          </label>
+          <select
+            id="browse-radius"
+            value={radius}
+            onChange={(e) => setRadius(Number(e.target.value))}
+            disabled={!origin}
+            className="px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500"
+          >
+            {RADIUS_OPTIONS.map((miles) => (
+              <option key={miles} value={miles}>
+                Within {miles} miles
+              </option>
+            ))}
+            <option value={0}>Any distance</option>
+          </select>
+          {nearZip && (
+            <button
+              onClick={() => setNearZip('')}
+              className="text-xs font-semibold text-emerald-800 underline"
+            >
+              Clear
+            </button>
+          )}
+          <span role="status" className="text-xs text-gray-500">
+            {zipNotFound
+              ? "We couldn't find that zip code."
+              : origin
+                ? 'Closest listings are shown first.'
+                : 'Enter your zip code to see what is closest to you.'}
+          </span>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -315,7 +462,7 @@ export default function BrowsePage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredListings.map((item) => {
+          {displayedListings.map((item) => {
             const availableQty = Math.floor(Number(item.available_quantity ?? 0));
 
             return (
@@ -395,7 +542,15 @@ export default function BrowsePage() {
 
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
                       <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>{item.location_name || item.seller_profiles?.location || 'Phoenix, AZ'}</span>
+                      <span>
+                        {item.location_name || item.seller_profiles?.location || 'Phoenix, AZ'}
+                        {distanceTo(item) !== null && (
+                          <span className="font-semibold text-emerald-800">
+                            {' '}
+                            · {distanceTo(item)! < 1 ? 'under 1' : Math.round(distanceTo(item)!)} mi away
+                          </span>
+                        )}
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">

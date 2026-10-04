@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { checkListingAllowed, saveListingPickupAddress, MAX_LISTING_TAGS } from '@/lib/listingRules';
+import { geocodeZip } from '@/lib/geo';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,7 +104,17 @@ export async function POST(request: Request) {
     if (typeof fields.location_name === 'string' && fields.location_name.trim()) {
       update.location_name = fields.location_name.trim();
     }
-    if (typeof fields.zip_code === 'string') update.zip_code = fields.zip_code.trim();
+    if (typeof fields.zip_code === 'string') {
+      update.zip_code = fields.zip_code.trim();
+
+      // Keep the listing's location in step with its zip code (and fill it in
+      // for listings posted before locations were stored).
+      if (update.zip_code !== listing.zip_code || listing.latitude == null) {
+        const coordinates = await geocodeZip(update.zip_code as string);
+        update.latitude = coordinates?.latitude ?? null;
+        update.longitude = coordinates?.longitude ?? null;
+      }
+    }
     if (typeof fields.harvest_ready_date === 'string' && fields.harvest_ready_date) {
       update.harvest_ready_date = fields.harvest_ready_date;
     }

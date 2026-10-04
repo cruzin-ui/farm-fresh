@@ -2,6 +2,7 @@ import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { calculateFarmerPayoutCents } from '@/lib/pricing';
+import { getPickupCodeRecord } from '@/lib/pickupCodes';
 
 // On a no-show, the farmer keeps this share of the produce subtotal as a
 // restocking fee; the platform keeps its buyer fee; the buyer gets the rest.
@@ -85,6 +86,17 @@ async function sendBuyerThankYouEmail(order: any, farmerId: string, siteUrl?: st
     .eq('id', farmerId)
     .maybeSingle();
 
+  // Where this buyer can leave a review: their order page for a guest (who
+  // gets there through the secret link), My Orders for an account holder.
+  const guestToken = order.buyer_id ? null : (await getPickupCodeRecord(order.id))?.guestToken;
+  const reviewLink = !siteUrl
+    ? null
+    : guestToken
+      ? `${siteUrl}/orders/confirmation?orderId=${order.id}&token=${guestToken}`
+      : order.buyer_id
+        ? `${siteUrl}/orders`
+        : null;
+
   const title = escapeHtml(listing?.title || 'produce');
   const farmName = farm?.farm_name ? escapeHtml(farm.farm_name) : null;
   const quantity = Number(order.reserved_quantity ?? order.quantity ?? 0);
@@ -107,6 +119,11 @@ async function sendBuyerThankYouEmail(order: any, farmerId: string, siteUrl?: st
         ${
           siteUrl
             ? `
+        ${
+          reviewLink
+            ? `<p>How was it? <a href="${reviewLink}"><strong>Leave ${farmName || 'the farm'} a quick review</strong></a> — it helps other buyers and means a lot to a small grower.</p>`
+            : ''
+        }
         <p>
           When you're ready for more, we'd love to have you back:
         </p>

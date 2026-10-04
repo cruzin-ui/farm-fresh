@@ -36,7 +36,19 @@ export default function ListingDetailPage() {
           .eq('id', listingData.farmer_id)
           .maybeSingle();
 
-        setSeller(sellerData);
+        const { data: reviews } = await supabase
+          .from('seller_reviews')
+          .select('rating')
+          .eq('seller_id', listingData.farmer_id);
+
+        const ratings = (reviews || []).map((r) => Number(r.rating));
+        setSeller(
+          sellerData && {
+            ...sellerData,
+            review_count: ratings.length,
+            average_rating: ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : null,
+          }
+        );
       }
 
       setListing(listingData);
@@ -192,6 +204,12 @@ export default function ListingDetailPage() {
               <div className="flex-1 overflow-hidden">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Grown by</p>
                 <p className="text-sm font-bold text-gray-900 truncate">{seller.farm_name || 'Local Farm'}</p>
+                {seller.review_count > 0 && (
+                  <p className="text-xs font-semibold text-amber-700">
+                    ★ {seller.average_rating.toFixed(1)} · {seller.review_count} review
+                    {seller.review_count === 1 ? '' : 's'}
+                  </p>
+                )}
                 {seller.growing_practices && (
                   <p className="text-xs text-gray-500 truncate">{seller.growing_practices}</p>
                 )}

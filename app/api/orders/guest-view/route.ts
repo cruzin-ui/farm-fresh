@@ -48,6 +48,12 @@ export async function POST(request: Request) {
       .eq('id', order.listing_id)
       .maybeSingle();
 
+    const { data: reviewRow } = await supabaseAdmin
+      .from('seller_reviews')
+      .select('order_id')
+      .eq('order_id', order.id)
+      .maybeSingle();
+
     return NextResponse.json({
       order: {
         id: order.id,
@@ -59,6 +65,7 @@ export async function POST(request: Request) {
         pickup_details: order.status === 'ready_for_pickup' ? order.pickup_details || null : null,
         pickup_code: codeRecord?.code || null,
         pickup_address: order.pickup_address || null,
+        reviewed: Boolean(reviewRow),
         listing_title: listing?.title || 'Harvest Crop',
         listing_unit_type: listing?.unit_type || 'units',
         listing_location: listing?.location_name || '',
