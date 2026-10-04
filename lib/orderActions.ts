@@ -69,7 +69,63 @@ async function sendBuyerAdjustmentEmail(params: {
 // the farmer's share: the platform has been holding the buyer's payment since
 // checkout, and this is the moment it transfers to the farmer's connected
 // account. Callers are responsible for deciding the order *should* complete.
-export async function completeOrderAndReleasePayout(order: any, farmerId: string) {
+// Thanks the buyer once their order has been picked up, and invites them back.
+async function sendBuyerThankYouEmail(order: any, farmerId: string, siteUrl?: string) {
+  if (!order.buyer_email) return;
+
+  const { data: listing } = await supabaseAdmin
+    .from('produce_listings')
+    .select('title, unit_type')
+    .eq('id', order.listing_id)
+    .maybeSingle();
+
+  const { data: farm } = await supabaseAdmin
+    .from('seller_profiles')
+    .select('farm_name')
+    .eq('id', farmerId)
+    .maybeSingle();
+
+  const title = escapeHtml(listing?.title || 'produce');
+  const farmName = farm?.farm_name ? escapeHtml(farm.farm_name) : null;
+  const quantity = Number(order.reserved_quantity ?? order.quantity ?? 0);
+
+  await sendEmail({
+    to: order.buyer_email,
+    subject: 'Thank you for supporting local agriculture!',
+    html: `
+      <div style="font-family: sans-serif; max-width: 520px;">
+        <h2 style="color: #059669;">Congratulations — you just supported local agriculture!</h2>
+        <p>
+          Your order of <strong>${quantity} ${listing?.unit_type || 'units'} of ${title}</strong>${
+            farmName ? ` from <strong>${farmName}</strong>` : ''
+          } has been picked up. We hope you enjoy it.
+        </p>
+        <p>
+          Every order like yours keeps food dollars in your community and helps a local grower keep
+          growing. Thank you for being part of that.
+        </p>
+        ${
+          siteUrl
+            ? `
+        <p>
+          When you're ready for more, we'd love to have you back:
+        </p>
+        <p>
+          <a href="${siteUrl}/browse" style="display: inline-block; background: #047857; color: #ffffff; text-decoration: none; font-weight: bold; padding: 10px 18px; border-radius: 8px;">Browse fresh produce</a>
+        </p>
+        <p>
+          ${farmName ? `<a href="${siteUrl}/sellers/${farmerId}">See what else ${farmName} is growing</a><br />` : ''}
+          Something not right with your order? <a href="${siteUrl}/contact">Contact us</a>.
+        </p>`
+            : '<p>We hope to see you again soon at Farm Fresh Direct.</p>'
+        }
+      </div>
+    `,
+  });
+}
+
+// `siteUrl` is only used for the links in the buyer's thank-you email.
+export async function completeOrderAndReleasePayout(order: any, farmerId: string, siteUrl?: string) {
   if (order.status === 'completed') return { payoutAmount: 0 };
 
   if (!isOpen(order)) {
@@ -150,6 +206,10 @@ export async function completeOrderAndReleasePayout(order: any, farmerId: string
     console.error('Payout sent but order update failed:', order.id, updateError);
     throw new OrderActionError(500, updateError.message);
   }
+
+  // The order has just moved to completed (an already-completed order returned
+  // early, above), so this is sent once.
+  await sendBuyerThankYouEmail(order, farmerId, siteUrl);
 
   return { payoutAmount };
 }

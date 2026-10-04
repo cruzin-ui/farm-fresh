@@ -79,7 +79,11 @@ export async function POST(request: Request) {
       }
     }
 
-    const { payoutAmount } = await completeOrderAndReleasePayout(order, listing.farmer_id);
+    const { payoutAmount } = await completeOrderAndReleasePayout(
+      order,
+      listing.farmer_id,
+      new URL(request.url).origin
+    );
 
     return NextResponse.json({ success: true, payoutAmount });
   } catch (err: any) {
