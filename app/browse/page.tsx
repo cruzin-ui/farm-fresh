@@ -60,7 +60,8 @@ const PANTRY_TYPES: typeof VEGETABLE_TYPES = [
   { name: 'Salsa & Sauces', emoji: '🌶️', keywords: ['salsa', 'sauce'] },
 ];
 
-// Which tiles to show under each category button. "All" shows vegetables.
+// Which tiles to show under each category button. "All" shows none — the
+// entry here is only a fallback so lookups always succeed.
 const TILE_GROUPS: Record<string, { heading: string; types: typeof VEGETABLE_TYPES }> = {
   All: { heading: 'Shop by Vegetable', types: VEGETABLE_TYPES },
   Vegetables: { heading: 'Shop by Vegetable', types: VEGETABLE_TYPES },
@@ -230,7 +231,9 @@ export default function BrowsePage() {
         </div>
       </div>
 
-      {/* SHOP BY VEGETABLE */}
+      {/* SHOP BY TYPE — only once a category is chosen. With "All" selected the
+          page goes straight to the listings. */}
+      {selectedCategory !== 'All' && (
       <div>
         <h2 className="text-lg font-extrabold text-gray-900 mb-3">{tileGroup.heading}</h2>
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -263,6 +266,7 @@ export default function BrowsePage() {
           })}
         </div>
       </div>
+      )}
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-extrabold text-gray-900">
