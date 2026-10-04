@@ -38,7 +38,7 @@ export default function SplashLandingPage() {
         {/* Darkens the photo so the white text stays readable over it. */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/55 to-black/70" aria-hidden="true" />
 
-        <div className="relative px-6 py-14 sm:py-20 text-center text-white">
+        <div className="relative px-6 py-9 sm:py-12 text-center text-white">
           <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight leading-tight">
             Farm Fresh <span className="text-emerald-300">Direct</span>
           </h1>
