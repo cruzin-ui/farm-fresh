@@ -38,7 +38,7 @@ export default function SplashLandingPage() {
         {/* Darkens the photo so the white text stays readable over it. */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/55 to-black/70" aria-hidden="true" />
 
-        <div className="relative px-6 py-16 sm:py-24 text-center text-white">
+        <div className="relative px-6 py-14 sm:py-20 text-center text-white">
           <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight leading-tight">
             Farm Fresh <span className="text-emerald-300">Direct</span>
           </h1>
@@ -49,74 +49,49 @@ export default function SplashLandingPage() {
             Connect directly with Neighbor Gardens &amp; Small Local Farms in your neighborhood
           </p>
 
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              href="/browse"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-colors"
-            >
-              <ShoppingBag className="w-4 h-4" aria-hidden="true" /> Browse Fresh Produce
-            </Link>
-            <Link
-              href="/dashboard"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white hover:bg-gray-100 text-gray-900 font-bold py-3 px-6 rounded-xl shadow-md transition-colors"
-            >
-              <Sprout className="w-4 h-4" aria-hidden="true" /> Sell Your Harvest
-            </Link>
-          </div>
         </div>
+      </section>
+
+      {/* Buy / Sell: the two ways in, as short wide cards. The whole card is
+          the link. These replace the buttons that used to sit in the hero. */}
+      <section className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Link
+          href="/browse"
+          className="flex items-center gap-4 bg-white px-5 py-4 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all text-left"
+        >
+          <div className="w-12 h-12 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
+            <ShoppingBag className="w-6 h-6" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xl font-bold text-gray-900">I Want to Buy</h2>
+            <p className="text-sm text-gray-500">Fresh produce, eggs and honey for pickup near you.</p>
+          </div>
+          <span className="shrink-0 inline-flex items-center gap-1.5 bg-emerald-600 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap">
+            Browse
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </span>
+        </Link>
+
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-4 bg-white px-5 py-4 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all text-left"
+        >
+          <div className="w-12 h-12 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
+            <Sprout className="w-6 h-6" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xl font-bold text-gray-900">I Want to Sell</h2>
+            <p className="text-sm text-gray-500">List your harvest and earn from your surplus.</p>
+          </div>
+          <span className="shrink-0 inline-flex items-center gap-1.5 bg-gray-900 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap">
+            Sell
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </span>
+        </Link>
       </section>
 
       {/* Current listings, drifting right to left */}
       <FreshListingsWheel />
-
-      {/* Dual Buyer / Seller Action Cards */}
-      <section className="mt-14 max-w-5xl mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-          {/* Buyer Choice */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all text-left flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
-                  <ShoppingBag className="w-6 h-6" aria-hidden="true" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">I Want to Buy</h2>
-              </div>
-              <p className="text-sm text-gray-500 mt-3">
-                Discover homegrown produce, eggs, berries, and honey available for local pickup near your zip code.
-              </p>
-            </div>
-            <Link
-              href="/browse"
-              className="mt-6 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm sm:text-base font-semibold py-3 px-4 sm:px-6 rounded-xl transition-colors shadow-sm whitespace-nowrap"
-            >
-              Browse Produce Nearby
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-
-          {/* Seller Choice */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all text-left flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
-                  <Sprout className="w-6 h-6" aria-hidden="true" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">I Want to Sell</h2>
-              </div>
-              <p className="text-sm text-gray-500 mt-3">
-                List your upcoming or harvested crops, set custom unit prices, and earn money from your surplus.
-              </p>
-            </div>
-            <Link
-              href="/dashboard"
-              className="mt-6 inline-flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white text-sm sm:text-base font-semibold py-3 px-4 sm:px-6 rounded-xl transition-colors shadow-sm whitespace-nowrap"
-            >
-              Post Harvest Listing
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-      </section>
 
       {/* The Mission, in brief — the full version is on the About page. A
           full-width tinted band, to break up the run of white cards. */}
