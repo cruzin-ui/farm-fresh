@@ -22,6 +22,7 @@ type AdminOrder = {
   stripe_payment_intent_id: string | null;
   pickup_code: string | null;
   failed_code_attempts: number;
+  no_show_reported_at: string | null;
 };
 
 type SummaryRow = {
@@ -206,6 +207,8 @@ export default function AdminPage() {
 
   const visibleOrders = filter === 'open' ? orders.filter(isOpen) : orders;
   const staleOrders = orders.filter((o) => isOpen(o) && daysOpen(o) > STALE_AFTER_DAYS);
+  // Open orders a farmer has reported as a no-show, waiting for a decision.
+  const reportedNoShows = orders.filter((o) => isOpen(o) && o.no_show_reported_at);
 
   const summaryMonths = recentMonths();
 
@@ -480,6 +483,20 @@ export default function AdminPage() {
 
       <h2 className="text-lg font-bold text-gray-900">Orders</h2>
 
+      {reportedNoShows.length > 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-sm text-amber-950 flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" aria-hidden="true" />
+          <span>
+            <strong>
+              {reportedNoShows.length} no-show report{reportedNoShows.length === 1 ? '' : 's'} waiting for your
+              decision.
+            </strong>{' '}
+            A farmer says the buyer never came. Check with the buyer if you need to, then use No-Show to close
+            the order and issue the refund, or Dismiss Report to leave it open.
+          </span>
+        </div>
+      )}
+
       {staleOrders.length > 0 && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800 flex items-start gap-2">
           <AlertCircle className="w-5 h-5 text-red-500 shrink-0" aria-hidden="true" />
@@ -529,6 +546,11 @@ export default function AdminPage() {
                     {isOpen(order) && daysOpen(order) > STALE_AFTER_DAYS && (
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-red-100 text-red-800">
                         Open {daysOpen(order)} days
+                      </span>
+                    )}
+                    {isOpen(order) && order.no_show_reported_at && (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-amber-200 text-amber-950">
+                        No-show reported {new Date(order.no_show_reported_at).toLocaleDateString()}
                       </span>
                     )}
                   </div>
@@ -609,6 +631,21 @@ export default function AdminPage() {
                       className="bg-white border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
                     >
                       Cancel & Refund
+                    </button>
+                  )}
+                  {isOpen(order) && order.no_show_reported_at && (
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        runAction(
+                          order,
+                          'dismiss_no_show',
+                          "Dismiss the farmer's no-show report? The order stays open and no money moves."
+                        )
+                      }
+                      className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                    >
+                      Dismiss Report
                     </button>
                   )}
                   {isOpen(order) && order.failed_code_attempts > 0 && (

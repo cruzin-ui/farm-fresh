@@ -70,6 +70,7 @@ export async function POST(request: Request) {
         stripe_payment_intent_id: o.stripe_payment_intent_id || null,
         pickup_code: code?.code || o.pickup_code || o.verification_code || null,
         failed_code_attempts: Number(code?.failed_attempts ?? 0),
+        no_show_reported_at: o.no_show_reported_at || null,
       };
     });
 

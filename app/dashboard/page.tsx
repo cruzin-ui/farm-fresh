@@ -467,6 +467,28 @@ export default function SellerDashboardPage() {
     setAdjustRestock(false);
   };
 
+  // Reports a no-show for an admin to review. It moves no money by itself.
+  const handleReportNoShow = async (order: any) => {
+    if (
+      !confirm(
+        "Report that this buyer didn't show up? We'll review it. If it's confirmed, the order is closed, you're paid a restocking fee, and the produce goes back on your listing."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await postWithAuth('/api/orders/report-no-show', { orderId: order.id });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not report the no-show.');
+
+      setSuccessMsg("No-show reported. We've let the buyer know and will review it.");
+      await fetchDashboardData();
+    } catch (err: any) {
+      alert(err.message || 'Could not report the no-show.');
+    }
+  };
+
   const confirmAdjust = async (order: any) => {
     const currentQty = Number(order.reserved_quantity ?? 0);
     const newQty = Number(adjustQuantity);
@@ -1068,6 +1090,11 @@ export default function SellerDashboardPage() {
                     <li>
                       Short on produce? Use <strong>Cancel / Adjust</strong> on the order to reduce or cancel
                       it. The buyer is refunded automatically.
+                    </li>
+                    <li>
+                      Buyer never came? Once an order is marked ready, use <strong>Buyer Did Not Show</strong>.
+                      We review it, and if it's confirmed you're paid a restocking fee and the produce goes
+                      back on your listing.
                     </li>
                     <li>
                       Never collect cash at pickup — every order is already paid in full online.
@@ -1695,8 +1722,26 @@ export default function SellerDashboardPage() {
                               <X className="w-4 h-4" /> Cancel / Adjust
                             </button>
                           )}
+                          {order.status === 'ready_for_pickup' &&
+                            order.stripe_payment_intent_id &&
+                            !order.no_show_reported_at && (
+                              <button
+                                onClick={() => handleReportNoShow(order)}
+                                className="inline-flex items-center justify-center gap-1.5 bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 text-xs font-bold px-3.5 py-3 sm:py-2 rounded-xl transition-colors"
+                              >
+                                <AlertCircle className="w-4 h-4" /> Buyer Did Not Show
+                              </button>
+                            )}
                         </div>
                       </div>
+
+                      {order.no_show_reported_at && (
+                        <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                          You reported this buyer as a no-show on{' '}
+                          {new Date(order.no_show_reported_at).toLocaleDateString()}. We're reviewing it. If the
+                          buyer does turn up, you can still complete the order with their pickup code.
+                        </p>
+                      )}
 
                       {completeOrderId === order.id && (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">

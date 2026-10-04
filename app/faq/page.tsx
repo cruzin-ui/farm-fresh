@@ -202,11 +202,13 @@ const SELLER_FAQS: Faq[] = [
     question: "What if a buyer doesn't show up?",
     answer: (
       <>
+        Once you've marked an order ready, you can report a no-show with the Buyer Did Not Show button in your
+        Seller Dashboard. We review each report. When an order is closed as a no-show you receive a{' '}
+        {NO_SHOW_FEE} restocking fee, and the quantity goes back on your listing. You can also{' '}
         <Link href="/contact" className="font-semibold text-emerald-800 underline">
-          Contact us
+          contact us
         </Link>
-        . When an order is closed as a no-show you receive a {NO_SHOW_FEE} restocking fee, and the quantity goes
-        back on your listing.
+        .
       </>
     ),
   },
