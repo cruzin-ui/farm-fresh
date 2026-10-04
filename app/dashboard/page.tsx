@@ -81,6 +81,9 @@ export default function SellerDashboardPage() {
   // Set while the listing form is editing an existing post instead of creating one
   const [editingListingId, setEditingListingId] = useState<string | null>(null);
   const [showInactiveListings, setShowInactiveListings] = useState(false);
+  // null = the farmer hasn't opened or closed the "how selling works" guide
+  // themselves, so it follows the default (open until setup is finished).
+  const [guideOpen, setGuideOpen] = useState<boolean | null>(null);
   const [defaultPickupAddress, setDefaultPickupAddress] = useState('');
   const [title, setTitle] = useState('');
   const [variety, setVariety] = useState('');
@@ -280,6 +283,12 @@ export default function SellerDashboardPage() {
   const activeListings = myListings.filter((l) => Number(l.available_quantity ?? 0) > 0);
   const inactiveListings = myListings.filter((l) => Number(l.available_quantity ?? 0) <= 0);
   const visibleListings = showInactiveListings ? [...activeListings, ...inactiveListings] : activeListings;
+
+  // The getting-started steps a farmer has already done, for the guide.
+  const profileDone = Boolean(farmName.trim());
+  const payoutsDone = stripeOnboardingComplete;
+  const listingDone = myListings.length > 0;
+  const setupComplete = profileDone && payoutsDone && listingDone;
 
   const handleDeleteListing = async (id: string) => {
     const hasOrders = listingIdsWithOrders.has(id);
@@ -943,6 +952,117 @@ export default function SellerDashboardPage() {
               <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
               <span>{errorMsg}</span>
             </div>
+          )}
+
+          {activeTab === 'listings' && (
+            <details
+              open={guideOpen ?? !setupComplete}
+              onToggle={(e) => setGuideOpen(e.currentTarget.open)}
+              className="mb-6 bg-emerald-50 border border-emerald-200 rounded-2xl"
+            >
+              <summary className="cursor-pointer select-none px-5 py-4 text-sm font-bold text-emerald-950">
+                How selling works{setupComplete ? '' : ' — finish setting up to start selling'}
+              </summary>
+
+              <div className="px-5 pb-5 space-y-5 text-sm text-gray-700">
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900 mb-2">Getting set up</h2>
+                  <ol className="space-y-2">
+                    {[
+                      {
+                        done: profileDone,
+                        title: 'Fill in your farm profile',
+                        detail: 'Your farm name, photo and story are what buyers see on every listing.',
+                        action: 'Open Farm Profile',
+                        onClick: () => setActiveTab('profile'),
+                      },
+                      {
+                        done: payoutsDone,
+                        title: 'Connect your payouts',
+                        detail:
+                          "Add your bank details through Stripe so you can be paid. Buyers can't purchase from you until this is done.",
+                        action: 'Open Payouts & Settings',
+                        onClick: () => setActiveTab('settings'),
+                      },
+                      {
+                        done: listingDone,
+                        title: 'Post your first harvest',
+                        detail:
+                          'Enter the crop, price, quantity, harvest date and pickup address. Add a photo if you can — listings with photos get noticed.',
+                        action: 'Post New Harvest',
+                        onClick: startNewListing,
+                      },
+                    ].map((step, index) => (
+                      <li key={step.title} className="flex items-start gap-3">
+                        <span
+                          className={`mt-0.5 w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
+                            step.done ? 'bg-emerald-700 text-white' : 'bg-white border border-emerald-300 text-emerald-800'
+                          }`}
+                        >
+                          {step.done ? <Check className="w-3.5 h-3.5" aria-hidden="true" /> : index + 1}
+                        </span>
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            {step.title}
+                            {step.done && <span className="font-normal text-emerald-800"> — done</span>}
+                          </p>
+                          <p className="text-xs text-gray-600">{step.detail}</p>
+                          {!step.done && (
+                            <button
+                              onClick={step.onClick}
+                              className="mt-1 text-xs font-bold text-emerald-800 underline"
+                            >
+                              {step.action}
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900 mb-2">When you get an order</h2>
+                  <ol className="list-decimal pl-5 space-y-1.5 text-xs text-gray-700">
+                    <li>
+                      We email you, and the order appears under <strong>Incoming Orders</strong>. The buyer has
+                      already paid online — we hold the money until pickup.
+                    </li>
+                    <li>
+                      When the produce is ready, click <strong>Mark Ready for Pickup</strong> and send the buyer
+                      your pickup hours and any instructions.
+                    </li>
+                    <li>
+                      At pickup, hand over the produce and <strong>ask the buyer for their pickup code</strong>.
+                    </li>
+                    <li>
+                      Click <strong>Mark Completed</strong> and enter the code. That releases your payment.
+                    </li>
+                  </ol>
+                </div>
+
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900 mb-2">How you get paid</h2>
+                  <ul className="list-disc pl-5 space-y-1.5 text-xs text-gray-700">
+                    <li>
+                      You're paid your produce price minus a {SELLER_FEE_RATE * 100}% seller fee. Each open
+                      order shows the exact amount as "Your payout at pickup".
+                    </li>
+                    <li>
+                      Entering the pickup code sends that amount to your Stripe account, and Stripe deposits
+                      it to your bank on its regular schedule, usually within a few business days.
+                    </li>
+                    <li>
+                      Short on produce? Use <strong>Cancel / Adjust</strong> on the order to reduce or cancel
+                      it. The buyer is refunded automatically.
+                    </li>
+                    <li>
+                      Never collect cash at pickup — every order is already paid in full online.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </details>
           )}
 
           {(activeTab === 'listings' || activeTab === 'new') && (
