@@ -21,10 +21,21 @@ export async function GET(request: Request) {
   if (!next && redirectTo) {
     try {
       const target = new URL(redirectTo);
-      if (target.origin === origin) next = target.searchParams.get('next') || target.pathname;
+      if (target.origin === origin) next = target.searchParams.get('next');
     } catch {}
   }
-  const destination = safeNextPath(next, type === 'recovery' ? '/auth/reset-password' : '/dashboard');
+  // A password reset goes to the page for choosing a new password. A new
+  // sign-up goes to the welcome page, which confirms it worked and offers the
+  // next steps — carrying along anywhere specific they were headed (such as a
+  // checkout) so they can continue from there.
+  let destination: string;
+  if (type === 'recovery') {
+    destination = safeNextPath(next, '/auth/reset-password');
+  } else {
+    const headedTo = safeNextPath(next, '');
+    const specific = headedTo && !['/browse', '/dashboard', '/welcome'].includes(headedTo);
+    destination = specific ? `/welcome?next=${encodeURIComponent(headedTo)}` : '/welcome';
+  }
 
   if (tokenHash && type) {
     const cookieStore = await cookies();

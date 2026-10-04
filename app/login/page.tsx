@@ -19,7 +19,9 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const redirectTarget = safeNextPath(searchParams.get('redirect') || searchParams.get('next'));
+  // With nowhere particular to go, land on Browse rather than the seller
+  // dashboard: most people signing in are buyers.
+  const redirectTarget = safeNextPath(searchParams.get('redirect') || searchParams.get('next'), '/browse');
 
   const initialMode = searchParams.get('mode');
   const [mode, setMode] = useState<Mode>(

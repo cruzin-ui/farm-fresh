@@ -51,7 +51,12 @@ export default function SplashLandingPage() {
 
           {/* A plain form, so it works even before the page's scripts load:
               it opens Browse with the zip code in the link. */}
-          <form action="/browse" method="get" className="mt-6 flex items-center justify-center gap-2">
+          <form
+            action="/browse"
+            method="get"
+            // Stacked on phones (the field above the button) so neither is squeezed; side by side on wider screens.
+            className="mt-6 mx-auto w-full max-w-xs sm:max-w-none flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2"
+          >
             <label htmlFor="home-zip" className="sr-only">
               Your zip code
             </label>
@@ -65,13 +70,13 @@ export default function SplashLandingPage() {
               maxLength={5}
               required
               placeholder="Your zip code"
-              className="w-40 px-4 py-3 rounded-xl bg-white text-gray-900 text-sm font-medium placeholder:text-gray-500"
+              className="w-full sm:w-40 px-4 py-3 rounded-xl bg-white text-gray-900 text-sm font-medium text-center sm:text-left placeholder:text-gray-500"
             />
             <button
               type="submit"
-              className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-5 rounded-xl shadow-md transition-colors whitespace-nowrap"
+              className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-5 rounded-xl shadow-md transition-colors whitespace-nowrap"
             >
-              Find produce near me
+              Find Local Produce
             </button>
           </form>
 
