@@ -41,39 +41,27 @@ h3,
   background-color: var(--color-emerald-800);
 }
 
-/* The "Fresh This Week" strip on the home page: a row of cards drifting right
-   to left in a loop. The track holds the cards twice, so sliding it by half
-   its width lands exactly where it started. */
+/* The "Fresh This Week" strip on the home page: a sideways-scrolling row of
+   cards. The component moves it along on its own; because it is an ordinary
+   scrolling row, visitors can also swipe or drag it. The scrollbar is hidden
+   to keep the strip clean. */
 .wheel {
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.wheel::-webkit-scrollbar {
+  display: none;
 }
 .wheel-track {
   display: flex;
   width: max-content;
   padding: 4px 0 8px;
-  animation: wheel-scroll var(--wheel-duration, 60s) linear infinite;
 }
-.wheel:hover .wheel-track,
-.wheel:focus-within .wheel-track,
-.wheel[data-paused='true'] .wheel-track {
-  animation-play-state: paused;
-}
-@keyframes wheel-scroll {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-/* Visitors who ask for reduced motion get a still row they can scroll. */
+/* The strip doesn't drift for visitors who ask for reduced motion, so there is
+   nothing for the pause button to do. */
 @media (prefers-reduced-motion: reduce) {
-  .wheel {
-    overflow-x: auto;
-  }
-  .wheel-track {
-    animation: none;
-  }
   .wheel-pause {
     display: none;
   }

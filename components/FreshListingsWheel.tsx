@@ -1,11 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Sprout, Pause, Play } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
 const MAX_LISTINGS = 12;
+// How fast the strip drifts on its own, in pixels per second.
+const DRIFT_SPEED = 45;
+// How long after the visitor lets go before the strip starts drifting again.
+const RESUME_DELAY_MS = 2500;
 
 // One listing per farm first, then each farm's second, and so on — the same
 // take-turns idea as Browse, so one farm can't fill the whole strip.
@@ -27,13 +31,25 @@ function takeTurns(listings: any[]) {
 }
 
 // A strip of current listings on the home page that drifts from right to left
-// in a continuous loop. It pauses on hover, on keyboard focus and with the
-// pause button, and doesn't move at all for visitors who have asked their
-// device to reduce motion (they get a row they can scroll themselves).
+// in a continuous loop. It is a real scrolling row, so visitors can also swipe
+// it (touch), drag it (mouse) or scroll it sideways (trackpad) in either
+// direction. It stops drifting while someone is interacting with it, with the
+// pause button, and for visitors who have asked their device to reduce motion.
 export default function FreshListingsWheel() {
   const [listings, setListings] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [paused, setPaused] = useState(false);
+
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const pausedRef = useRef(false);
+  // True while the visitor is touching, dragging, hovering or tabbing through the strip.
+  const holdRef = useRef(false);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragRef = useRef<{ startX: number; startScroll: number; moved: boolean } | null>(null);
+
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   useEffect(() => {
     async function fetchListings() {
@@ -60,6 +76,92 @@ export default function FreshListingsWheel() {
     fetchListings();
   }, []);
 
+  // The drift. The row holds the cards twice, so whenever the scroll position
+  // passes the halfway point it jumps back by half (and forward by half when
+  // swiped past the start) — the two halves look identical, so it's seamless.
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || !loaded || listings.length === 0) return;
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let frame = 0;
+    let last = performance.now();
+    let carry = 0;
+
+    const step = (now: number) => {
+      const elapsed = Math.min(now - last, 100);
+      last = now;
+
+      const half = scroller.scrollWidth / 2;
+
+      if (!reduceMotion && !pausedRef.current && !holdRef.current) {
+        carry += (DRIFT_SPEED * elapsed) / 1000;
+        const whole = Math.floor(carry);
+        if (whole >= 1) {
+          scroller.scrollLeft += whole;
+          carry -= whole;
+        }
+      }
+
+      if (half > 0) {
+        if (scroller.scrollLeft >= half) scroller.scrollLeft -= half;
+        else if (scroller.scrollLeft <= 0 && holdRef.current) scroller.scrollLeft += half;
+      }
+
+      frame = requestAnimationFrame(step);
+    };
+
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [loaded, listings.length]);
+
+  useEffect(() => {
+    return () => {
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    };
+  }, []);
+
+  const hold = () => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    holdRef.current = true;
+  };
+
+  const release = () => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      holdRef.current = false;
+    }, RESUME_DELAY_MS);
+  };
+
+  // Mouse users can drag the strip. (Touch and trackpads scroll it natively.)
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0 || !scrollerRef.current) return;
+    dragRef.current = { startX: e.clientX, startScroll: scrollerRef.current.scrollLeft, moved: false };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || !scrollerRef.current) return;
+
+    const delta = e.clientX - drag.startX;
+    if (Math.abs(delta) > 5) drag.moved = true;
+    if (drag.moved) scrollerRef.current.scrollLeft = drag.startScroll - delta;
+  };
+
+  const endDrag = () => {
+    // Keep `moved` readable for the click that follows a drag, then clear it.
+    const drag = dragRef.current;
+    if (drag) setTimeout(() => (dragRef.current = null), 0);
+  };
+
+  // A drag that ends on a card shouldn't open that card's listing.
+  const handleClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (dragRef.current?.moved) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
   // Nothing on sale yet: leave the section out rather than show an empty strip.
   if (loaded && listings.length === 0) return null;
 
@@ -72,14 +174,15 @@ export default function FreshListingsWheel() {
     <Link
       key={key}
       href={`/listings/${item.id}`}
-      // The second copy exists only to make the loop seamless.
+      draggable={false}
+      // The repeated copies exist only to make the loop seamless.
       aria-hidden={hidden || undefined}
       tabIndex={hidden ? -1 : undefined}
-      className="mr-4 w-56 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden text-left hover:shadow-md transition-shadow"
+      className="mr-4 w-56 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden text-left hover:shadow-md transition-shadow select-none"
     >
       <div className="h-36 bg-emerald-50 flex items-center justify-center overflow-hidden">
         {item.image_url ? (
-          <img src={item.image_url} alt="" loading="lazy" className="w-full h-full object-cover" />
+          <img src={item.image_url} alt="" loading="lazy" draggable={false} className="w-full h-full object-cover" />
         ) : (
           <Sprout className="w-10 h-10 text-emerald-700/40" aria-hidden="true" />
         )}
@@ -120,12 +223,29 @@ export default function FreshListingsWheel() {
       {!loaded ? (
         <div className="h-60" aria-hidden="true" />
       ) : (
-        <div className="wheel" data-paused={paused}>
-          <div
-            className="wheel-track"
-            // Slower when there are more cards, so the speed across the screen stays the same.
-            style={{ ['--wheel-duration' as string]: `${filled.length * 5}s` }}
-          >
+        <div
+          ref={scrollerRef}
+          className="wheel cursor-grab active:cursor-grabbing"
+          onMouseEnter={hold}
+          onMouseLeave={() => {
+            endDrag();
+            release();
+          }}
+          onTouchStart={hold}
+          onTouchEnd={release}
+          onTouchCancel={release}
+          onFocus={hold}
+          onBlur={release}
+          onWheel={() => {
+            hold();
+            release();
+          }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          onClickCapture={handleClickCapture}
+        >
+          <div className="wheel-track">
             {filled.map((item, index) => renderCard(item, `a-${index}`, index >= listings.length))}
             {filled.map((item, index) => renderCard(item, `b-${index}`, true))}
           </div>
