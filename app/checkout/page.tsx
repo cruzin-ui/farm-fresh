@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ShoppingBag, CreditCard, Lock, ArrowRight, ArrowLeft, ShieldCheck, AlertCircle } from 'lucide-react';
+import { ShoppingBag, CreditCard, Lock, ArrowRight, ArrowLeft, ShieldCheck, AlertCircle, Mail } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { supabase } from '@/lib/supabaseClient';
@@ -14,6 +14,10 @@ import { calculateOrderTotals, BUYER_FEE_LABEL, MIN_CHARGE_CENTS } from '@/lib/p
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
+// The guest email box sits in its own card above the payment form, and is tied
+// back to the form by this id so the browser still insists on it before paying.
+const PAYMENT_FORM_ID = 'checkout-payment-form';
+
 function PaymentForm({
   listingId,
   quantity,
@@ -21,10 +25,10 @@ function PaymentForm({
   unitType,
   grandTotal,
   signedIn,
-  loginHref,
+  guestEmail,
 }: {
   signedIn: boolean;
-  loginHref: string;
+  guestEmail: string;
   listingId: string;
   quantity: number;
   maxQty: number;
@@ -37,8 +41,6 @@ function PaymentForm({
 
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [guestEmail, setGuestEmail] = useState('');
-
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
@@ -99,38 +101,17 @@ function PaymentForm({
   };
 
   return (
-    <form onSubmit={handlePayment} className="bg-white border rounded-xl p-5 shadow-sm space-y-4 sticky top-6">
+    <form id={PAYMENT_FORM_ID} onSubmit={handlePayment} className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
       <h2 className="font-bold text-gray-900 text-base flex items-center gap-1.5">
         <CreditCard className="w-5 h-5 text-emerald-600" />
         Payment Details
       </h2>
 
-      {!signedIn && (
-        <div>
-          <label htmlFor="checkout-email-for-your-confirmation" className="block text-xs font-semibold text-gray-700 mb-1">Email for your confirmation *</label>
-          <input id="checkout-email-for-your-confirmation"
-            type="email"
-            required
-            autoComplete="email"
-            placeholder="you@example.com"
-            value={guestEmail}
-            onChange={(e) => setGuestEmail(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg text-sm"
-          />
-          <p className="text-[11px] text-gray-500 mt-1">
-            Checking out as a guest. Your pickup code is sent here, so double-check the spelling.{' '}
-            <Link href={loginHref} className="font-semibold text-emerald-700 hover:underline">
-              Sign in instead
-            </Link>
-          </p>
-        </div>
-      )}
-
       <div className="min-h-[100px]">
         <PaymentElement />
       </div>
 
-      <label className="flex items-start gap-2 text-xs text-gray-700">
+      <label className="flex items-start gap-2 text-sm text-gray-700">
         <input type="checkbox" required className="mt-0.5 w-4 h-4 shrink-0" />
         <span>
           I understand how pickup works, and I won't give my pickup code to the farmer until I have my
@@ -180,6 +161,7 @@ function CheckoutContent() {
   const [signedIn, setSignedIn] = useState(false);
 
   const [quantity, setQuantity] = useState(1);
+  const [guestEmail, setGuestEmail] = useState('');
 
   useEffect(() => {
     async function checkAuth() {
@@ -307,7 +289,7 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-2xl mx-auto px-4 py-8">
       <Link href="/browse" className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-emerald-600 mb-4 font-medium">
         <ArrowLeft className="w-3.5 h-3.5" /> Back to Produce
       </Link>
@@ -317,110 +299,138 @@ function CheckoutContent() {
         Checkout & Complete Reservation
       </h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-        <div className="md:col-span-3 space-y-6">
-          <div className="bg-white border rounded-xl p-4 shadow-sm space-y-3">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Produce Selection</h2>
-              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                {maxQty} {unitType} available
-              </span>
-            </div>
-
-            <div className="flex justify-between items-start pt-1">
-              <div>
-                <h3 className="font-bold text-gray-900 text-lg">{listing.title}</h3>
-                <p className="text-xs text-gray-500 mt-0.5">${itemPrice.toFixed(2)} per {unitType}</p>
-              </div>
-              <div className="flex items-center gap-2 bg-gray-50 border px-3 py-1.5 rounded-lg">
-                <label htmlFor="checkout-qty" className="text-xs text-gray-600 font-semibold">Qty:</label>
-                <input id="checkout-qty"
-                  type="number"
-                  min="1"
-                  max={maxQty}
-                  value={quantity}
-                  onChange={handleQuantityChange}
-                  className="w-16 text-center text-sm font-bold bg-white border rounded p-1 focus:ring-2 focus:ring-emerald-500 outline-none"
-                />
-              </div>
-            </div>
-
-            {quantity === maxQty && (
-              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 p-2 rounded-lg flex items-center gap-1.5 font-medium">
-                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-amber-600" /> Max available limit reached ({maxQty} {unitType}).
-              </p>
-            )}
+      <div className="space-y-6">
+        <div className="bg-white border rounded-xl p-4 shadow-sm space-y-3">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Produce Selection</h2>
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+              {maxQty} {unitType} available
+            </span>
           </div>
 
-          <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-5 space-y-3 text-sm">
-            <div className="flex justify-between items-center text-gray-700">
-              <span>Produce Subtotal:</span>
-              <span className="font-semibold">${subtotal.toFixed(2)}</span>
+          <div className="flex justify-between items-start pt-1">
+            <div>
+              <h3 className="font-bold text-gray-900 text-lg">{listing.title}</h3>
+              <p className="text-xs text-gray-500 mt-0.5">${itemPrice.toFixed(2)} per {unitType}</p>
             </div>
-            <div className="flex justify-between items-center text-gray-700">
-              <span>Platform & Processing Fee ({BUYER_FEE_LABEL}):</span>
-              <span className="font-semibold">${buyerFee.toFixed(2)}</span>
-            </div>
-            {quote?.taxEnabled && (
-              <div className="flex justify-between items-center text-gray-700">
-                <span>Sales Tax:</span>
-                <span className="font-semibold">{quoteReady ? `$${(taxCents / 100).toFixed(2)}` : 'Calculating...'}</span>
-              </div>
-            )}
-            <div className="flex justify-between items-center font-bold text-lg text-emerald-950 border-t border-emerald-200 pt-2">
-              <span>Total Due Today (100% Online):</span>
-              <span>${grandTotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center text-xs font-semibold text-emerald-800 bg-white border px-3 py-2 rounded-lg">
-              <span className="flex items-center gap-1">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" /> Balance Due at Farm Stand:
-              </span>
-              <span>$0.00 (Pre-Paid)</span>
-            </div>
-          </div>
-
-          <BuyerGuidance />
-        </div>
-
-        <div className="md:col-span-2">
-          {!stripePromise ? (
-            <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-red-500 text-center">
-              Payment configuration is missing. Please contact support.
-            </p>
-          ) : quoteError ? (
-            <p role="alert" className="bg-white border rounded-xl p-5 shadow-sm text-xs text-red-600 text-center">
-              {quoteError}
-            </p>
-          ) : !quoteReady ? (
-            <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-gray-500 text-center">
-              Calculating your total...
-            </p>
-          ) : totalCents < MIN_CHARGE_CENTS ? (
-            <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-gray-500 text-center">
-              Order total must be at least $0.50 to check out online.
-            </p>
-          ) : (
-            <Elements
-              stripe={stripePromise}
-              options={{
-                mode: 'payment',
-                amount: totalCents,
-                currency: 'usd',
-                allowedPaymentMethodTypes: ['card'],
-              }}
-            >
-              <PaymentForm
-                signedIn={signedIn}
-                loginHref={`/login?redirect=${encodeURIComponent(`/checkout?id=${listing.id}`)}`}
-                listingId={listing.id}
-                quantity={quantity}
-                maxQty={maxQty}
-                unitType={unitType}
-                grandTotal={grandTotal}
+            <div className="flex items-center gap-2 bg-gray-50 border px-3 py-1.5 rounded-lg">
+              <label htmlFor="checkout-qty" className="text-xs text-gray-600 font-semibold">Qty:</label>
+              <input id="checkout-qty"
+                type="number"
+                min="1"
+                max={maxQty}
+                value={quantity}
+                onChange={handleQuantityChange}
+                className="w-16 text-center text-sm font-bold bg-white border rounded p-1 focus:ring-2 focus:ring-emerald-500 outline-none"
               />
-            </Elements>
+            </div>
+          </div>
+
+          {quantity === maxQty && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 p-2 rounded-lg flex items-center gap-1.5 font-medium">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-amber-600" /> Max available limit reached ({maxQty} {unitType}).
+            </p>
           )}
         </div>
+
+        <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-5 space-y-3 text-sm">
+          <div className="flex justify-between items-center text-gray-700">
+            <span>Produce Subtotal:</span>
+            <span className="font-semibold">${subtotal.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between items-center text-gray-700">
+            <span>Platform & Processing Fee ({BUYER_FEE_LABEL}):</span>
+            <span className="font-semibold">${buyerFee.toFixed(2)}</span>
+          </div>
+          {quote?.taxEnabled && (
+            <div className="flex justify-between items-center text-gray-700">
+              <span>Sales Tax:</span>
+              <span className="font-semibold">{quoteReady ? `$${(taxCents / 100).toFixed(2)}` : 'Calculating...'}</span>
+            </div>
+          )}
+          <div className="flex justify-between items-center font-bold text-lg text-emerald-950 border-t border-emerald-200 pt-2">
+            <span>Total Due Today (100% Online):</span>
+            <span>${grandTotal.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between items-center text-xs font-semibold text-emerald-800 bg-white border px-3 py-2 rounded-lg">
+            <span className="flex items-center gap-1">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" /> Balance Due at Farm Stand:
+            </span>
+            <span>$0.00 (Pre-Paid)</span>
+          </div>
+        </div>
+
+        <BuyerGuidance />
+
+        {!signedIn && (
+          <div className="bg-white border-2 border-emerald-600 rounded-xl p-5 shadow-sm">
+            <h2 className="font-bold text-gray-900 text-base flex items-center gap-1.5">
+              <Mail className="w-5 h-5 text-emerald-600" aria-hidden="true" />
+              <label htmlFor="checkout-guest-email">Your email address *</label>
+            </h2>
+            <p className="text-sm text-gray-600 mt-1 mb-3">
+              No account needed. We send your receipt and pickup code here, so double-check the spelling.
+            </p>
+            <input
+              id="checkout-guest-email"
+              form={PAYMENT_FORM_ID}
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={guestEmail}
+              onChange={(e) => setGuestEmail(e.target.value)}
+              className="w-full px-3 py-3 border border-gray-400 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+            <p className="text-sm text-gray-600 mt-3">
+              Already have an account?{' '}
+              <Link
+                href={`/login?redirect=${encodeURIComponent(`/checkout?id=${listing.id}`)}`}
+                className="font-semibold text-emerald-700 underline"
+              >
+                Sign in instead
+              </Link>
+            </p>
+          </div>
+        )}
+
+        {!stripePromise ? (
+          <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-red-500 text-center">
+            Payment configuration is missing. Please contact support.
+          </p>
+        ) : quoteError ? (
+          <p role="alert" className="bg-white border rounded-xl p-5 shadow-sm text-xs text-red-600 text-center">
+            {quoteError}
+          </p>
+        ) : !quoteReady ? (
+          <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-gray-500 text-center">
+            Calculating your total...
+          </p>
+        ) : totalCents < MIN_CHARGE_CENTS ? (
+          <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-gray-500 text-center">
+            Order total must be at least $0.50 to check out online.
+          </p>
+        ) : (
+          <Elements
+            stripe={stripePromise}
+            options={{
+              mode: 'payment',
+              amount: totalCents,
+              currency: 'usd',
+              allowedPaymentMethodTypes: ['card'],
+            }}
+          >
+            <PaymentForm
+              signedIn={signedIn}
+              guestEmail={guestEmail}
+              listingId={listing.id}
+              quantity={quantity}
+              maxQty={maxQty}
+              unitType={unitType}
+              grandTotal={grandTotal}
+            />
+          </Elements>
+        )}
       </div>
     </div>
   );
