@@ -1,15 +1,27 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { ShoppingBag, CreditCard, Lock, ArrowRight, ArrowLeft, ShieldCheck, AlertCircle, Mail } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { supabase } from '@/lib/supabaseClient';
+import {
+  ShoppingCart,
+  CreditCard,
+  Lock,
+  ArrowRight,
+  ArrowLeft,
+  ShieldCheck,
+  AlertCircle,
+  Mail,
+  Store,
+  Trash2,
+} from 'lucide-react';
+import Link from 'next/link';
 import { postWithAuth } from '@/lib/authedFetch';
 import BuyerGuidance from '@/components/BuyerGuidance';
-import { calculateOrderTotals, BUYER_FEE_LABEL, MIN_CHARGE_CENTS } from '@/lib/pricing';
+import { BUYER_FEE_LABEL, MIN_CHARGE_CENTS } from '@/lib/pricing';
+import { useCart, addToCart, setCartQuantity, removeFromCart, clearCart, type CartItem } from '@/lib/cart';
 
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
@@ -18,22 +30,96 @@ const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : 
 // back to the form by this id so the browser still insists on it before paying.
 const PAYMENT_FORM_ID = 'checkout-payment-form';
 
+// One item of the cart as priced by /api/checkout/quote.
+type QuoteLine = {
+  listingId: string;
+  title: string;
+  unitType: string;
+  pricePerUnit: number;
+  quantity: number;
+  available: number;
+  farmerId: string | null;
+  farmName: string;
+  locationName: string;
+  problem: string | null;
+};
+
+type Quote = {
+  // The cart this quote was worked out for.
+  key: string;
+  lines: QuoteLine[];
+  subtotalCents: number;
+  feeCents: number;
+  taxCents: number;
+  totalCents: number;
+  ok: boolean;
+  taxEnabled: boolean;
+};
+
+const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+// A quantity box that keeps exactly what was typed — including nothing at
+// all — so the old number can be cleared before a new one goes in. The cart
+// only changes once there is a real number to change it to.
+function QuantityInput({
+  id,
+  value,
+  max,
+  onChange,
+}: {
+  id: string;
+  value: number;
+  max: number;
+  onChange: (quantity: number) => void;
+}) {
+  const [text, setText] = useState(String(value));
+
+  useEffect(() => {
+    setText(String(value));
+  }, [value]);
+
+  return (
+    <input
+      id={id}
+      type="number"
+      inputMode="numeric"
+      min="1"
+      max={max > 0 ? max : undefined}
+      value={text}
+      form={PAYMENT_FORM_ID}
+      required
+      onFocus={(e) => e.target.select()}
+      onBlur={() => setText(String(value))}
+      onChange={(e) => {
+        const digits = e.target.value.replace(/\D/g, '');
+        const typed = parseInt(digits, 10);
+        if (isNaN(typed) || typed < 1) {
+          setText(digits);
+          return;
+        }
+        const capped = max > 0 && typed > max ? max : typed;
+        setText(String(capped));
+        onChange(capped);
+      }}
+      className="w-16 text-center text-sm font-bold bg-white border rounded p-1 focus:ring-2 focus:ring-emerald-500 outline-none"
+    />
+  );
+}
+
 function PaymentForm({
-  listingId,
-  quantity,
-  maxQty,
-  unitType,
+  items,
   grandTotal,
   signedIn,
   guestEmail,
+  onCartRejected,
 }: {
+  items: CartItem[];
+  grandTotal: number;
   signedIn: boolean;
   guestEmail: string;
-  listingId: string;
-  quantity: number;
-  maxQty: number;
-  unitType: string;
-  grandTotal: number;
+  // Called when the server turns the cart down (something sold out in the
+  // meantime), so the page can look the cart up again and show what changed.
+  onCartRejected: () => void;
 }) {
   const router = useRouter();
   const stripe = useStripe();
@@ -41,14 +127,10 @@ function PaymentForm({
 
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
-
-    if (quantity > maxQty) {
-      setPaymentError(`Cannot reserve more than the available ${maxQty} ${unitType}.`);
-      return;
-    }
 
     setLoadingPayment(true);
     setPaymentError(null);
@@ -59,12 +141,14 @@ function PaymentForm({
       if (submitError) throw new Error(submitError.message || 'Please check your card details.');
 
       const intentRes = await postWithAuth('/api/checkout', {
-        listingId,
-        quantity,
+        items,
         ...(signedIn ? {} : { guestEmail }),
       });
       const intentData = await intentRes.json();
-      if (!intentRes.ok) throw new Error(intentData.error || 'Could not start payment.');
+      if (!intentRes.ok) {
+        if (intentRes.status === 409) onCartRejected();
+        throw new Error(intentData.error || 'Could not start payment.');
+      }
 
       const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
         elements,
@@ -90,9 +174,10 @@ function PaymentForm({
       }
 
       router.push(
-        `/orders/confirmation?orderId=${completeData.orderId}&code=${completeData.code}` +
+        `/orders/confirmation?orderId=${completeData.orderId}` +
           (completeData.guestToken ? `&token=${completeData.guestToken}` : '')
       );
+      clearCart();
     } catch (err: any) {
       setPaymentError(err.message || 'Payment processing failed.');
     } finally {
@@ -114,8 +199,8 @@ function PaymentForm({
       <label className="flex items-start gap-2 text-sm text-gray-700">
         <input type="checkbox" required className="mt-0.5 w-4 h-4 shrink-0" />
         <span>
-          I understand how pickup works, and I won't give my pickup code to the farmer until I have my
-          produce. I agree to the{' '}
+          I understand how pickup works, and I won't give a pickup code to a farmer until I have my
+          produce from them. I agree to the{' '}
           <Link href="/terms" target="_blank" className="font-semibold text-emerald-800 underline">
             Terms of Use
           </Link>{' '}
@@ -133,7 +218,7 @@ function PaymentForm({
 
       <button
         type="submit"
-        disabled={loadingPayment || !stripe || !elements || maxQty === 0}
+        disabled={loadingPayment || !stripe || !elements}
         className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 text-sm"
       >
         {loadingPayment ? 'Processing Payment...' : `Pay $${grandTotal.toFixed(2)} Now`}
@@ -151,17 +236,15 @@ function PaymentForm({
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const listingId = searchParams.get('id');
+  // "Reserve" links arrive as /checkout?id=<listing>: that listing is put in
+  // the cart, and the buyer checks out with whatever else is already in it.
+  const listingIdToAdd = searchParams.get('id');
 
-  const [listing, setListing] = useState<any>(null);
-  const [loadingListing, setLoadingListing] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const { items, ready } = useCart();
+  const cartKey = JSON.stringify(items);
 
   const [authChecked, setAuthChecked] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
-
-  const [quantity, setQuantity] = useState(1);
-  const [quantityText, setQuantityText] = useState('1');
   const [guestEmail, setGuestEmail] = useState('');
 
   useEffect(() => {
@@ -173,53 +256,25 @@ function CheckoutContent() {
       setAuthChecked(true);
     }
     checkAuth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    async function fetchListing() {
-      if (!listingId) {
-        setFetchError('No listing specified.');
-        setLoadingListing(false);
-        return;
-      }
+    if (!ready || !listingIdToAdd) return;
+    if (!items.some((item) => item.listingId === listingIdToAdd)) addToCart(listingIdToAdd, 1);
+    router.replace('/checkout');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, listingIdToAdd]);
 
-      try {
-        const { data, error } = await supabase
-          .from('produce_listings')
-          .select('*')
-          .eq('id', listingId)
-          .single();
-
-        if (error) throw error;
-        setListing(data);
-      } catch (err: any) {
-        console.error('Error fetching listing:', err);
-        setFetchError(err.message || 'Failed to load produce details.');
-      } finally {
-        setLoadingListing(false);
-      }
-    }
-
-    fetchListing();
-  }, [listingId]);
-
-  const itemPrice = listing ? Number(listing.price_per_unit ?? 0) : 0;
-  // Rounded down: orders are whole units, so a leftover fraction can't be bought.
-  const maxQty = listing ? Math.max(0, Math.floor(Number(listing.available_quantity ?? 0))) : 0;
-  const unitType = listing?.unit_type || 'lbs';
-
-  const { subtotalCents, feeCents, totalCents: preTaxTotalCents } = calculateOrderTotals(itemPrice, quantity);
-
-  // Sales tax comes from the server, since it depends on the pickup location.
-  // `quote` is the answer for the quantity it was asked about; until it
-  // arrives (or while tax collection is off) the tax is zero.
-  const [quote, setQuote] = useState<{ quantity: number; taxCents: number; taxEnabled: boolean } | null>(null);
+  // What is in the cart and what it costs — names, prices, availability, the
+  // fee and any sales tax — all come from the server. `quote` is the answer
+  // for the cart it was asked about; payment waits until it matches the cart
+  // on screen.
+  const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
-  const listingIdForQuote = listing?.id;
+  const [refreshCount, setRefreshCount] = useState(0);
 
   useEffect(() => {
-    if (!listingIdForQuote) return;
+    if (!ready || items.length === 0) return;
     let cancelled = false;
 
     // A short pause so typing a quantity doesn't ask for a price on every keystroke.
@@ -228,12 +283,12 @@ function CheckoutContent() {
         const res = await fetch('/api/checkout/quote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ listingId: listingIdForQuote, quantity }),
+          body: JSON.stringify({ items }),
         });
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok) throw new Error(data.error || 'Could not price this order.');
-        setQuote({ quantity, taxCents: data.taxCents, taxEnabled: data.taxEnabled });
+        setQuote({ ...data, key: cartKey });
         setQuoteError(null);
       } catch (err: any) {
         if (!cancelled) setQuoteError(err.message || 'Could not price this order.');
@@ -244,133 +299,165 @@ function CheckoutContent() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [listingIdForQuote, quantity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, cartKey, refreshCount]);
 
-  // Payment waits until the price for the current quantity has come back.
-  const quoteReady = quote !== null && quote.quantity === quantity;
-  const taxCents = quoteReady ? quote.taxCents : 0;
-  const totalCents = preTaxTotalCents + taxCents;
-
-  const subtotal = subtotalCents / 100;
-  const buyerFee = feeCents / 100;
-  const grandTotal = totalCents / 100;
-
-  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // The box keeps exactly what was typed — including nothing at all — so the
-    // old number can be cleared before a new one goes in. The order quantity
-    // only changes once there is a real number to change it to.
-    const digits = e.target.value.replace(/\D/g, '');
-    const val = parseInt(digits, 10);
-    if (isNaN(val) || val < 1) {
-      setQuantityText(digits === '' ? '' : digits);
-      return;
-    }
-    const capped = maxQty > 0 && val > maxQty ? maxQty : val;
-    setQuantity(capped);
-    setQuantityText(String(capped));
-  };
-
-  // Leaving the box empty (or at zero) puts the current quantity back.
-  const handleQuantityBlur = () => setQuantityText(String(quantity));
-
-  if (!authChecked || loadingListing) {
+  if (!authChecked || !ready || (listingIdToAdd && items.length === 0)) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center space-y-3">
         <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-medium text-gray-600">Loading produce checkout...</p>
+        <p className="text-sm font-medium text-gray-600">Loading your cart...</p>
       </div>
     );
   }
 
-  if (fetchError || !listing) {
+  if (items.length === 0) {
     return (
       <div className="max-w-md mx-auto my-12 p-6 bg-white border rounded-2xl text-center space-y-4 shadow-sm">
-        <p className="text-gray-600">{fetchError || 'Produce listing not found.'}</p>
+        <ShoppingCart className="w-10 h-10 text-gray-400 mx-auto" aria-hidden="true" />
+        <h1 className="text-lg font-bold text-gray-900">Your cart is empty</h1>
+        <p className="text-sm text-gray-600">Add produce from one farm or several, then pay for it all at once.</p>
         <Link
           href="/browse"
           className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-medium rounded-xl text-sm"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Marketplace
+          <ArrowLeft className="w-4 h-4" /> Browse Produce
         </Link>
       </div>
     );
   }
 
+  const quoteReady = quote !== null && quote.key === cartKey;
+
+  // The items to show: the server's description of each one, with the
+  // quantity currently in the cart (which may be a keystroke ahead of it).
+  const quantityById = new Map(items.map((item) => [item.listingId, item.quantity]));
+  const lines = (quote?.lines || [])
+    .filter((line) => quantityById.has(line.listingId))
+    .map((line) => ({ ...line, quantity: quantityById.get(line.listingId)! }));
+
+  // Grouped by farm, since each farm is a separate pickup with its own code.
+  const farms: { key: string; farmerId: string | null; farmName: string; locationName: string; lines: typeof lines }[] = [];
+  for (const line of lines) {
+    const key = line.farmerId || line.listingId;
+    const farm = farms.find((f) => f.key === key);
+    if (farm) farm.lines.push(line);
+    else farms.push({ key, farmerId: line.farmerId, farmName: line.farmName, locationName: line.locationName, lines: [line] });
+  }
+
+  const totalCents = quote?.totalCents ?? 0;
+  const pending = 'Updating...';
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <Link href="/browse" className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-emerald-600 mb-4 font-medium">
-        <ArrowLeft className="w-3.5 h-3.5" /> Back to Produce
+        <ArrowLeft className="w-3.5 h-3.5" /> Keep Shopping
       </Link>
 
       <h1 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-        <ShoppingBag className="w-6 h-6 text-emerald-600" />
-        Checkout & Complete Reservation
+        <ShoppingCart className="w-6 h-6 text-emerald-600" />
+        Your Cart & Checkout
       </h1>
 
       <div className="space-y-6">
-        <div className="bg-white border rounded-xl p-4 shadow-sm space-y-3">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Produce Selection</h2>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-              {maxQty} {unitType} available
-            </span>
-          </div>
+        {!quote && !quoteError && (
+          <p className="bg-white border rounded-xl p-5 shadow-sm text-sm text-gray-500 text-center">Loading your cart...</p>
+        )}
 
-          <div className="flex justify-between items-start pt-1">
-            <div>
-              <h3 className="font-bold text-gray-900 text-lg">{listing.title}</h3>
-              <p className="text-xs text-gray-500 mt-0.5">${itemPrice.toFixed(2)} per {unitType}</p>
-            </div>
-            <div className="flex items-center gap-2 bg-gray-50 border px-3 py-1.5 rounded-lg">
-              <label htmlFor="checkout-qty" className="text-xs text-gray-600 font-semibold">Qty:</label>
-              <input id="checkout-qty"
-                type="number"
-                min="1"
-                max={maxQty}
-                value={quantityText}
-                onChange={handleQuantityChange}
-                onBlur={handleQuantityBlur}
-                onFocus={(e) => e.target.select()}
-                form={PAYMENT_FORM_ID}
-                required
-                className="w-16 text-center text-sm font-bold bg-white border rounded p-1 focus:ring-2 focus:ring-emerald-500 outline-none"
-              />
-            </div>
-          </div>
+        {farms.length > 1 && (
+          <p className="text-sm text-gray-700 bg-amber-50 border border-amber-300 rounded-xl p-3">
+            Your cart has produce from <strong>{farms.length} farms</strong>. You pay once, but each farm is a
+            separate pickup at its own address, with its own pickup code.
+          </p>
+        )}
 
-          {quantity === maxQty && (
-            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 p-2 rounded-lg flex items-center gap-1.5 font-medium">
-              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-amber-600" /> Max available limit reached ({maxQty} {unitType}).
-            </p>
-          )}
-        </div>
+        {farms.map((farm) => (
+          <div key={farm.key} className="bg-white border rounded-xl p-4 shadow-sm space-y-3">
+            <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <Store className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
+              {farm.farmName}
+              {farm.locationName && <span className="text-xs font-medium text-gray-500">· Pickup in {farm.locationName}</span>}
+            </h2>
 
-        <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-5 space-y-3 text-sm">
-          <div className="flex justify-between items-center text-gray-700">
-            <span>Produce Subtotal:</span>
-            <span className="font-semibold">${subtotal.toFixed(2)}</span>
+            <ul className="divide-y divide-gray-100">
+              {farm.lines.map((line) => (
+                <li key={line.listingId} className="py-3 first:pt-0 last:pb-0 space-y-2">
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="min-w-0">
+                      <Link href={`/listings/${line.listingId}`} className="font-bold text-gray-900 hover:underline break-words">
+                        {line.title}
+                      </Link>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        ${line.pricePerUnit.toFixed(2)} per {line.unitType} · {line.available} available
+                      </p>
+                    </div>
+                    <p className="text-sm font-bold text-gray-900 shrink-0">
+                      ${(line.pricePerUnit * line.quantity).toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 bg-gray-50 border px-3 py-1.5 rounded-lg">
+                      <label htmlFor={`qty-${line.listingId}`} className="text-xs text-gray-600 font-semibold">
+                        Qty<span className="sr-only"> of {line.title}</span>:
+                      </label>
+                      <QuantityInput
+                        id={`qty-${line.listingId}`}
+                        value={line.quantity}
+                        max={line.available}
+                        onChange={(quantity) => setCartQuantity(line.listingId, quantity)}
+                      />
+                      <span className="text-xs text-gray-600">{line.unitType}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFromCart(line.listingId)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:underline px-2 py-2"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" /> Remove
+                      <span className="sr-only"> {line.title}</span>
+                    </button>
+                  </div>
+
+                  {line.problem && quoteReady && (
+                    <p role="alert" className="text-xs text-red-700 bg-red-50 border border-red-200 p-2 rounded-lg flex items-center gap-1.5 font-medium">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> {line.problem}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="flex justify-between items-center text-gray-700">
-            <span>Platform & Processing Fee ({BUYER_FEE_LABEL}):</span>
-            <span className="font-semibold">${buyerFee.toFixed(2)}</span>
-          </div>
-          {quote?.taxEnabled && (
+        ))}
+
+        {quote && (
+          <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-5 space-y-3 text-sm">
             <div className="flex justify-between items-center text-gray-700">
-              <span>Sales Tax:</span>
-              <span className="font-semibold">{quoteReady ? `$${(taxCents / 100).toFixed(2)}` : 'Calculating...'}</span>
+              <span>Produce Subtotal:</span>
+              <span className="font-semibold">{quoteReady ? dollars(quote.subtotalCents) : pending}</span>
             </div>
-          )}
-          <div className="flex justify-between items-center font-bold text-lg text-emerald-950 border-t border-emerald-200 pt-2">
-            <span>Total Due Today (100% Online):</span>
-            <span>${grandTotal.toFixed(2)}</span>
+            <div className="flex justify-between items-center text-gray-700">
+              <span>Platform & Processing Fee ({BUYER_FEE_LABEL}, once per checkout):</span>
+              <span className="font-semibold">{quoteReady ? dollars(quote.feeCents) : pending}</span>
+            </div>
+            {quote.taxEnabled && (
+              <div className="flex justify-between items-center text-gray-700">
+                <span>Sales Tax:</span>
+                <span className="font-semibold">{quoteReady ? dollars(quote.taxCents) : pending}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center font-bold text-lg text-emerald-950 border-t border-emerald-200 pt-2">
+              <span>Total Due Today (100% Online):</span>
+              <span>{quoteReady ? dollars(totalCents) : pending}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs font-semibold text-emerald-800 bg-white border px-3 py-2 rounded-lg">
+              <span className="flex items-center gap-1">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" /> Balance Due at Farm Stand:
+              </span>
+              <span>$0.00 (Pre-Paid)</span>
+            </div>
           </div>
-          <div className="flex justify-between items-center text-xs font-semibold text-emerald-800 bg-white border px-3 py-2 rounded-lg">
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" /> Balance Due at Farm Stand:
-            </span>
-            <span>$0.00 (Pre-Paid)</span>
-          </div>
-        </div>
+        )}
 
         <BuyerGuidance />
 
@@ -396,10 +483,7 @@ function CheckoutContent() {
             />
             <p className="text-sm text-gray-600 mt-3">
               Already have an account?{' '}
-              <Link
-                href={`/login?redirect=${encodeURIComponent(`/checkout?id=${listing.id}`)}`}
-                className="font-semibold text-emerald-700 underline"
-              >
+              <Link href="/login?redirect=%2Fcheckout" className="font-semibold text-emerald-700 underline">
                 Sign in instead
               </Link>
             </p>
@@ -418,6 +502,10 @@ function CheckoutContent() {
           <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-gray-500 text-center">
             Calculating your total...
           </p>
+        ) : !quote.ok ? (
+          <p role="alert" className="bg-white border border-red-200 rounded-xl p-5 shadow-sm text-sm text-red-700 text-center">
+            Some items in your cart can't be bought as they are. Fix the ones marked in red above to continue.
+          </p>
         ) : totalCents < MIN_CHARGE_CENTS ? (
           <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-gray-500 text-center">
             Order total must be at least $0.50 to check out online.
@@ -433,13 +521,11 @@ function CheckoutContent() {
             }}
           >
             <PaymentForm
+              items={items}
               signedIn={signedIn}
               guestEmail={guestEmail}
-              listingId={listing.id}
-              quantity={quantity}
-              maxQty={maxQty}
-              unitType={unitType}
-              grandTotal={grandTotal}
+              grandTotal={totalCents / 100}
+              onCartRejected={() => setRefreshCount((count) => count + 1)}
             />
           </Elements>
         )}
@@ -453,7 +539,7 @@ export default function CheckoutPage() {
     <Suspense fallback={
       <div className="min-h-[50vh] flex flex-col items-center justify-center space-y-3">
         <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-medium text-gray-600">Loading produce checkout...</p>
+        <p className="text-sm font-medium text-gray-600">Loading your cart...</p>
       </div>
     }>
       <CheckoutContent />

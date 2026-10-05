@@ -1,4 +1,4 @@
-import { randomInt } from 'crypto';
+import { createHmac, randomInt } from 'crypto';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 // SERVER-ONLY. Pickup codes live in their own table (order_pickup_codes)
@@ -12,6 +12,29 @@ function generatePickupCode() {
   return `FFD-${randomInt(100000, 1000000)}`;
 }
 
+function signingSecret() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) throw new Error('Server is not configured to create pickup codes.');
+  return key;
+}
+
+// One checkout can hold items from several farms, and the buyer gets ONE code
+// per farm covering everything they bought from it. The order is recorded by
+// two callers at once (the buyer's browser and Stripe's webhook), so the code
+// isn't picked at random: it is worked out from the checkout and the farm with
+// a secret only the server has. Both callers arrive at the same code, and
+// nobody outside can work it out.
+export function pickupCodeForFarm(checkoutKey: string, farmerId: string) {
+  const digest = createHmac('sha256', signingSecret()).update(`pickup-code:${checkoutKey}:${farmerId}`).digest();
+  return `FFD-${100000 + (digest.readUInt32BE(0) % 900000)}`;
+}
+
+// The secret in a guest's order link, shared by every item in the checkout so
+// one link shows the whole order. Worked out the same way, for the same reason.
+export function guestTokenForCheckout(checkoutKey: string) {
+  return createHmac('sha256', signingSecret()).update(`guest-order-link:${checkoutKey}`).digest('hex').slice(0, 48);
+}
+
 // Compares codes forgivingly: case, spaces, dashes and the "FFD" prefix are
 // ignored, so "ffd 123456" and "123456" both match "FFD-123456".
 export function normalizePickupCode(code: string) {
@@ -23,12 +46,18 @@ export function normalizePickupCode(code: string) {
 // `buyerId` is null for guest orders, which instead get `guestToken`: the
 // secret in the link a guest uses to view their order. It is stored here, not
 // on the order row, because farmers can read their order rows and the token
-// leads to the pickup code.
-export async function getOrCreatePickupCode(orderId: string, buyerId: string | null, guestToken: string | null = null) {
+// leads to the pickup code. Pass `code` to give the order a particular code
+// (the one shared by its farm's items) instead of a random one.
+export async function getOrCreatePickupCode(
+  orderId: string,
+  buyerId: string | null,
+  guestToken: string | null = null,
+  code: string | null = null
+) {
   await supabaseAdmin
     .from('order_pickup_codes')
     .upsert(
-      { order_id: orderId, buyer_id: buyerId, code: generatePickupCode(), guest_access_token: guestToken },
+      { order_id: orderId, buyer_id: buyerId, code: code || generatePickupCode(), guest_access_token: guestToken },
       { onConflict: 'order_id', ignoreDuplicates: true }
     );
 
@@ -59,9 +88,11 @@ export async function getPickupCodeRecord(orderId: string) {
     : null;
 }
 
-export async function recordFailedPickupCodeAttempt(orderId: string, failedAttempts: number) {
+// `orderIds` is every open item the code covers, so the limit on wrong guesses
+// applies to the code as a whole rather than starting again on each item.
+export async function recordFailedPickupCodeAttempt(orderIds: string[], failedAttempts: number) {
   await supabaseAdmin
     .from('order_pickup_codes')
     .update({ failed_attempts: failedAttempts + 1 })
-    .eq('order_id', orderId);
+    .in('order_id', orderIds);
 }

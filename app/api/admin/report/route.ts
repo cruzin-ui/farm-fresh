@@ -64,6 +64,15 @@ export async function POST(request: Request) {
     const listingById = new Map((listings || []).map((l) => [l.id, l]));
     const farmNameById = new Map((farmers || []).map((f) => [f.id, f.farm_name]));
 
+    // One card payment can cover several orders (a cart), and Stripe's fixed
+    // fee is charged once per payment — so it is split between those orders.
+    const ordersPerPayment = new Map<string, number>();
+    for (const o of orders || []) {
+      if (o.stripe_payment_intent_id) {
+        ordersPerPayment.set(o.stripe_payment_intent_id, (ordersPerPayment.get(o.stripe_payment_intent_id) || 0) + 1);
+      }
+    }
+
     const rows = (orders || []).map((o) => {
       const listing = listingById.get(o.listing_id);
       const buyerPaid = Number(o.total_price ?? 0);
@@ -81,7 +90,10 @@ export async function POST(request: Request) {
       const settled = completed || o.status === 'cancelled';
       // Stripe keeps its fee on the original charge even when part is refunded.
       const estimatedCardFee = o.stripe_payment_intent_id
-        ? round((buyerPaid + refunded) * CARD_FEE_RATE + CARD_FEE_FIXED)
+        ? round(
+            (buyerPaid + refunded) * CARD_FEE_RATE +
+              CARD_FEE_FIXED / (ordersPerPayment.get(o.stripe_payment_intent_id) || 1)
+          )
         : 0;
 
       return {
@@ -107,6 +119,8 @@ export async function POST(request: Request) {
         estimated_card_fee: estimatedCardFee,
         payout_released: o.stripe_transfer_id ? 'yes' : 'no',
         stripe_payment_id: o.stripe_payment_intent_id || '',
+        // The same for every order paid for together in one cart.
+        checkout_id: o.checkout_id || '',
       };
     });
 

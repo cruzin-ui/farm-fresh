@@ -1,29 +1,28 @@
 import { NextResponse } from 'next/server';
 import { stripeAdmin } from '@/lib/stripeAdmin';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
-import { calculateOrderTotals, MIN_CHARGE_CENTS, SELLER_FEE_RATE } from '@/lib/pricing';
-import { calculateOrderTax, TaxError } from '@/lib/tax';
+import { MIN_CHARGE_CENTS, SELLER_FEE_RATE } from '@/lib/pricing';
+import { parseCartItems, priceCart } from '@/lib/checkoutCart';
+import { TaxError } from '@/lib/tax';
 import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
-// Step 1 of checkout: creates a Stripe PaymentIntent on the platform account.
-// The whole payment is held by the platform; the farmer's share (the produce
+// Step 1 of checkout: creates ONE Stripe PaymentIntent on the platform account
+// for everything in the buyer's cart, which may come from several farms. The
+// whole payment is held by the platform; each farmer's share (their produce
 // subtotal, less the seller fee) is only transferred to their connected
-// account when the order is marked completed — see /api/orders/complete. The
-// buyer fee and seller fee stay with the platform. The order itself is recorded by /api/checkout/complete once
-// payment succeeds.
+// account when their item is marked completed — see /api/orders/complete. The
+// buyer fee and seller fee stay with the platform. The orders themselves (one
+// per item) are recorded by /api/checkout/complete once payment succeeds.
 export async function POST(request: Request) {
   try {
     const user = await getRequestUser(request);
 
     const body = await request.json();
-    const { listingId } = body;
-    const orderQuantity = Number(body.quantity);
 
     // Buyers either sign in or check out as a guest with just an email
-    // address, which is where their confirmation and pickup code are sent.
+    // address, which is where their confirmation and pickup codes are sent.
     const guestEmail = typeof body.guestEmail === 'string' ? body.guestEmail.trim().toLowerCase() : '';
 
     if (!user && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail)) {
@@ -35,86 +34,57 @@ export async function POST(request: Request) {
 
     const buyerEmail = user ? user.email || '' : guestEmail;
 
-    if (!listingId) {
-      return NextResponse.json({ error: 'Missing listing reference.' }, { status: 400 });
+    const items = parseCartItems(body.items);
+    if (!items) {
+      return NextResponse.json({ error: 'Your cart is empty or could not be read.' }, { status: 400 });
     }
 
-    if (!Number.isInteger(orderQuantity) || orderQuantity < 1) {
-      return NextResponse.json({ error: 'Invalid quantity.' }, { status: 400 });
-    }
-
-    const { data: listing, error: listingFetchError } = await supabaseAdmin
-      .from('produce_listings')
-      .select('available_quantity, price_per_unit, title, farmer_id, category, zip_code')
-      .eq('id', listingId)
-      .single();
-
-    if (listingFetchError || !listing) {
-      return NextResponse.json({ error: 'Listing not found.' }, { status: 404 });
-    }
-
-    const currentAvailable = Number(listing.available_quantity ?? 0);
-
-    if (orderQuantity > currentAvailable) {
-      return NextResponse.json(
-        { error: `Only ${currentAvailable} left. Please refresh and adjust your quantity.` },
-        { status: 409 }
-      );
-    }
-
-    const { data: seller } = await supabaseAdmin
-      .from('seller_profiles')
-      .select('stripe_account_id, stripe_onboarding_complete')
-      .eq('id', listing.farmer_id)
-      .maybeSingle();
-
-    if (!seller?.stripe_account_id || !seller.stripe_onboarding_complete) {
-      return NextResponse.json(
-        { error: "This farmer hasn't finished setting up payouts yet, so this listing can't be purchased right now." },
-        { status: 409 }
-      );
-    }
-
-    // Totals are always computed server-side from the listing price — never
+    // Totals are always computed server-side from the listing prices — never
     // trusted from the client.
-    const { subtotalCents, feeCents, totalCents } = calculateOrderTotals(
-      Number(listing.price_per_unit ?? 0),
-      orderQuantity
-    );
+    const cart = await priceCart(items);
 
-    if (totalCents < MIN_CHARGE_CENTS) {
+    const blocked = cart.lines.find((line) => line.problem);
+    if (blocked) {
+      return NextResponse.json({ error: `${blocked.title}: ${blocked.problem}` }, { status: 409 });
+    }
+
+    if (cart.totalCents < MIN_CHARGE_CENTS) {
       return NextResponse.json({ error: 'Order total is below the minimum charge of $0.50.' }, { status: 400 });
     }
 
-    // Sales tax, if tax collection is switched on (zero otherwise). Linking
-    // the calculation to the payment lets Stripe record the tax when the
-    // payment succeeds and reverse it automatically on refunds.
-    const { taxCents, calculationId } = await calculateOrderTax({
-      category: listing.category,
-      pickupZip: listing.zip_code,
-      subtotalCents,
-      feeCents,
+    const checkoutId = crypto.randomUUID();
+
+    // What was bought, saved on the payment so the orders can be recorded from
+    // it later even if the buyer's browser never comes back. One entry per
+    // item: listing, quantity, produce subtotal, fee share and tax, in cents.
+    const itemMetadata: Record<string, string> = {};
+    cart.lines.forEach((line, i) => {
+      itemMetadata[`item_${i}`] = [line.listingId, line.quantity, line.subtotalCents, line.feeCents, line.taxCents].join(':');
     });
 
+    const description =
+      cart.lines.length === 1
+        ? `Farm Fresh Direct — ${cart.lines[0].quantity} x ${cart.lines[0].title}`
+        : `Farm Fresh Direct — ${cart.lines.length} items`;
+
     const paymentIntent = await stripeAdmin.paymentIntents.create({
-      amount: totalCents + taxCents,
-      ...(calculationId ? { hooks: { inputs: { tax: { calculation: calculationId } } } } : {}),
+      amount: cart.totalCents,
+      // Linking the tax calculation lets Stripe record the tax when the
+      // payment succeeds and reverse it automatically on refunds.
+      ...(cart.calculationId ? { hooks: { inputs: { tax: { calculation: cart.calculationId } } } } : {}),
       currency: 'usd',
       allowed_payment_method_types: ['card'],
-      transfer_group: `order-${crypto.randomUUID()}`,
-      description: `Farm Fresh Direct — ${orderQuantity} x ${listing.title || 'produce'}`,
+      transfer_group: `checkout-${checkoutId}`,
+      description,
       metadata: {
-        listing_id: String(listingId),
-        quantity: String(orderQuantity),
+        checkout_id: checkoutId,
         // Empty for guest checkouts, which are identified by email alone.
         buyer_id: user?.id || '',
         buyer_email: buyerEmail,
-        // The farmer's share for the full quantity, paid out on completion.
-        subtotal_cents: String(subtotalCents),
-        // The platform's cut of that share, fixed at the time of purchase.
+        // The platform's cut of each farmer's share, fixed at the time of purchase.
         seller_fee_rate: String(SELLER_FEE_RATE),
-        // Sales tax included in the amount charged.
-        tax_cents: String(taxCents),
+        item_count: String(cart.lines.length),
+        ...itemMetadata,
       },
     });
 

@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Sprout, MapPin, Calendar, ShoppingBag, ArrowLeft, User, ChevronRight } from 'lucide-react';
+import { Sprout, MapPin, Calendar, ShoppingBag, ShoppingCart, CheckCircle2, ArrowLeft, User, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { BUYER_FEE_LABEL } from '@/lib/pricing';
+import { addToCart, useCart } from '@/lib/cart';
 
-// Public listing detail page — no sign-in needed to view. Buyers only have to
-// log in when they click Reserve, which sends them through /checkout.
+// Public listing detail page — no sign-in needed to view, or to buy: items go
+// into the cart, and checkout works for guests as well as signed-in buyers.
 export default function ListingDetailPage() {
   const params = useParams();
   const listingId = params.id as string;
@@ -16,6 +17,10 @@ export default function ListingDetailPage() {
   const [listing, setListing] = useState<any>(null);
   const [seller, setSeller] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const { items: cartItems } = useCart();
+  const [addQuantity, setAddQuantity] = useState('1');
+  const [cartMessage, setCartMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchListing() {
@@ -85,6 +90,22 @@ export default function ListingDetailPage() {
   const availableQty = Math.floor(Number(listing.available_quantity ?? 0));
   const unitType = listing.unit_type || 'lbs';
   const soldOut = availableQty <= 0;
+
+  // What can still be added: what's available, less what is already in the cart.
+  const maxQty = availableQty;
+  const inCart = cartItems.find((item) => item.listingId === listing.id)?.quantity || 0;
+  const roomLeft = availableQty - inCart;
+  const chosenQty = Math.min(Math.max(1, parseInt(addQuantity, 10) || 1), Math.max(1, roomLeft));
+
+  const handleAddToCart = () => {
+    if (roomLeft < 1) return;
+    if (addToCart(listing.id, chosenQty)) {
+      setCartMessage(`Added — ${inCart + chosenQty} ${unitType} in your cart.`);
+      setAddQuantity('1');
+    } else {
+      setCartMessage('Your cart is full. Check out, or remove something, before adding more.');
+    }
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -173,12 +194,64 @@ export default function ListingDetailPage() {
                 Sold Out
               </span>
             ) : (
-              <Link
-                href={`/checkout?id=${listing.id}`}
-                className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm shadow-md transition-colors"
-              >
-                <ShoppingBag className="w-4 h-4" /> Reserve
-              </Link>
+              <>
+                <div className="flex items-stretch gap-2">
+                  <div className="flex items-center gap-2 bg-white border px-3 rounded-xl">
+                    <label htmlFor="listing-qty" className="text-xs text-gray-600 font-semibold">
+                      Qty:
+                    </label>
+                    <input
+                      id="listing-qty"
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      max={maxQty}
+                      value={addQuantity}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setAddQuantity(e.target.value.replace(/\D/g, ''))}
+                      onBlur={() => setAddQuantity(String(chosenQty))}
+                      className="w-14 text-center text-sm font-bold bg-white border rounded p-1 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddToCart}
+                    disabled={roomLeft < 1}
+                    className="flex-1 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl text-sm shadow-md transition-colors"
+                  >
+                    <ShoppingCart className="w-4 h-4" aria-hidden="true" /> Add to Cart
+                  </button>
+                </div>
+
+                {inCart > 0 && (
+                  <div role="status" className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-950 space-y-2">
+                    <p className="flex items-center gap-1.5 font-semibold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
+                      {cartMessage || `${inCart} ${listing.unit_type || 'units'} in your cart.`}
+                    </p>
+                    <div className="flex gap-2">
+                      <Link
+                        href="/checkout"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" aria-hidden="true" /> View Cart & Check Out
+                      </Link>
+                      <Link
+                        href="/browse"
+                        className="flex-1 inline-flex items-center justify-center bg-white border text-gray-700 font-bold py-2.5 rounded-xl text-xs hover:bg-gray-50"
+                      >
+                        Keep Shopping
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {cartMessage && inCart === 0 && (
+                  <p role="alert" className="text-xs text-red-700 bg-red-50 border border-red-200 p-2 rounded-lg">
+                    {cartMessage}
+                  </p>
+                )}
+              </>
             )}
             <p className="text-[11px] text-gray-400 text-center">
               No account needed — check out as a guest or sign in. Paid in full online, plus a {BUYER_FEE_LABEL} service

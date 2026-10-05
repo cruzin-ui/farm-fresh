@@ -75,6 +75,15 @@ export async function POST(request: Request) {
 
     const rows = new Map<string, Row>();
 
+    // One card payment can cover several orders (a cart), and Stripe's fixed
+    // fee is charged once per payment — so it is split between those orders.
+    const ordersPerPayment = new Map<string, number>();
+    for (const o of paidOrders) {
+      if (o.stripe_payment_intent_id) {
+        ordersPerPayment.set(o.stripe_payment_intent_id, (ordersPerPayment.get(o.stripe_payment_intent_id) || 0) + 1);
+      }
+    }
+
     for (const o of paidOrders) {
       const farmerId = farmerIdByListing.get(o.listing_id);
       if (!farmerId) continue;
@@ -108,7 +117,8 @@ export async function POST(request: Request) {
       row.farmer_paid += farmerPaid;
       // Sales tax is collected for the state, so it isn't counted as fees.
       row.platform_fees += buyerPaid - farmerPaid - Number(o.tax_amount ?? 0);
-      row.estimated_card_fees += originallyCharged * CARD_FEE_RATE + CARD_FEE_FIXED;
+      row.estimated_card_fees +=
+        originallyCharged * CARD_FEE_RATE + CARD_FEE_FIXED / (ordersPerPayment.get(o.stripe_payment_intent_id) || 1);
 
       rows.set(key, row);
     }

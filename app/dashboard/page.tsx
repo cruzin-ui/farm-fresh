@@ -146,6 +146,9 @@ export default function SellerDashboardPage() {
   const [completeOrderId, setCompleteOrderId] = useState<string | null>(null);
   const [completeCode, setCompleteCode] = useState('');
   const [submittingComplete, setSubmittingComplete] = useState(false);
+  // Other items from the same buyer's checkout being handed over in the same
+  // visit — one pickup code covers them all.
+  const [completeAlsoIds, setCompleteAlsoIds] = useState<string[]>([]);
 
   // Cancel / Adjust flow — per-order draft of the reduced quantity (0 = cancel)
   const [adjustOrderId, setAdjustOrderId] = useState<string | null>(null);
@@ -382,11 +385,24 @@ export default function SellerDashboardPage() {
 
   // "Mark Completed" goes through the API because completing an order is what
   // releases the farmer's payout for it.
+  // The buyer's other open items with this farm from the same checkout.
+  const sameCheckoutOrders = (order: any) =>
+    order.checkout_id
+      ? incomingOrders.filter((o) => o.id !== order.id && o.checkout_id === order.checkout_id)
+      : [];
+
   const openComplete = (order: any) => {
     setReadyDraftOrderId(null);
     setAdjustOrderId(null);
     setCompleteOrderId(order.id);
     setCompleteCode('');
+    // Start with the ones already marked ready ticked; the farmer unticks
+    // anything the buyer isn't taking today.
+    setCompleteAlsoIds(
+      sameCheckoutOrders(order)
+        .filter((o) => o.status === 'ready_for_pickup')
+        .map((o) => o.id)
+    );
   };
 
   const handleMarkCompleted = async (orderId: string) => {
@@ -397,17 +413,24 @@ export default function SellerDashboardPage() {
 
     setSubmittingComplete(true);
     try {
-      const res = await postWithAuth('/api/orders/complete', { orderId, code: completeCode });
+      const res = await postWithAuth('/api/orders/complete', {
+        orderId,
+        code: completeCode,
+        alsoOrderIds: completeAlsoIds,
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not complete order.');
 
+      const itemCount = Number(data.completedCount) || 1;
+      const what = itemCount > 1 ? `${itemCount} items completed` : 'Order completed';
       setSuccessMsg(
         Number(data.payoutAmount) > 0
-          ? `Order completed — $${Number(data.payoutAmount).toFixed(2)} is on its way to your payout account.`
-          : 'Order marked as completed and moved to Sales History.'
+          ? `${what} — $${Number(data.payoutAmount).toFixed(2)} is on its way to your payout account.`
+          : `${what} and moved to Sales History.`
       );
       setCompleteOrderId(null);
       setCompleteCode('');
+      setCompleteAlsoIds([]);
       await fetchDashboardData();
     } catch (err: any) {
       alert(err.message || 'Could not complete order.');
@@ -1694,6 +1717,17 @@ export default function SellerDashboardPage() {
                               ? `Your payout at pickup: $${Number(order.farmer_payout_amount).toFixed(2)}`
                               : `Total Paid: $${Number(order.total_price || 0).toFixed(2)}`}
                           </p>
+                          {sameCheckoutOrders(order).length > 0 && (
+                            <p className="text-xs text-gray-600">
+                              Same buyer also ordered:{' '}
+                              <span className="font-semibold">
+                                {sameCheckoutOrders(order)
+                                  .map((o) => o.listing_title)
+                                  .join(', ')}
+                              </span>
+                              . One pickup code covers all of it.
+                            </p>
+                          )}
                         </div>
 
                         {/* Full-width stacked buttons on phones; a row on larger screens. */}
@@ -1760,6 +1794,35 @@ export default function SellerDashboardPage() {
                             Ask the buyer for the code from their order confirmation when they collect
                             their produce. Entering it completes the order and releases your payout.
                           </p>
+                          {sameCheckoutOrders(order).length > 0 && (
+                            <fieldset className="space-y-2">
+                              <legend className="text-xs font-semibold text-emerald-900">
+                                This buyer's code also covers these items. Tick the ones you are handing over now:
+                              </legend>
+                              {sameCheckoutOrders(order).map((other) => (
+                                <label key={other.id} className="flex items-start gap-2 text-xs text-emerald-950">
+                                  <input
+                                    type="checkbox"
+                                    className="mt-0.5 w-4 h-4 shrink-0"
+                                    checked={completeAlsoIds.includes(other.id)}
+                                    onChange={(e) =>
+                                      setCompleteAlsoIds((current) =>
+                                        e.target.checked ? [...current, other.id] : current.filter((id) => id !== other.id)
+                                      )
+                                    }
+                                  />
+                                  <span>
+                                    {other.reserved_quantity} {other.listing_unit_type} of{' '}
+                                    <span className="font-semibold">{other.listing_title}</span>
+                                    {other.status !== 'ready_for_pickup' && ' (not marked ready yet)'}
+                                  </span>
+                                </label>
+                              ))}
+                              <p className="text-[11px] text-emerald-900">
+                                Anything left unticked stays open, and the same code works for it later.
+                              </p>
+                            </fieldset>
+                          )}
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleMarkCompleted(order.id)}

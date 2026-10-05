@@ -29,7 +29,17 @@ const BUYER_FAQS: Faq[] = [
   },
   {
     question: 'Are there any fees?',
-    answer: `Buyers pay a service fee of ${BUYER_FEE_LABEL} on top of the produce price. Where sales tax applies, it is added too. You'll see the exact amounts at checkout before you pay.`,
+    answer: `Buyers pay a service fee of ${BUYER_FEE_LABEL} on top of the produce price. The fee is charged once per checkout, however many items are in your cart. Where sales tax applies, it is added too. You'll see the exact amounts at checkout before you pay.`,
+  },
+  {
+    question: 'Can I buy from more than one farm at once?',
+    answer:
+      'Yes. Add items from as many listings and farms as you like to your cart, then pay for everything in one checkout. Each farm is still a separate pickup, at its own address, and you get one pickup code per farm that covers everything you bought from it.',
+  },
+  {
+    question: "What if only some of my items are ready, or one gets cancelled?",
+    answer:
+      "Each item is handled on its own. You're emailed as each one is ready, and you can collect them on different days — the same pickup code works each time for that farm. If a farmer has to cancel or reduce one item, only that item is refunded and the rest of your order carries on as normal.",
   },
   {
     question: 'When does the farmer get my money?',

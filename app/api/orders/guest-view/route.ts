@@ -13,9 +13,10 @@ function tokensMatch(a: string, b: string) {
 }
 
 // Lets a guest (someone who checked out without an account) view their order.
-// There is no session to check, so access is granted by the order's random
+// There is no session to check, so access is granted by the order's secret
 // access token, which the guest gets on the confirmation page and in the link
-// in their confirmation email.
+// in their confirmation email. The link names one order; everything bought in
+// the same checkout is returned with it, since it was all one purchase.
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -43,35 +44,66 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
     }
 
-    const { data: listing } = await supabaseAdmin
+    let checkoutOrders: any[] = [order];
+    if (order.checkout_id) {
+      const { data: siblings } = await supabaseAdmin
+        .from('orders')
+        .select('*')
+        .eq('checkout_id', order.checkout_id)
+        .order('created_at', { ascending: true });
+      if (siblings?.length) checkoutOrders = siblings;
+    }
+
+    const orderIds = checkoutOrders.map((o) => o.id);
+    const listingIds = [...new Set(checkoutOrders.map((o) => o.listing_id).filter(Boolean))];
+
+    const { data: listings } = await supabaseAdmin
       .from('produce_listings')
-      .select('title, unit_type, location_name')
-      .eq('id', order.listing_id)
-      .maybeSingle();
+      .select('id, title, unit_type, location_name, farmer_id')
+      .in('id', listingIds);
+    const listingById = new Map((listings || []).map((l) => [l.id, l]));
 
-    const { data: reviewRow } = await supabaseAdmin
-      .from('seller_reviews')
-      .select('order_id')
-      .eq('order_id', order.id)
-      .maybeSingle();
+    const farmerIds = [...new Set((listings || []).map((l) => l.farmer_id).filter(Boolean))];
+    const { data: profiles } = farmerIds.length
+      ? await supabaseAdmin.from('seller_profiles').select('id, farm_name').in('id', farmerIds)
+      : { data: [] as any[] };
+    const farmNameById = new Map((profiles || []).map((p: any) => [p.id, p.farm_name]));
 
-    return NextResponse.json({
-      order: {
-        id: order.id,
-        status: order.status,
-        created_at: order.created_at,
-        quantity: Number(order.reserved_quantity ?? order.quantity ?? 0),
-        total_price: Number(order.total_price ?? 0),
-        refunded_amount: Number(order.refunded_amount ?? 0),
-        pickup_details: order.status === 'ready_for_pickup' ? order.pickup_details || null : null,
-        pickup_code: codeRecord?.code || null,
-        pickup_address: order.pickup_address || null,
-        reviewed: Boolean(reviewRow),
-        listing_title: listing?.title || 'Harvest Crop',
-        listing_unit_type: listing?.unit_type || 'units',
-        listing_location: listing?.location_name || '',
-      },
-    });
+    const { data: codeRows } = await supabaseAdmin
+      .from('order_pickup_codes')
+      .select('order_id, code, guest_access_token')
+      .in('order_id', orderIds);
+    const codeRowByOrderId = new Map((codeRows || []).map((c) => [c.order_id, c]));
+
+    const { data: reviewRows } = await supabaseAdmin.from('seller_reviews').select('order_id').in('order_id', orderIds);
+    const reviewedOrderIds = new Set((reviewRows || []).map((r) => r.order_id));
+
+    const orders = checkoutOrders
+      // Belt and braces: only items carrying this same token.
+      .filter((o) => o.id === order.id || codeRowByOrderId.get(o.id)?.guest_access_token === expectedToken)
+      .map((o) => {
+        const listing = listingById.get(o.listing_id);
+        return {
+          id: o.id,
+          checkout_id: o.checkout_id || null,
+          status: o.status,
+          created_at: o.created_at,
+          quantity: Number(o.reserved_quantity ?? o.quantity ?? 0),
+          total_price: Number(o.total_price ?? 0),
+          refunded_amount: Number(o.refunded_amount ?? 0),
+          pickup_details: o.status === 'ready_for_pickup' ? o.pickup_details || null : null,
+          pickup_code: codeRowByOrderId.get(o.id)?.code || null,
+          pickup_address: o.pickup_address || null,
+          reviewed: reviewedOrderIds.has(o.id),
+          listing_title: listing?.title || 'Harvest Crop',
+          listing_unit_type: listing?.unit_type || 'units',
+          listing_location: listing?.location_name || '',
+          farmer_id: listing?.farmer_id || null,
+          farm_name: (listing?.farmer_id && farmNameById.get(listing.farmer_id)) || 'Local Farm',
+        };
+      });
+
+    return NextResponse.json({ orders });
   } catch (err: any) {
     console.error('guest order view error:', err);
     await alertAdmin('guest order view error', err);

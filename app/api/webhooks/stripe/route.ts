@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { stripeAdmin } from '@/lib/stripeAdmin';
-import { recordOrderForPaymentIntent } from '@/lib/orders';
+import { recordOrderForPaymentIntent, isCheckoutPayment } from '@/lib/orders';
 import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
@@ -37,10 +37,8 @@ export async function POST(request: Request) {
     if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object;
 
-      // Only payments created by our checkout carry this metadata. Guest
-      // checkouts have no buyer_id, so they are recognised by their email.
-      const { listing_id, buyer_id, buyer_email } = paymentIntent.metadata || {};
-      if (listing_id && (buyer_id || buyer_email)) {
+      // Only payments created by our checkout are recorded as orders.
+      if (isCheckoutPayment(paymentIntent)) {
         await recordOrderForPaymentIntent(paymentIntent, new URL(request.url).origin);
       }
     }

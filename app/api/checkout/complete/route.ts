@@ -7,7 +7,8 @@ import { alertAdmin } from '@/lib/alerts';
 export const dynamic = 'force-dynamic';
 
 // Step 2 of checkout: after the buyer's card is confirmed in the browser, this
-// verifies the PaymentIntent with Stripe and records the order. The Stripe
+// verifies the PaymentIntent with Stripe and records the orders — one per item
+// in the cart. The Stripe
 // webhook does the same thing as a safety net, so this is safe to call more
 // than once for the same payment — it returns the existing order.
 export async function POST(request: Request) {
@@ -39,12 +40,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Payment has not completed.' }, { status: 400 });
     }
 
-    const { orderId, code, guestToken } = await recordOrderForPaymentIntent(
-      paymentIntent,
-      new URL(request.url).origin
-    );
+    // `orderId` is the first item's order; the confirmation page shows the
+    // rest of the checkout from it.
+    const { orderId, guestToken } = await recordOrderForPaymentIntent(paymentIntent, new URL(request.url).origin);
 
-    return NextResponse.json({ success: true, orderId, code, guestToken });
+    return NextResponse.json({ success: true, orderId, guestToken });
   } catch (err: any) {
     console.error('Checkout completion error:', err);
     await alertAdmin('Checkout completion error', err);

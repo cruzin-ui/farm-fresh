@@ -9,7 +9,7 @@ export const BUYER_FEE_LABEL = `${BUYER_FEE_RATE * 100}% + $${(BUYER_FEE_FIXED_C
 // Seller fee: the share of the produce subtotal the platform keeps out of the
 // farmer's payout. It helps cover Stripe's per-farmer Connect charges, which
 // the buyer fee alone doesn't on low-volume farmers. The rate in force at
-// checkout is saved on the payment, so changing it here only affects new
+// checkout is saved on each order, so changing it here only affects new
 // orders.
 export const SELLER_FEE_RATE = 0.05;
 
@@ -21,12 +21,29 @@ export function calculateFarmerPayoutCents(subtotalCents: number, sellerFeeRate:
 // Stripe's minimum charge for USD.
 export const MIN_CHARGE_CENTS = 50;
 
-// Single source of truth for order totals, in cents. Used by the checkout page
-// (to size the payment form) and by the API (to create the charge) — the two
-// amounts must match exactly or Stripe rejects the confirmation.
-export function calculateOrderTotals(pricePerUnit: number, quantity: number) {
-  const subtotalCents = Math.round(pricePerUnit * quantity * 100);
-  const feeCents = Math.round(subtotalCents * BUYER_FEE_RATE) + BUYER_FEE_FIXED_CENTS;
+// Single source of truth for what a cart costs, in cents. The buyer fee is
+// charged once for the whole cart — the percentage on everything plus one
+// fixed amount — and then shared out across the items in proportion to their
+// price. An item's share is what comes back to the buyer, along with its
+// price, if that item alone is later cancelled.
+export function calculateCartTotals(lines: { pricePerUnit: number; quantity: number }[]) {
+  const subtotals = lines.map((line) => Math.round(line.pricePerUnit * line.quantity * 100));
+  const subtotalCents = subtotals.reduce((sum, cents) => sum + cents, 0);
+  const feeCents = lines.length ? Math.round(subtotalCents * BUYER_FEE_RATE) + BUYER_FEE_FIXED_CENTS : 0;
 
-  return { subtotalCents, feeCents, totalCents: subtotalCents + feeCents };
+  // Round each share down, then hand out the leftover cents one at a time so
+  // the shares always add up to the fee exactly.
+  const fees = subtotals.map((cents) => (subtotalCents > 0 ? Math.floor((feeCents * cents) / subtotalCents) : 0));
+  let leftover = feeCents - fees.reduce((sum, cents) => sum + cents, 0);
+  for (let i = 0; leftover > 0 && fees.length > 0; i = (i + 1) % fees.length) {
+    fees[i] += 1;
+    leftover -= 1;
+  }
+
+  return {
+    lines: subtotals.map((cents, i) => ({ subtotalCents: cents, feeCents: fees[i] })),
+    subtotalCents,
+    feeCents,
+    totalCents: subtotalCents + feeCents,
+  };
 }

@@ -28,6 +28,33 @@ function isOpen(order: any) {
   return order.status === 'pending_pickup' || order.status === 'ready_for_pickup';
 }
 
+// What was originally paid for an order: the quantity, the produce subtotal,
+// this order's share of the whole charge (fee and tax included) and the tax.
+// Refunds and payouts are worked out as a share of these. Orders record them
+// at checkout; one payment can cover several orders, so the payment's own
+// amount can't be used. Orders from before carts existed were the only order
+// on their payment, and fall back to the figures saved on it.
+function originalPurchase(order: any, paymentIntent: { amount: number; metadata?: Record<string, string> | null }) {
+  if (order.original_quantity != null && order.original_total_amount != null) {
+    return {
+      quantity: Number(order.original_quantity),
+      subtotalCents: Math.round(Number(order.original_subtotal_amount ?? 0) * 100),
+      totalCents: Math.round(Number(order.original_total_amount) * 100),
+      taxCents: Math.round(Number(order.original_tax_amount ?? 0) * 100),
+      sellerFeeRate: Number(order.seller_fee_rate ?? 0),
+    };
+  }
+
+  const metadata = paymentIntent.metadata || {};
+  return {
+    quantity: Number(metadata.quantity) || 0,
+    subtotalCents: Number(metadata.subtotal_cents) || 0,
+    totalCents: paymentIntent.amount,
+    taxCents: Number(metadata.tax_cents) || 0,
+    sellerFeeRate: Number(metadata.seller_fee_rate) || 0,
+  };
+}
+
 async function sendBuyerAdjustmentEmail(params: {
   buyerEmail: string;
   listingTitle: string;
@@ -142,8 +169,15 @@ async function sendBuyerThankYouEmail(order: any, farmerId: string, siteUrl?: st
   });
 }
 
-// `siteUrl` is only used for the links in the buyer's thank-you email.
-export async function completeOrderAndReleasePayout(order: any, farmerId: string, siteUrl?: string) {
+// `siteUrl` is only used for the links in the buyer's thank-you email. Pass
+// `sendThankYou: false` when several items are being completed in one pickup,
+// so the buyer gets one thank-you rather than one per item.
+export async function completeOrderAndReleasePayout(
+  order: any,
+  farmerId: string,
+  siteUrl?: string,
+  sendThankYou = true
+) {
   if (order.status === 'completed') return { payoutAmount: 0 };
 
   if (!isOpen(order)) {
@@ -177,9 +211,10 @@ export async function completeOrderAndReleasePayout(order: any, farmerId: string
       // The farmer's share is the produce subtotal — scaled down if the
       // order's quantity was reduced after checkout — less the seller fee
       // that was in force when the buyer paid.
-      const originalQuantity = Number(paymentIntent.metadata?.quantity) || 1;
-      const originalSubtotalCents = Number(paymentIntent.metadata?.subtotal_cents) || 0;
-      const sellerFeeRate = Number(paymentIntent.metadata?.seller_fee_rate) || 0;
+      const original = originalPurchase(order, paymentIntent);
+      const originalQuantity = original.quantity || 1;
+      const originalSubtotalCents = original.subtotalCents;
+      const sellerFeeRate = original.sellerFeeRate;
       // Never more than was originally paid for: the quantity on the order row
       // can go down (a reduced order) but a larger number there must not
       // increase what the farmer is paid.
@@ -234,7 +269,7 @@ export async function completeOrderAndReleasePayout(order: any, farmerId: string
 
   // The order has just moved to completed (an already-completed order returned
   // early, above), so this is sent once.
-  await sendBuyerThankYouEmail(order, farmerId, siteUrl);
+  if (sendThankYou) await sendBuyerThankYouEmail(order, farmerId, siteUrl);
 
   return { payoutAmount };
 }
@@ -277,9 +312,10 @@ export async function refundOrderQuantity(params: {
   // Prorate from what was actually charged, so the refund is right even if
   // the listing price has changed since the order was placed.
   const paymentIntent = await stripeAdmin.paymentIntents.retrieve(order.stripe_payment_intent_id);
-  const originalQuantity = Number(paymentIntent.metadata?.quantity) || currentQuantity;
+  const original = originalPurchase(order, paymentIntent);
+  const originalQuantity = original.quantity || currentQuantity;
   const currentPaidCents = Math.round(Number(order.total_price ?? 0) * 100);
-  const newTotalCents = Math.round((paymentIntent.amount * newQuantity) / originalQuantity);
+  const newTotalCents = Math.round((original.totalCents * newQuantity) / originalQuantity);
   const refundCents = currentPaidCents - newTotalCents;
 
   if (refundCents <= 0) {
@@ -316,8 +352,8 @@ export async function refundOrderQuantity(params: {
 
   // Keep the order's produce subtotal and expected farmer payout in step with
   // the reduced quantity (orders from before these were tracked have neither).
-  const originalSubtotalCents = Number(paymentIntent.metadata?.subtotal_cents) || 0;
-  const sellerFeeRate = Number(paymentIntent.metadata?.seller_fee_rate) || 0;
+  const originalSubtotalCents = original.subtotalCents;
+  const sellerFeeRate = original.sellerFeeRate;
   const newSubtotalCents = Math.round((originalSubtotalCents * newQuantity) / originalQuantity);
 
   const { error: updateError } = await supabaseAdmin
@@ -330,8 +366,7 @@ export async function refundOrderQuantity(params: {
       authorized_amount: newTotal,
       // The refund above is a share of the whole charge, tax included, so the
       // tax recorded on the order shrinks by the same share.
-      tax_amount:
-        Math.round(((Number(paymentIntent.metadata?.tax_cents) || 0) * newQuantity) / originalQuantity) / 100,
+      tax_amount: Math.round((original.taxCents * newQuantity) / originalQuantity) / 100,
       ...(originalSubtotalCents
         ? {
             subtotal_amount: newSubtotalCents / 100,
@@ -401,7 +436,8 @@ export async function resolveNoShow(params: {
   }
 
   const paymentIntent = await stripeAdmin.paymentIntents.retrieve(order.stripe_payment_intent_id);
-  const originalSubtotalCents = Number(paymentIntent.metadata?.subtotal_cents) || 0;
+  const original = originalPurchase(order, paymentIntent);
+  const originalSubtotalCents = original.subtotalCents;
 
   // Orders from before payouts were held already paid the farmer in full at
   // checkout, so this split doesn't apply to them.
@@ -412,7 +448,7 @@ export async function resolveNoShow(params: {
     );
   }
 
-  const originalQuantity = Number(paymentIntent.metadata?.quantity) || 1;
+  const originalQuantity = original.quantity || 1;
   // Capped at the quantity originally paid for, as in the payout above.
   const currentQuantity = Math.min(Number(order.reserved_quantity ?? order.quantity ?? 0), originalQuantity);
   const subtotalCents = Math.round((originalSubtotalCents * currentQuantity) / originalQuantity);

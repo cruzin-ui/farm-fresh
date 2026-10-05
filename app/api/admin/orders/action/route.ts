@@ -74,10 +74,18 @@ export async function POST(request: Request) {
     }
 
     if (action === 'reset_attempts') {
+      // Wrong guesses are counted against every item the code covers, so they
+      // are cleared for the whole checkout.
+      let orderIds = [order.id];
+      if (order.checkout_id) {
+        const { data: siblings } = await supabaseAdmin.from('orders').select('id').eq('checkout_id', order.checkout_id);
+        orderIds = (siblings || []).map((o) => o.id);
+      }
+
       const { error } = await supabaseAdmin
         .from('order_pickup_codes')
         .update({ failed_attempts: 0 })
-        .eq('order_id', order.id);
+        .in('order_id', orderIds);
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ success: true, message: 'Pickup code attempts reset.' });

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import BottomNav from "@/components/BottomNav";
+import CartButton from '@/components/CartButton';
 import AccountMenu from "@/components/AccountMenu";
 import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
@@ -79,6 +80,7 @@ export default function RootLayout({
                 <ShoppingBag className="w-4 h-4" /> Browse
               </Link>
             </nav>
+            <CartButton />
             <AccountMenu />
             </div>
           </div>
