@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { checkListingAllowed, saveListingPickupAddress, MAX_LISTING_TAGS } from '@/lib/listingRules';
 import { geocodeZip } from '@/lib/geo';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -166,6 +167,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('listing update error:', err);
+    await alertAdmin('listing update error', err);
     return NextResponse.json({ error: err.message || 'Failed to update listing.' }, { status: 500 });
   }
 }

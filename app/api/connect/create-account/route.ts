@@ -3,6 +3,7 @@ import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { setWeeklyPayouts } from '@/lib/payoutSchedule';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ accountId: account.id });
   } catch (err: any) {
     console.error('create-account error:', err);
+    await alertAdmin('create-account error', err);
     return NextResponse.json({ error: err.message || 'Failed to create account.' }, { status: 500 });
   }
 }

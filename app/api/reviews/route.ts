@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'crypto';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,6 +101,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('review error:', err);
+    await alertAdmin('review error', err);
     return NextResponse.json({ error: 'Could not save your review. Please try again.' }, { status: 500 });
   }
 }

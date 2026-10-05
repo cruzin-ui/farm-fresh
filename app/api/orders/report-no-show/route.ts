@@ -6,6 +6,7 @@ import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { NO_SHOW_RESTOCKING_RATE } from '@/lib/orderActions';
 import { NO_SHOW_REVIEW_HOURS } from '@/lib/noShow';
 import { signNoShowDispute } from '@/lib/noShowDispute';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -152,6 +153,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('report no-show error:', err);
+    await alertAdmin('report no-show error', err);
     return NextResponse.json({ error: err.message || 'Could not report the no-show.' }, { status: 500 });
   }
 }

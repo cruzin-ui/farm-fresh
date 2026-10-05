@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { recordOrderForPaymentIntent } from '@/lib/orders';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
     console.error('STRIPE_WEBHOOK_SECRET is not set — rejecting webhook.');
+    await alertAdmin('Stripe webhook', new Error('STRIPE_WEBHOOK_SECRET is not set, so payment notices from Stripe are being rejected.'));
     return NextResponse.json({ error: 'Webhook is not configured.' }, { status: 500 });
   }
 
@@ -47,6 +49,7 @@ export async function POST(request: Request) {
   } catch (err: any) {
     // A non-2xx response makes Stripe retry the event later.
     console.error('Stripe webhook handling error:', err);
+    await alertAdmin('Stripe webhook handling error', err);
     return NextResponse.json({ error: 'Webhook handler failed.' }, { status: 500 });
   }
 }

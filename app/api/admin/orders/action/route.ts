@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
+import { alertAdmin } from '@/lib/alerts';
 import {
   completeOrderAndReleasePayout,
   refundOrderQuantity,
@@ -139,6 +140,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
     console.error('admin order action error:', err);
+    await alertAdmin('admin order action error', err);
     return NextResponse.json({ error: err.message || 'Action failed.' }, { status: 500 });
   }
 }

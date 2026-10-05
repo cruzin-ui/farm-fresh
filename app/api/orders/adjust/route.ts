@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { refundOrderQuantity, OrderActionError } from '@/lib/orderActions';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
     console.error('order adjust error:', err);
+    await alertAdmin('order adjust error', err);
     return NextResponse.json({ error: err.message || 'Failed to adjust order.' }, { status: 500 });
   }
 }

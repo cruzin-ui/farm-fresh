@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { recordOrderForPaymentIntent } from '@/lib/orders';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, orderId, code, guestToken });
   } catch (err: any) {
     console.error('Checkout completion error:', err);
+    await alertAdmin('Checkout completion error', err);
     return NextResponse.json(
       { error: err.message || 'Failed to record your order.' },
       { status: 500 }

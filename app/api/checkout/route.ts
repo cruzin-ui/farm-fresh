@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { calculateOrderTotals, MIN_CHARGE_CENTS, SELLER_FEE_RATE } from '@/lib/pricing';
 import { calculateOrderTax, TaxError } from '@/lib/tax';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,6 +124,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: err.message }, { status: 409 });
     }
     console.error('Checkout PaymentIntent error:', err);
+    await alertAdmin('Checkout PaymentIntent error', err);
     return NextResponse.json(
       { error: err.message || 'Payment processing failed.' },
       { status: 500 }

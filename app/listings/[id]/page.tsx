@@ -39,7 +39,8 @@ export default function ListingDetailPage() {
         const { data: reviews } = await supabase
           .from('seller_reviews')
           .select('rating')
-          .eq('seller_id', listingData.farmer_id);
+          .eq('seller_id', listingData.farmer_id)
+          .is('removed_at', null);
 
         const ratings = (reviews || []).map((r) => Number(r.rating));
         setSeller(

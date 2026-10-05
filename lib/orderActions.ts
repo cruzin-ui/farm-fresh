@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { calculateFarmerPayoutCents } from '@/lib/pricing';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
+import { alertAdmin } from '@/lib/alerts';
 
 // On a no-show, the farmer keeps this share of the produce subtotal as a
 // restocking fee; the platform keeps its buyer fee; the buyer gets the rest.
@@ -227,6 +228,7 @@ export async function completeOrderAndReleasePayout(order: any, farmerId: string
 
   if (updateError) {
     console.error('Payout sent but order update failed:', order.id, updateError);
+    await alertAdmin('payout sent but the order could not be updated', updateError, { order: order.id });
     throw new OrderActionError(500, updateError.message);
   }
 
@@ -343,6 +345,7 @@ export async function refundOrderQuantity(params: {
 
   if (updateError) {
     console.error('Refund issued but order update failed:', order.id, updateError);
+    await alertAdmin('refund issued but the order could not be updated', updateError, { order: order.id });
     throw new OrderActionError(
       500,
       `The $${refundAmount.toFixed(2)} refund was issued, but the order could not be updated: ${updateError.message}`
@@ -359,6 +362,7 @@ export async function refundOrderQuantity(params: {
 
     if (restockError) {
       console.error('Failed to restock listing after order adjustment:', restockError);
+      await alertAdmin('listing not restocked after a refund', restockError, { order: order.id, listing: order.listing_id });
     }
   }
 
@@ -488,6 +492,7 @@ export async function resolveNoShow(params: {
 
   if (updateError) {
     console.error('No-show money moved but order update failed:', order.id, updateError);
+    await alertAdmin('no-show money moved but the order could not be updated', updateError, { order: order.id });
     throw new OrderActionError(
       500,
       `The refund and restocking fee were issued, but the order could not be updated: ${updateError.message}`
@@ -501,6 +506,7 @@ export async function resolveNoShow(params: {
 
   if (restockError) {
     console.error('Failed to restock listing after no-show:', restockError);
+    await alertAdmin('listing not restocked after a no-show', restockError, { order: order.id, listing: order.listing_id });
   }
 
   if (order.buyer_email) {

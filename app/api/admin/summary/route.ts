@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -128,6 +129,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ rows: result, connectAccountFee: CONNECT_ACTIVE_ACCOUNT_FEE });
   } catch (err: any) {
     console.error('admin summary error:', err);
+    await alertAdmin('admin summary error', err);
     return NextResponse.json({ error: err.message || 'Failed to load summary.' }, { status: 500 });
   }
 }

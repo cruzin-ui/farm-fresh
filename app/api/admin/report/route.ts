@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,6 +113,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ month, rows });
   } catch (err: any) {
     console.error('admin report error:', err);
+    await alertAdmin('admin report error', err);
     return NextResponse.json({ error: err.message || 'Failed to build the report.' }, { status: 500 });
   }
 }

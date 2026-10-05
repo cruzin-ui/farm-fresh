@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
 import { noShowAutoApproveAt } from '@/lib/noShow';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +85,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ orders: result });
   } catch (err: any) {
     console.error('admin orders error:', err);
+    await alertAdmin('admin orders error', err);
     return NextResponse.json({ error: err.message || 'Failed to load orders.' }, { status: 500 });
   }
 }

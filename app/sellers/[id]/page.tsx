@@ -51,6 +51,7 @@ export default function PublicSellerProfilePage() {
       .from('seller_reviews')
       .select('*')
       .eq('seller_id', sellerId)
+      .is('removed_at', null)
       .order('created_at', { ascending: false });
 
     setProfile(profileData);

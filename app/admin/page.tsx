@@ -13,6 +13,7 @@ import {
   Archive,
   Mail,
   TrendingUp,
+  Star,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
@@ -61,7 +62,18 @@ type ContactMessage = {
 };
 
 // The sections of the admin page, chosen from the menu down the side.
-type AdminSection = 'overview' | 'attention' | 'open' | 'all' | 'messages' | 'reports';
+type AdminSection = 'overview' | 'attention' | 'open' | 'all' | 'messages' | 'reviews' | 'reports';
+
+type AdminReview = {
+  id: string;
+  created_at: string;
+  seller_id: string;
+  order_id: string | null;
+  farm_name: string;
+  rating: number;
+  comment: string | null;
+  removed: boolean;
+};
 
 // The last twelve months, newest first, as "YYYY-MM" — the months a report
 // can be downloaded for.
@@ -126,6 +138,7 @@ export default function AdminPage() {
   const [summaryMonth, setSummaryMonth] = useState<string>('');
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [showResolvedMessages, setShowResolvedMessages] = useState(false);
+  const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [downloadingReport, setDownloadingReport] = useState(false);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -165,6 +178,10 @@ export default function AdminPage() {
     const messagesData = await messagesRes.json();
     if (messagesRes.ok) setMessages(messagesData.messages);
 
+    const reviewsRes = await postWithAuth('/api/admin/reviews');
+    const reviewsData = await reviewsRes.json();
+    if (reviewsRes.ok) setReviews(reviewsData.reviews);
+
     setLoading(false);
   };
 
@@ -174,6 +191,26 @@ export default function AdminPage() {
       setMessages((current) => current.map((m) => (m.id === message.id ? { ...m, resolved } : m)));
     } else {
       setErrorMsg('Could not update that message.');
+    }
+  };
+
+  const removeReview = async (review: AdminReview) => {
+    if (
+      !confirm(
+        `Remove this ${review.rating}-star review of ${review.farm_name}? It disappears from the farm's page and star rating, and its text is erased for good. This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    setSuccessMsg(null);
+    setErrorMsg(null);
+    const res = await postWithAuth('/api/admin/reviews', { id: review.id });
+    if (res.ok) {
+      setReviews((current) => current.map((r) => (r.id === review.id ? { ...r, removed: true, comment: null } : r)));
+      setSuccessMsg('Review removed.');
+    } else {
+      setErrorMsg('Could not remove that review.');
     }
   };
 
@@ -272,6 +309,7 @@ export default function AdminPage() {
     { id: 'open', label: 'Open orders', icon: ClipboardList, count: openOrders.length },
     { id: 'all', label: 'All orders', icon: Archive },
     { id: 'messages', label: 'Messages', icon: Mail, count: openMessages.length, urgent: true },
+    { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'reports', label: 'Sales & reports', icon: TrendingUp },
   ];
 
@@ -469,6 +507,68 @@ export default function AdminPage() {
                         </button>
                       </div>
                       <p className="mt-2 text-gray-700 whitespace-pre-wrap break-words">{m.message}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* REVIEWS */}
+          {section === 'reviews' && (
+            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Reviews</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  The 200 most recent reviews buyers have left. Remove one only if it is abusive, off-topic or
+                  shares private details — not because it is negative.
+                </p>
+              </div>
+
+              {reviews.length === 0 ? (
+                <p className="text-sm text-gray-500 py-2 text-center">No reviews yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {reviews.map((review) => (
+                    <div
+                      key={review.id}
+                      className={`p-4 border rounded-xl text-sm ${review.removed ? 'bg-gray-50 border-gray-200' : 'border-gray-200'}`}
+                    >
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                          <p className="font-bold text-gray-900">
+                            {review.rating} of 5 stars ·{' '}
+                            <a
+                              href={`/sellers/${review.seller_id}`}
+                              target="_blank"
+                              className="text-emerald-700 underline break-words"
+                            >
+                              {review.farm_name}
+                            </a>
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(review.created_at).toLocaleString()}
+                            {review.order_id ? ` · Order #${review.order_id.slice(0, 8)}` : ''}
+                          </p>
+                        </div>
+                        {review.removed ? (
+                          <span className="shrink-0 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-gray-200 text-gray-700">
+                            Removed
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => removeReview(review)}
+                            className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-white border border-red-200 text-red-600 hover:bg-red-50"
+                          >
+                            Remove Review
+                          </button>
+                        )}
+                      </div>
+                      {!review.removed && (
+                        <p className="mt-2 text-gray-700 whitespace-pre-wrap break-words">
+                          {review.comment || <span className="text-gray-500">No written comment.</span>}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

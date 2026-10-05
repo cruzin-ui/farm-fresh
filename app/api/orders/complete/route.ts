@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { completeOrderAndReleasePayout, OrderActionError } from '@/lib/orderActions';
+import { alertAdmin } from '@/lib/alerts';
 import {
   getPickupCodeRecord,
   normalizePickupCode,
@@ -91,6 +92,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
     console.error('order complete error:', err);
+    await alertAdmin('order complete error', err);
     return NextResponse.json({ error: err.message || 'Failed to complete order.' }, { status: 500 });
   }
 }

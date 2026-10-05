@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
     });
   } catch (err: any) {
     console.error('guest order view error:', err);
+    await alertAdmin('guest order view error', err);
     return NextResponse.json({ error: 'Could not load this order.' }, { status: 500 });
   }
 }

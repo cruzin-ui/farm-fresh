@@ -5,6 +5,7 @@ import { getOrCreatePickupCode } from '@/lib/pickupCodes';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { calculateFarmerPayoutCents } from '@/lib/pricing';
 import { buyerGuidanceEmailHtml } from '@/lib/buyerGuidance';
+import { alertAdmin } from '@/lib/alerts';
 
 // The seller's email deliberately leaves out the pickup code — they only get
 // it from the buyer at pickup, and need it to release their payout.
@@ -197,6 +198,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
 
     if (updateError) {
       console.error('Failed to update listing available_quantity after successful payment:', updateError);
+      await alertAdmin('listing quantity not reduced after a sale', updateError, { listing: listingId });
     }
   }
 

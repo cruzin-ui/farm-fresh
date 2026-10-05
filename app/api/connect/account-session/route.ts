@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ client_secret: accountSession.client_secret });
   } catch (err: any) {
     console.error('account-session error:', err);
+    await alertAdmin('account-session error', err);
     return NextResponse.json({ error: err.message || 'Failed to create account session.' }, { status: 500 });
   }
 }

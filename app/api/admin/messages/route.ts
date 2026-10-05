@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ messages: messages || [] });
   } catch (err: any) {
     console.error('admin messages error:', err);
+    await alertAdmin('admin messages error', err);
     return NextResponse.json({ error: err.message || 'Failed to load messages.' }, { status: 500 });
   }
 }

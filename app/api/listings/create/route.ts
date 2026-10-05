@@ -4,6 +4,7 @@ import { getRequestUser } from '@/lib/apiAuth';
 import { checkListingAllowed, saveListingPickupAddress, MAX_LISTING_TAGS } from '@/lib/listingRules';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { geocodeZip } from '@/lib/geo';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -136,6 +137,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, listingId: listing.id });
   } catch (err: any) {
     console.error('listing create error:', err);
+    await alertAdmin('listing create error', err);
     return NextResponse.json({ error: err.message || 'Failed to publish listing.' }, { status: 500 });
   }
 }

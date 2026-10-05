@@ -1,4 +1,5 @@
 import { stripeAdmin } from '@/lib/stripeAdmin';
+import { alertAdmin } from '@/lib/alerts';
 
 // SERVER-ONLY. Sales tax, calculated by Stripe Tax.
 //
@@ -85,6 +86,7 @@ export async function calculateOrderTax(params: {
     return { taxCents: calculation.tax_amount_exclusive, calculationId: calculation.id };
   } catch (err: any) {
     console.error('Tax calculation failed:', err);
+    await alertAdmin('sales tax calculation', err);
     throw new TaxError("We couldn't calculate tax for this order right now. Please try again in a moment.");
   }
 }

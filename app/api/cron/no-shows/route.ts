@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { resolveNoShow } from '@/lib/orderActions';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { NO_SHOW_REVIEW_HOURS } from '@/lib/noShow';
+import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,6 +94,7 @@ export async function GET(request: Request) {
         closed.push(`${label} — $${refundAmount.toFixed(2)} refunded, $${restockingFee.toFixed(2)} to the farmer`);
       } catch (err: any) {
         console.error('auto no-show failed for order', order.id, err);
+        await alertAdmin('closing a no-show automatically', err, { order: order.id });
         failed.push(`${label} — ${err?.message || 'unknown error'}`);
       }
     }
@@ -124,6 +126,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ closed: closed.length, held: held.length, failed: failed.length });
   } catch (err: any) {
     console.error('no-show cron error:', err);
+    await alertAdmin('no-show cron error', err);
     return NextResponse.json({ error: err.message || 'Cron run failed.' }, { status: 500 });
   }
 }
