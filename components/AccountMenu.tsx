@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { CircleUser, ChevronDown, Receipt, LayoutDashboard, LogOut, LogIn, Mail, Sprout } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { safeNextPath, AFTER_LOGIN_KEY } from '@/lib/safeRedirect';
 
 // The account control in the top header, shown on every screen size. Signed
 // out, it's a "Sign In" button; signed in, a "My Account" menu with links to
@@ -30,6 +31,23 @@ export default function AccountMenu() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setEmail(session?.user.email ?? null);
       setChecked(true);
+
+      // A Google sign-in normally returns through /auth/callback, which sends
+      // the person on to where they were going. If it lands on another page
+      // with the sign-in code still in the address, they have just been signed
+      // in here instead — so finish the trip to the page they asked for.
+      const landedWithCode =
+        new URLSearchParams(window.location.search).has('code') &&
+        window.location.pathname !== '/auth/callback';
+
+      if (session && landedWithCode) {
+        let destination = '';
+        try {
+          destination = window.sessionStorage.getItem(AFTER_LOGIN_KEY) || '';
+          window.sessionStorage.removeItem(AFTER_LOGIN_KEY);
+        } catch {}
+        router.replace(safeNextPath(destination, window.location.pathname));
+      }
     });
 
     return () => subscription.unsubscribe();

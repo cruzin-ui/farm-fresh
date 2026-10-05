@@ -4,7 +4,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Sprout, Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
-import { safeNextPath } from '@/lib/safeRedirect';
+import { safeNextPath, AFTER_LOGIN_KEY } from '@/lib/safeRedirect';
 
 type Mode = 'signin' | 'signup' | 'forgot';
 
@@ -111,6 +111,13 @@ function LoginContent() {
       const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
         redirectTarget
       )}`;
+
+      // Remembered in case Google sign-in comes back to the home page instead
+      // of our callback address (which happens when that address isn't on
+      // Supabase's allowed list); the account menu then finishes the trip.
+      try {
+        window.sessionStorage.setItem(AFTER_LOGIN_KEY, redirectTarget);
+      } catch {}
 
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
