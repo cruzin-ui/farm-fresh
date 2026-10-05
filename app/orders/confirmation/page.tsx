@@ -161,18 +161,26 @@ function ConfirmationContent() {
         </div>
       </div>
 
-      <div className="flex gap-3 print:hidden">
+      <div className="flex flex-col sm:flex-row gap-3 print:hidden">
         <button
           onClick={() => window.print()}
           className="flex-1 py-3 border bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm"
         >
           <Printer className="w-4 h-4 text-gray-500" aria-hidden="true" /> Print Receipt
         </button>
+        {!guestToken && (
+          <Link
+            href="/orders"
+            className="flex-1 py-3 border bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-xl text-sm flex items-center justify-center gap-2 text-center shadow-sm"
+          >
+            View My Orders
+          </Link>
+        )}
         <Link
-          href={guestToken ? '/browse' : '/orders'}
+          href="/browse"
           className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 text-center shadow-md"
         >
-          {guestToken ? 'Back to Marketplace' : 'View My Orders'}
+          Back to Browsing
         </Link>
       </div>
     </div>

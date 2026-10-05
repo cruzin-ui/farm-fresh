@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Search, MapPin, Calendar, ShoppingBag, Sprout, User } from 'lucide-react';
 import Link from 'next/link';
+import AddToCartButton from '@/components/AddToCartButton';
 import { geocodeZip, milesBetween, type Coordinates } from '@/lib/geo';
 
 const RADIUS_OPTIONS = [10, 25, 50, 100];
@@ -570,12 +571,7 @@ export default function BrowsePage() {
                       </span>
                     </div>
 
-                    <Link
-                      href={`/checkout?id=${item.id}`}
-                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-3 md:py-2.5 rounded-xl shadow-sm transition-colors"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" /> Reserve
-                    </Link>
+                    <AddToCartButton listingId={item.id} available={Number(item.available_quantity ?? 0)} />
                   </div>
                 </div>
               </div>

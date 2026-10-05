@@ -39,7 +39,7 @@ const BUYER_FAQS: Faq[] = [
   {
     question: "What if only some of my items are ready, or one gets cancelled?",
     answer:
-      "Each item is handled on its own. You're emailed as each one is ready, and you can collect them on different days — the same pickup code works each time for that farm. If a farmer has to cancel or reduce one item, only that item is refunded and the rest of your order carries on as normal.",
+      "Each item is handled on its own. You're emailed as each one is ready, and you can collect them on different days. A pickup code only works for one visit: if you collect part of what you bought from a farm, we email you a new code for the rest. If a farmer has to cancel or reduce one item, only that item is refunded and the rest of your order carries on as normal.",
   },
   {
     question: 'When does the farmer get my money?',

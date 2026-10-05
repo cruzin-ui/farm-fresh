@@ -20,6 +20,9 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
   // The code is for whatever is still to be collected; once nothing is, it is
   // shown as a record of everything it covered.
   const codeItems = open ? openItems : group.items;
+  // After a partial pickup the items still to collect carry a new code, so
+  // theirs is the one to show.
+  const code = (open ? openItems[0].pickup_code : null) || group.code;
 
   const addresses = [...new Set(openItems.map((item) => item.pickup_address).filter(Boolean))];
   const first = group.items[0];
@@ -40,7 +43,7 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
         <span className="text-xs text-gray-500">Ordered {new Date(first.created_at).toLocaleDateString()}</span>
       </div>
 
-      {group.code && (
+      {code && (
         <div
           className={`rounded-xl p-4 text-center border-2 ${
             open ? 'border-emerald-500 bg-emerald-50' : 'border-dashed border-gray-300 bg-gray-50'
@@ -54,7 +57,7 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
                 : 'Pickup Code (order cancelled)'}
           </p>
           <p className={`text-4xl font-black tracking-wider font-mono ${open ? 'text-emerald-900' : 'text-gray-500'}`}>
-            {group.code}
+            {code}
           </p>
           <p className={`text-sm font-semibold mt-1 ${open ? 'text-emerald-950' : 'text-gray-600'}`}>
             For: {describeItems(codeItems)} from {group.farmName}
@@ -62,7 +65,8 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
           {open && (
             <p className="text-xs text-gray-600 mt-1">
               Give this code to the farmer only when you collect your produce — it releases their payment.
-              {openItems.length > 1 && ' If you collect these items on different days, the same code works each time.'}
+              {openItems.length > 1 &&
+                " If you collect only some of these items, this code is used up and we'll email you a new one for the rest."}
             </p>
           )}
         </div>

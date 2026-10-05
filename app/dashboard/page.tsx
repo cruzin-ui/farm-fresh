@@ -1725,7 +1725,7 @@ export default function SellerDashboardPage() {
                                   .map((o) => o.listing_title)
                                   .join(', ')}
                               </span>
-                              . One pickup code covers all of it.
+                              . One pickup code covers what they collect in a visit.
                             </p>
                           )}
                         </div>
@@ -1819,7 +1819,8 @@ export default function SellerDashboardPage() {
                                 </label>
                               ))}
                               <p className="text-[11px] text-emerald-900">
-                                Anything left unticked stays open, and the same code works for it later.
+                                Anything left unticked stays open. This code stops working once it is used: the
+                                buyer is emailed a new code for whatever they still have to collect.
                               </p>
                             </fieldset>
                           )}

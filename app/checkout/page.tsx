@@ -430,6 +430,13 @@ function CheckoutContent() {
           </div>
         ))}
 
+        <Link
+          href="/browse"
+          className="w-full inline-flex items-center justify-center gap-2 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 font-bold py-3 rounded-xl text-sm"
+        >
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Back to Browsing — Add More Produce
+        </Link>
+
         {quote && (
           <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-5 space-y-3 text-sm">
             <div className="flex justify-between items-center text-gray-700">

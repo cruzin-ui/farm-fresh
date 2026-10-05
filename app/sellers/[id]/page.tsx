@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Sprout, MapPin, Star, Calendar, ShoppingBag, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
+import AddToCartButton from '@/components/AddToCartButton';
 import { useParams } from 'next/navigation';
 
 export default function PublicSellerProfilePage() {
@@ -190,12 +191,11 @@ export default function PublicSellerProfilePage() {
                   </p>
                 </div>
                 <div className="p-5 pt-0">
-                  <Link
-                    href={`/checkout?id=${item.id}`}
-                    className="w-full inline-block text-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-xl text-xs transition-colors shadow-sm"
-                  >
-                    Reserve
-                  </Link>
+                  <AddToCartButton
+                    listingId={item.id}
+                    available={Number(item.available_quantity ?? 0)}
+                    className="w-full"
+                  />
                 </div>
               </div>
             ))}

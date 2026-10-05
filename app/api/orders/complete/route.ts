@@ -7,8 +7,10 @@ import {
   getPickupCodeRecord,
   normalizePickupCode,
   recordFailedPickupCodeAttempt,
+  replacePickupCode,
   MAX_PICKUP_CODE_ATTEMPTS,
 } from '@/lib/pickupCodes';
+import { sendEmail, escapeHtml } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +22,10 @@ const isOpen = (order: any) => order.status === 'pending_pickup' || order.status
 // A buyer who bought several items from the same farm in one checkout has one
 // code for all of them. `alsoOrderIds` names the other items being handed over
 // in the same visit, so they are completed with the one code. Items left out
-// stay open, and the same code works for them later.
+// stay open — but the farmer has now seen the code, so those items are given a
+// new one, which is emailed to the buyer. A code therefore only ever works for
+// one visit, and a farmer can't reuse it to pay themselves for produce they
+// haven't handed over.
 export async function POST(request: Request) {
   try {
     const user = await getRequestUser(request);
@@ -126,7 +131,66 @@ export async function POST(request: Request) {
       completedCount += 1;
     }
 
-    return NextResponse.json({ success: true, payoutAmount: Math.round(payoutAmount * 100) / 100, completedCount });
+    // Anything this code covered that wasn't collected gets a fresh code.
+    const completedIds = new Set(toComplete.map((o) => o.id));
+    const remaining = covered.filter((o) => isOpen(o) && !completedIds.has(o.id));
+
+    if (expectedCode && completedCount > 0 && remaining.length > 0) {
+      try {
+        const newCode = await replacePickupCode(remaining.map((o) => o.id));
+
+        const { data: remainingListings } = await supabaseAdmin
+          .from('produce_listings')
+          .select('id, title, unit_type')
+          .in('id', remaining.map((o) => o.listing_id));
+        const listingById = new Map((remainingListings || []).map((l) => [l.id, l]));
+        const itemList = remaining
+          .map((o) => {
+            const item = listingById.get(o.listing_id);
+            return `<li>${Number(o.reserved_quantity ?? o.quantity ?? 0)} ${escapeHtml(item?.unit_type || 'units')} of ${escapeHtml(item?.title || 'your order')}</li>`;
+          })
+          .join('');
+
+        if (order.buyer_email) {
+          await sendEmail({
+            to: order.buyer_email,
+            subject: 'Your new pickup code for the rest of your order',
+            html: `
+              <div style="font-family: sans-serif; max-width: 480px;">
+                <h2 style="color: #059669;">A new code for what you still have to collect</h2>
+                <p>
+                  You've collected part of your order, and the pickup code you gave the farmer has now been
+                  used. For your protection it no longer works. These items are still waiting for you:
+                </p>
+                <ul>${itemList}</ul>
+                <p>Your new pickup code: <strong style="font-size: 20px;">${newCode}</strong></p>
+                <p>
+                  Give it to the farmer only when you collect these items. If you did not collect anything,
+                  <a href="${siteUrl}/contact">contact us</a> straight away.
+                </p>
+                ${
+                  codeRecord?.guestToken
+                    ? `<p><a href="${siteUrl}/orders/confirmation?orderId=${remaining[0].id}&token=${codeRecord.guestToken}">View your order</a></p>`
+                    : ''
+                }
+              </div>
+            `,
+          });
+        }
+      } catch (rotateError) {
+        // The pickup itself went through; the leftover items still carry the
+        // used code, which an admin needs to know about.
+        console.error('Could not replace the pickup code after a partial pickup:', rotateError);
+        await alertAdmin('replacing a used pickup code after a partial pickup', rotateError, { order: order.id });
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      payoutAmount: Math.round(payoutAmount * 100) / 100,
+      completedCount,
+      remainingCount: remaining.length,
+    });
   } catch (err: any) {
     if (err instanceof OrderActionError) {
       return NextResponse.json({ error: err.message }, { status: err.status });

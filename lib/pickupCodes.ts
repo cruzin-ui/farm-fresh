@@ -19,7 +19,8 @@ function signingSecret() {
 }
 
 // One checkout can hold items from several farms, and the buyer gets ONE code
-// per farm covering everything they bought from it. The order is recorded by
+// per farm covering everything they bought from it. (If they collect only part
+// of it, the rest is given a new code — see replacePickupCode.) The order is recorded by
 // two callers at once (the buyer's browser and Stripe's webhook), so the code
 // isn't picked at random: it is worked out from the checkout and the farm with
 // a secret only the server has. Both callers arrive at the same code, and
@@ -86,6 +87,20 @@ export async function getPickupCodeRecord(orderId: string) {
         guestToken: (data.guest_access_token as string | null) ?? null,
       }
     : null;
+}
+
+// Gives the items still waiting to be collected a brand-new code. Called after
+// a buyer collects only some of what they bought from a farm: the farmer has
+// now seen the old code, so it must not work for the rest.
+export async function replacePickupCode(orderIds: string[]) {
+  const code = generatePickupCode();
+  const { error } = await supabaseAdmin
+    .from('order_pickup_codes')
+    .update({ code, failed_attempts: 0 })
+    .in('order_id', orderIds);
+
+  if (error) throw error;
+  return code;
 }
 
 // `orderIds` is every open item the code covers, so the limit on wrong guesses

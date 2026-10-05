@@ -86,7 +86,7 @@ async function sendSellerNotification(params: {
           At pickup, ask the buyer for their pickup code and enter it in your Seller Dashboard
           to complete the order and release your payout.${
             items.length > 1
-              ? ' The buyer has one code for everything they bought from you; if they collect only some of it, tick just those items and the same code works again for the rest.'
+              ? ' The buyer has one code for everything they bought from you. If they collect only some of it, tick just those items; the code then stops working and the buyer is sent a new one for the rest.'
               : ''
           }
         </p>

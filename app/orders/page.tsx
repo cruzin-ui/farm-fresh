@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import PickupGroupCard from '@/components/PickupGroupCard';
 import { describeBuyerOrders } from '@/lib/buyerOrders';
@@ -57,13 +57,21 @@ export default function MyOrdersPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <ShoppingBag className="w-6 h-6 text-emerald-600" /> My Orders
-        </h1>
-        <p className="text-xs text-gray-500 mt-0.5">
-          Your reservations, pickup details and pickup codes. Each farm you bought from has its own code.
-        </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <ShoppingBag className="w-6 h-6 text-emerald-600" /> My Orders
+          </h1>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Your reservations, pickup details and pickup codes. Each farm you bought from has its own code.
+          </p>
+        </div>
+        <Link
+          href="/browse"
+          className="inline-flex items-center gap-2 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 font-bold py-2.5 px-4 rounded-xl text-xs"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" /> Back to Browsing
+        </Link>
       </div>
 
       {fetchError && (
