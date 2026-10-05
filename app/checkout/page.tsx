@@ -161,6 +161,7 @@ function CheckoutContent() {
   const [signedIn, setSignedIn] = useState(false);
 
   const [quantity, setQuantity] = useState(1);
+  const [quantityText, setQuantityText] = useState('1');
   const [guestEmail, setGuestEmail] = useState('');
 
   useEffect(() => {
@@ -255,15 +256,22 @@ function CheckoutContent() {
   const grandTotal = totalCents / 100;
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseInt(e.target.value, 10);
+    // The box keeps exactly what was typed — including nothing at all — so the
+    // old number can be cleared before a new one goes in. The order quantity
+    // only changes once there is a real number to change it to.
+    const digits = e.target.value.replace(/\D/g, '');
+    const val = parseInt(digits, 10);
     if (isNaN(val) || val < 1) {
-      setQuantity(1);
-    } else if (maxQty > 0 && val > maxQty) {
-      setQuantity(maxQty);
-    } else {
-      setQuantity(val);
+      setQuantityText(digits === '' ? '' : digits);
+      return;
     }
+    const capped = maxQty > 0 && val > maxQty ? maxQty : val;
+    setQuantity(capped);
+    setQuantityText(String(capped));
   };
+
+  // Leaving the box empty (or at zero) puts the current quantity back.
+  const handleQuantityBlur = () => setQuantityText(String(quantity));
 
   if (!authChecked || loadingListing) {
     return (
@@ -319,8 +327,12 @@ function CheckoutContent() {
                 type="number"
                 min="1"
                 max={maxQty}
-                value={quantity}
+                value={quantityText}
                 onChange={handleQuantityChange}
+                onBlur={handleQuantityBlur}
+                onFocus={(e) => e.target.select()}
+                form={PAYMENT_FORM_ID}
+                required
                 className="w-16 text-center text-sm font-bold bg-white border rounded p-1 focus:ring-2 focus:ring-emerald-500 outline-none"
               />
             </div>
