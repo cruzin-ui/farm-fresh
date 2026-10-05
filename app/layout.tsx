@@ -22,7 +22,7 @@ const headingFont = Fraunces({
 
 export const metadata: Metadata = {
   title: {
-    default: "Farm Fresh Direct | Local Agricultural Marketplace",
+    default: "Farm Fresh Direct | Your Online Farm Stand",
     template: "%s | Farm Fresh Direct",
   },
   description: "Connect local growers and buyers for fresh farm produce.",
