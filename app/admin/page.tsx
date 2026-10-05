@@ -2,7 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, AlertCircle, CheckCircle2, RefreshCw, Download } from 'lucide-react';
+import {
+  ShieldCheck,
+  AlertCircle,
+  CheckCircle2,
+  RefreshCw,
+  Download,
+  LayoutDashboard,
+  ClipboardList,
+  Archive,
+  Mail,
+  TrendingUp,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 
@@ -49,7 +60,8 @@ type ContactMessage = {
   user_id: string | null;
 };
 
-type OrderFilter = 'open' | 'all';
+// The sections of the admin page, chosen from the menu down the side.
+type AdminSection = 'overview' | 'attention' | 'open' | 'all' | 'messages' | 'reports';
 
 // The last twelve months, newest first, as "YYYY-MM" — the months a report
 // can be downloaded for.
@@ -109,7 +121,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [notAuthorized, setNotAuthorized] = useState(false);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
-  const [filter, setFilter] = useState<OrderFilter>('open');
+  const [section, setSection] = useState<AdminSection>('overview');
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>([]);
   const [summaryMonth, setSummaryMonth] = useState<string>('');
   const [messages, setMessages] = useState<ContactMessage[]>([]);
@@ -207,10 +219,16 @@ export default function AdminPage() {
     );
   }
 
-  const visibleOrders = filter === 'open' ? orders.filter(isOpen) : orders;
-  const staleOrders = orders.filter((o) => isOpen(o) && daysOpen(o) > STALE_AFTER_DAYS);
+  const openOrders = orders.filter(isOpen);
+  const staleOrders = openOrders.filter((o) => daysOpen(o) > STALE_AFTER_DAYS);
   // Open orders a farmer has reported as a no-show, waiting for a decision.
-  const reportedNoShows = orders.filter((o) => isOpen(o) && o.no_show_reported_at);
+  const reportedNoShows = openOrders.filter((o) => o.no_show_reported_at);
+  // Everything that may need a decision from the admin: no-show reports and
+  // orders that have sat open too long.
+  const attentionOrders = openOrders.filter((o) => o.no_show_reported_at || daysOpen(o) > STALE_AFTER_DAYS);
+
+  const isOrderSection = section === 'attention' || section === 'open' || section === 'all';
+  const visibleOrders = section === 'attention' ? attentionOrders : section === 'open' ? openOrders : orders;
 
   const summaryMonths = recentMonths();
 
@@ -248,30 +266,72 @@ export default function AdminPage() {
   const openMessages = messages.filter((m) => !m.resolved);
   const visibleMessages = showResolvedMessages ? messages : openMessages;
 
+  const navItems: { id: AdminSection; label: string; icon: typeof Mail; count?: number; urgent?: boolean }[] = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'attention', label: 'Needs attention', icon: AlertCircle, count: attentionOrders.length, urgent: true },
+    { id: 'open', label: 'Open orders', icon: ClipboardList, count: openOrders.length },
+    { id: 'all', label: 'All orders', icon: Archive },
+    { id: 'messages', label: 'Messages', icon: Mail, count: openMessages.length, urgent: true },
+    { id: 'reports', label: 'Sales & reports', icon: TrendingUp },
+  ];
+
+  const disputedNoShows = reportedNoShows.filter((o) => o.no_show_disputed_at).length;
+  const overviewCards: { section: AdminSection; label: string; value: string; detail: string; urgent: boolean }[] = [
+    {
+      section: 'attention',
+      label: 'Needs attention',
+      value: String(attentionOrders.length),
+      detail:
+        attentionOrders.length === 0
+          ? 'Nothing is waiting on you right now.'
+          : `${reportedNoShows.length} no-show report${reportedNoShows.length === 1 ? '' : 's'} (${disputedNoShows} waiting on your decision) · ${staleOrders.length} open more than ${STALE_AFTER_DAYS} days`,
+      urgent: attentionOrders.length > 0,
+    },
+    {
+      section: 'open',
+      label: 'Open orders',
+      value: String(openOrders.length),
+      detail: 'Paid for and waiting to be picked up.',
+      urgent: false,
+    },
+    {
+      section: 'messages',
+      label: 'Open messages',
+      value: String(openMessages.length),
+      detail: 'Sent through the Contact Us page and not yet marked resolved.',
+      urgent: openMessages.length > 0,
+    },
+    {
+      section: 'reports',
+      label: summaryMonth ? `Produce sold in ${formatMonth(summaryMonth)}` : 'Produce sold',
+      value: `$${monthTotals.produce_sales.toFixed(2)}`,
+      detail: `Estimated platform net $${monthTotals.estimated_net.toFixed(2)}. Monthly reports are here.`,
+      urgent: false,
+    },
+  ];
+
+  const orderSectionTitle =
+    section === 'attention' ? 'Needs Attention' : section === 'open' ? 'Open Orders' : 'All Orders';
+  const orderSectionHint =
+    section === 'attention'
+      ? `No-show reports, and orders open more than ${STALE_AFTER_DAYS} days.`
+      : section === 'open'
+        ? 'Paid orders waiting for pickup.'
+        : 'The 200 most recent orders across all farmers.';
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-emerald-600" /> Admin — Orders & Payments
+            <ShieldCheck className="w-6 h-6 text-emerald-600" /> Admin
           </h1>
           <p className="text-xs text-gray-500 mt-0.5">
-            The 200 most recent orders across all farmers. Overrides here move real money.
+            Orders, messages and reports for the whole marketplace. Overrides here move real money.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {(['open', 'all'] as OrderFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors ${
-                filter === f ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {f === 'open' ? 'Open orders' : 'All orders'}
-            </button>
-          ))}
           <button
             onClick={fetchOrders}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border text-gray-600 hover:bg-gray-50"
@@ -295,407 +355,480 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* CONTACT MESSAGES */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">
-              Contact Messages{openMessages.length > 0 ? ` (${openMessages.length} open)` : ''}
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Sent through the Contact Us page. Each one is also emailed to you; replying to that email
-              answers the sender.
-            </p>
-          </div>
-          {messages.length > openMessages.length && (
-            <button
-              onClick={() => setShowResolvedMessages((current) => !current)}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border text-gray-600 hover:bg-gray-50"
-            >
-              {showResolvedMessages ? 'Hide resolved' : 'Show resolved'}
-            </button>
-          )}
-        </div>
-
-        {visibleMessages.length === 0 ? (
-          <p className="text-sm text-gray-500 py-2 text-center">No open messages.</p>
-        ) : (
-          <div className="space-y-3">
-            {visibleMessages.map((m) => (
-              <div
-                key={m.id}
-                className={`p-4 border rounded-xl text-sm ${m.resolved ? 'bg-gray-50 border-gray-200' : 'border-amber-200 bg-amber-50/40'}`}
-              >
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div className="min-w-0">
-                    <p className="font-bold text-gray-900 break-words">{m.subject}</p>
-                    <p className="text-xs text-gray-500">
-                      From{' '}
-                      <a
-                        href={`mailto:${m.email}?subject=${encodeURIComponent(`Re: ${m.subject}`)}`}
-                        className="font-semibold text-emerald-700 underline break-all"
-                      >
-                        {m.email}
-                      </a>
-                      {m.user_id ? ' (signed-in user)' : ''} · {new Date(m.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setMessageResolved(m, !m.resolved)}
-                    className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-white border text-gray-600 hover:bg-gray-50"
-                  >
-                    {m.resolved ? 'Reopen' : 'Mark Resolved'}
-                  </button>
-                </div>
-                <p className="mt-2 text-gray-700 whitespace-pre-wrap break-words">{m.message}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* FARMER SALES BY MONTH */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">Farmer Sales by Month</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Completed orders and no-shows, grouped by the month the order was placed.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              aria-label="Month"
-              value={summaryMonth}
-              onChange={(e) => setSummaryMonth(e.target.value)}
-              className="px-3 py-2 border rounded-xl text-xs font-semibold bg-white"
-            >
-              {summaryMonths.map((m) => (
-                <option key={m} value={m}>
-                  {formatMonth(m)}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={downloadOrdersReport}
-              disabled={downloadingReport || !summaryMonth}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              {downloadingReport ? 'Preparing...' : 'Orders report (CSV)'}
-            </button>
-            <button
-              onClick={() =>
-                downloadCsv(
-                  `farm-fresh-direct-farmer-summary-${summaryMonth}.csv`,
-                  monthRows.map(({ farmer_id, ...row }) => row)
-                )
-              }
-              disabled={monthRows.length === 0}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white border text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              Farmer summary (CSV)
-            </button>
-          </div>
-        </div>
-
-        <p className="text-[11px] text-gray-400">
-          The orders report lists every order placed in the month, one per row, with the buyer's payment,
-          refunds, the farmer's payout, your fees and the pickup city and zip. Open it in Excel or Google
-          Sheets, or send it to your accountant.
-        </p>
-
-        {monthRows.length === 0 ? (
-          <p className="text-sm text-gray-500 py-4 text-center">
-            No completed sales in {summaryMonth ? formatMonth(summaryMonth) : 'this month'}.
-          </p>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-              <div className="p-3 bg-gray-50 rounded-xl">
-                <p className="text-gray-500">Active farmers</p>
-                <p className="text-lg font-black text-gray-900">{monthRows.length}</p>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-xl">
-                <p className="text-gray-500">Produce sold</p>
-                <p className="text-lg font-black text-gray-900">${monthTotals.produce_sales.toFixed(2)}</p>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-xl">
-                <p className="text-gray-500">Estimated platform net</p>
-                <p
-                  className={`text-lg font-black ${
-                    monthTotals.estimated_net < 0 ? 'text-red-600' : 'text-emerald-700'
-                  }`}
-                >
-                  ${monthTotals.estimated_net.toFixed(2)}
-                </p>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-xl">
-                <p className="text-gray-500">Farmers below break-even</p>
-                <p className="text-lg font-black text-gray-900">
-                  {farmersAtALoss} of {monthRows.length}
-                </p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="text-gray-500 border-b">
-                  <tr>
-                    <th className="py-2 pr-4 font-semibold">Farm</th>
-                    <th className="py-2 pr-4 font-semibold text-right">Orders</th>
-                    <th className="py-2 pr-4 font-semibold text-right">Produce sold</th>
-                    <th className="py-2 pr-4 font-semibold text-right">Paid to farmer</th>
-                    <th className="py-2 pr-4 font-semibold text-right">Platform fees</th>
-                    <th className="py-2 pr-4 font-semibold text-right">Est. card fees</th>
-                    <th className="py-2 font-semibold text-right">Est. net</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {monthRows.map((r) => (
-                    <tr key={r.farmer_id}>
-                      <td className="py-2 pr-4 font-semibold text-gray-900">{r.farm_name}</td>
-                      <td className="py-2 pr-4 text-right">{r.orders}</td>
-                      <td className="py-2 pr-4 text-right">${r.produce_sales.toFixed(2)}</td>
-                      <td className="py-2 pr-4 text-right">${r.farmer_paid.toFixed(2)}</td>
-                      <td className="py-2 pr-4 text-right">${r.platform_fees.toFixed(2)}</td>
-                      <td className="py-2 pr-4 text-right">${r.estimated_card_fees.toFixed(2)}</td>
-                      <td
-                        className={`py-2 text-right font-bold ${
-                          r.estimated_net < 0 ? 'text-red-600' : 'text-emerald-700'
-                        }`}
-                      >
-                        ${r.estimated_net.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <p className="text-[11px] text-gray-400">
-              Estimated net = platform fees − card fees (2.9% + 30¢ per order) − Stripe's $2 monthly fee per
-              active farmer. It leaves out Stripe's per-payout fees, 1099 fees and disputes, so the real figure is
-              a little lower. Orders placed before fee tracking was added may be slightly off.
-            </p>
-          </>
-        )}
-      </div>
-
-      <h2 className="text-lg font-bold text-gray-900">Orders</h2>
-
-      {reportedNoShows.length > 0 && (
-        <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-sm text-amber-950 flex items-start gap-2">
-          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" aria-hidden="true" />
-          <span>
-            <strong>
-              {reportedNoShows.length} open no-show report{reportedNoShows.length === 1 ? '' : 's'}
-              {reportedNoShows.some((o) => o.no_show_disputed_at)
-                ? `, ${reportedNoShows.filter((o) => o.no_show_disputed_at).length} needing your decision`
-                : ''}
-              .
-            </strong>{' '}
-            Reports the buyer doesn't answer are closed automatically after 48 hours. Ones marked "Buyer
-            responded" wait for you: use No-Show to close the order and issue the refund, or Dismiss Report to
-            leave it open. If a buyer replies to you by email, click Hold for Review to stop the clock.
-          </span>
-        </div>
-      )}
-
-      {staleOrders.length > 0 && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800 flex items-start gap-2">
-          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" aria-hidden="true" />
-          <span>
-            <strong>
-              {staleOrders.length} order{staleOrders.length === 1 ? ' has' : 's have'} been open more than{' '}
-              {STALE_AFTER_DAYS} days.
-            </strong>{' '}
-            The buyer has paid and the money is still being held. Check with the farmer, then release the
-            payout, refund the order or close it as a no-show.
-          </span>
-        </div>
-      )}
-
-      {visibleOrders.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200 text-sm text-gray-500">
-          No {filter === 'open' ? 'open ' : ''}orders.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {visibleOrders.map((order) => {
-            const busy = busyOrderId === order.id;
-            const refundable =
-              order.paid_via_stripe && (isOpen(order) || order.status === 'completed') && order.total_price > 0;
-
+      <div className="lg:flex lg:items-start lg:gap-6">
+        <nav
+          aria-label="Admin sections"
+          className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0 mb-4 lg:mb-0 lg:w-56 lg:shrink-0 lg:sticky lg:top-6"
+        >
+          {navItems.map(({ id, label, icon: Icon, count, urgent }) => {
+            const active = section === id;
             return (
-              <div
-                key={order.id}
-                className="p-5 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+              <button
+                key={id}
+                onClick={() => setSection(id)}
+                aria-current={active ? 'page' : undefined}
+                className={`shrink-0 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-left transition-colors ${
+                  active ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-700 hover:bg-gray-50'
+                }`}
               >
-                <div className="space-y-1 text-xs text-gray-600">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
-                        isOpen(order)
-                          ? 'bg-amber-100 text-amber-800'
-                          : order.status === 'completed'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {STATUS_LABELS[order.status] || order.status}
-                    </span>
-                    <span className="text-gray-400">
-                      Order #{order.id.slice(0, 8)} · {new Date(order.created_at).toLocaleString()}
-                    </span>
-                    {isOpen(order) && daysOpen(order) > STALE_AFTER_DAYS && (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-red-100 text-red-800">
-                        Open {daysOpen(order)} days
-                      </span>
-                    )}
-                    {isOpen(order) && order.no_show_reported_at && (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-amber-200 text-amber-950">
-                        No-show reported {new Date(order.no_show_reported_at).toLocaleDateString()}
-                      </span>
-                    )}
-                    {isOpen(order) && order.no_show_reported_at && order.no_show_disputed_at && (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-red-100 text-red-800">
-                        Buyer responded — needs your decision
-                      </span>
-                    )}
-                    {isOpen(order) && order.no_show_auto_approve_at && (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                        Closes automatically after {new Date(order.no_show_auto_approve_at).toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-base font-bold text-gray-900">
-                    {order.quantity} {order.unit_type} of {order.listing_title}
-                  </h3>
-                  <p>
-                    Farm: <span className="font-semibold">{order.farm_name}</span> · Buyer:{' '}
-                    <span className="font-semibold">{order.buyer_email || 'Unknown'}</span>
-                  </p>
-                  <p>
-                    Paid: <span className="font-semibold">${order.total_price.toFixed(2)}</span>
-                    {order.refunded_amount > 0 && ` · Refunded: $${order.refunded_amount.toFixed(2)}`}
-                    {' · '}
-                    {!order.paid_via_stripe
-                      ? 'Not paid through Stripe'
-                      : order.payout_released
-                        ? 'Payout released to farmer'
-                        : 'Payout held by platform'}
-                  </p>
-                  <p>
-                    Pickup code:{' '}
-                    <span className="font-mono font-bold text-gray-900">{order.pickup_code || '—'}</span>
-                    {order.failed_code_attempts > 0 && (
-                      <span className="text-red-600 font-semibold">
-                        {' '}
-                        · {order.failed_code_attempts} wrong attempt{order.failed_code_attempts === 1 ? '' : 's'}
-                      </span>
-                    )}
-                  </p>
-                  {order.stripe_payment_intent_id && (
-                    <p className="font-mono text-[10px] text-gray-400">{order.stripe_payment_intent_id}</p>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2 shrink-0">
-                  {isOpen(order) && (
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        runAction(
-                          order,
-                          'release',
-                          `Complete this order WITHOUT a pickup code and release the payout to ${order.farm_name}?`
-                        )
-                      }
-                      className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
-                    >
-                      Release Payout
-                    </button>
-                  )}
-                  {isOpen(order) && order.paid_via_stripe && (
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        runAction(
-                          order,
-                          'no_show',
-                          `Close this order as a no-show? The buyer is refunded the produce cost minus a 10% restocking fee paid to ${order.farm_name}, and the platform fee is kept.`
-                        )
-                      }
-                      className="bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
-                    >
-                      No-Show
-                    </button>
-                  )}
-                  {refundable && (
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        runAction(
-                          order,
-                          'refund',
-                          `Cancel this order and refund $${order.total_price.toFixed(2)} to ${order.buyer_email || 'the buyer'}?` +
-                            (order.payout_released ? ` This also pulls the payout back from ${order.farm_name}.` : '')
-                        )
-                      }
-                      className="bg-white border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
-                    >
-                      Cancel & Refund
-                    </button>
-                  )}
-                  {isOpen(order) && order.no_show_reported_at && !order.no_show_disputed_at && (
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        runAction(
-                          order,
-                          'hold_no_show',
-                          'Put this report on hold? It will not be closed automatically and will wait for your decision.'
-                        )
-                      }
-                      className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
-                    >
-                      Hold for Review
-                    </button>
-                  )}
-                  {isOpen(order) && order.no_show_reported_at && (
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        runAction(
-                          order,
-                          'dismiss_no_show',
-                          "Dismiss the farmer's no-show report? The order stays open and no money moves."
-                        )
-                      }
-                      className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
-                    >
-                      Dismiss Report
-                    </button>
-                  )}
-                  {isOpen(order) && order.failed_code_attempts > 0 && (
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        runAction(order, 'reset_attempts', 'Reset the wrong-code counter so the farmer can try again?')
-                      }
-                      className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
-                    >
-                      Reset Code Attempts
-                    </button>
-                  )}
-                </div>
-              </div>
+                <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span className="lg:flex-1 whitespace-nowrap">{label}</span>
+                {count !== undefined && count > 0 && (
+                  <span
+                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      active
+                        ? 'bg-white text-emerald-800'
+                        : urgent
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
             );
           })}
+        </nav>
+
+        <div className="flex-1 min-w-0 space-y-6">
+          {section === 'overview' && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-bold text-gray-900">Overview</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {overviewCards.map((card) => (
+                  <button
+                    key={card.section}
+                    onClick={() => setSection(card.section)}
+                    className={`p-5 rounded-2xl border shadow-sm text-left transition-colors ${
+                      card.urgent
+                        ? 'bg-amber-50 border-amber-300 hover:bg-amber-100'
+                        : 'bg-white border-gray-200 hover:border-emerald-400'
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-gray-700">{card.label}</p>
+                    <p className="text-3xl font-black text-gray-900 mt-1">{card.value}</p>
+                    <p className="text-xs text-gray-600 mt-1">{card.detail}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CONTACT MESSAGES */}
+          {section === 'messages' && (
+            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Contact Messages{openMessages.length > 0 ? ` (${openMessages.length} open)` : ''}
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Sent through the Contact Us page. Each one is also emailed to you; replying to that email
+                    answers the sender.
+                  </p>
+                </div>
+                {messages.length > openMessages.length && (
+                  <button
+                    onClick={() => setShowResolvedMessages((current) => !current)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border text-gray-600 hover:bg-gray-50"
+                  >
+                    {showResolvedMessages ? 'Hide resolved' : 'Show resolved'}
+                  </button>
+                )}
+              </div>
+
+              {visibleMessages.length === 0 ? (
+                <p className="text-sm text-gray-500 py-2 text-center">No open messages.</p>
+              ) : (
+                <div className="space-y-3">
+                  {visibleMessages.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`p-4 border rounded-xl text-sm ${m.resolved ? 'bg-gray-50 border-gray-200' : 'border-amber-200 bg-amber-50/40'}`}
+                    >
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                          <p className="font-bold text-gray-900 break-words">{m.subject}</p>
+                          <p className="text-xs text-gray-500">
+                            From{' '}
+                            <a
+                              href={`mailto:${m.email}?subject=${encodeURIComponent(`Re: ${m.subject}`)}`}
+                              className="font-semibold text-emerald-700 underline break-all"
+                            >
+                              {m.email}
+                            </a>
+                            {m.user_id ? ' (signed-in user)' : ''} · {new Date(m.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setMessageResolved(m, !m.resolved)}
+                          className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-white border text-gray-600 hover:bg-gray-50"
+                        >
+                          {m.resolved ? 'Reopen' : 'Mark Resolved'}
+                        </button>
+                      </div>
+                      <p className="mt-2 text-gray-700 whitespace-pre-wrap break-words">{m.message}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* FARMER SALES BY MONTH */}
+          {section === 'reports' && (
+            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Farmer Sales by Month</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Completed orders and no-shows, grouped by the month the order was placed.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    aria-label="Month"
+                    value={summaryMonth}
+                    onChange={(e) => setSummaryMonth(e.target.value)}
+                    className="px-3 py-2 border rounded-xl text-xs font-semibold bg-white"
+                  >
+                    {summaryMonths.map((m) => (
+                      <option key={m} value={m}>
+                        {formatMonth(m)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={downloadOrdersReport}
+                    disabled={downloadingReport || !summaryMonth}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white"
+                  >
+                    <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                    {downloadingReport ? 'Preparing...' : 'Orders report (CSV)'}
+                  </button>
+                  <button
+                    onClick={() =>
+                      downloadCsv(
+                        `farm-fresh-direct-farmer-summary-${summaryMonth}.csv`,
+                        monthRows.map(({ farmer_id, ...row }) => row)
+                      )
+                    }
+                    disabled={monthRows.length === 0}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white border text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                    Farmer summary (CSV)
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-gray-400">
+                The orders report lists every order placed in the month, one per row, with the buyer's payment,
+                refunds, the farmer's payout, your fees and the pickup city and zip. Open it in Excel or Google
+                Sheets, or send it to your accountant.
+              </p>
+
+              {monthRows.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">
+                  No completed sales in {summaryMonth ? formatMonth(summaryMonth) : 'this month'}.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    <div className="p-3 bg-gray-50 rounded-xl">
+                      <p className="text-gray-500">Active farmers</p>
+                      <p className="text-lg font-black text-gray-900">{monthRows.length}</p>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-xl">
+                      <p className="text-gray-500">Produce sold</p>
+                      <p className="text-lg font-black text-gray-900">${monthTotals.produce_sales.toFixed(2)}</p>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-xl">
+                      <p className="text-gray-500">Estimated platform net</p>
+                      <p
+                        className={`text-lg font-black ${
+                          monthTotals.estimated_net < 0 ? 'text-red-600' : 'text-emerald-700'
+                        }`}
+                      >
+                        ${monthTotals.estimated_net.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-xl">
+                      <p className="text-gray-500">Farmers below break-even</p>
+                      <p className="text-lg font-black text-gray-900">
+                        {farmersAtALoss} of {monthRows.length}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="text-gray-500 border-b">
+                        <tr>
+                          <th className="py-2 pr-4 font-semibold">Farm</th>
+                          <th className="py-2 pr-4 font-semibold text-right">Orders</th>
+                          <th className="py-2 pr-4 font-semibold text-right">Produce sold</th>
+                          <th className="py-2 pr-4 font-semibold text-right">Paid to farmer</th>
+                          <th className="py-2 pr-4 font-semibold text-right">Platform fees</th>
+                          <th className="py-2 pr-4 font-semibold text-right">Est. card fees</th>
+                          <th className="py-2 font-semibold text-right">Est. net</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {monthRows.map((r) => (
+                          <tr key={r.farmer_id}>
+                            <td className="py-2 pr-4 font-semibold text-gray-900">{r.farm_name}</td>
+                            <td className="py-2 pr-4 text-right">{r.orders}</td>
+                            <td className="py-2 pr-4 text-right">${r.produce_sales.toFixed(2)}</td>
+                            <td className="py-2 pr-4 text-right">${r.farmer_paid.toFixed(2)}</td>
+                            <td className="py-2 pr-4 text-right">${r.platform_fees.toFixed(2)}</td>
+                            <td className="py-2 pr-4 text-right">${r.estimated_card_fees.toFixed(2)}</td>
+                            <td
+                              className={`py-2 text-right font-bold ${
+                                r.estimated_net < 0 ? 'text-red-600' : 'text-emerald-700'
+                              }`}
+                            >
+                              ${r.estimated_net.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <p className="text-[11px] text-gray-400">
+                    Estimated net = platform fees − card fees (2.9% + 30¢ per order) − Stripe's $2 monthly fee per
+                    active farmer. It leaves out Stripe's per-payout fees, 1099 fees and disputes, so the real figure is
+                    a little lower. Orders placed before fee tracking was added may be slightly off.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {isOrderSection && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">{orderSectionTitle}</h2>
+                <p className="text-xs text-gray-500 mt-0.5">{orderSectionHint}</p>
+              </div>
+
+              {reportedNoShows.length > 0 && (
+                <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-sm text-amber-950 flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" aria-hidden="true" />
+                  <span>
+                    <strong>
+                      {reportedNoShows.length} open no-show report{reportedNoShows.length === 1 ? '' : 's'}
+                      {reportedNoShows.some((o) => o.no_show_disputed_at)
+                        ? `, ${reportedNoShows.filter((o) => o.no_show_disputed_at).length} needing your decision`
+                        : ''}
+                      .
+                    </strong>{' '}
+                    Reports the buyer doesn't answer are closed automatically after 48 hours. Ones marked "Buyer
+                    responded" wait for you: use No-Show to close the order and issue the refund, or Dismiss Report to
+                    leave it open. If a buyer replies to you by email, click Hold for Review to stop the clock.
+                  </span>
+                </div>
+              )}
+
+              {staleOrders.length > 0 && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800 flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-500 shrink-0" aria-hidden="true" />
+                  <span>
+                    <strong>
+                      {staleOrders.length} order{staleOrders.length === 1 ? ' has' : 's have'} been open more than{' '}
+                      {STALE_AFTER_DAYS} days.
+                    </strong>{' '}
+                    The buyer has paid and the money is still being held. Check with the farmer, then release the
+                    payout, refund the order or close it as a no-show.
+                  </span>
+                </div>
+              )}
+
+              {visibleOrders.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200 text-sm text-gray-500">
+                  {section === 'attention' ? 'Nothing needs your attention.' : section === 'open' ? 'No open orders.' : 'No orders.'}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {visibleOrders.map((order) => {
+                    const busy = busyOrderId === order.id;
+                    const refundable =
+                      order.paid_via_stripe && (isOpen(order) || order.status === 'completed') && order.total_price > 0;
+
+                    return (
+                      <div
+                        key={order.id}
+                        className="p-5 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                      >
+                        <div className="space-y-1 text-xs text-gray-600">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                                isOpen(order)
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : order.status === 'completed'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              {STATUS_LABELS[order.status] || order.status}
+                            </span>
+                            <span className="text-gray-400">
+                              Order #{order.id.slice(0, 8)} · {new Date(order.created_at).toLocaleString()}
+                            </span>
+                            {isOpen(order) && daysOpen(order) > STALE_AFTER_DAYS && (
+                              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-red-100 text-red-800">
+                                Open {daysOpen(order)} days
+                              </span>
+                            )}
+                            {isOpen(order) && order.no_show_reported_at && (
+                              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-amber-200 text-amber-950">
+                                No-show reported {new Date(order.no_show_reported_at).toLocaleDateString()}
+                              </span>
+                            )}
+                            {isOpen(order) && order.no_show_reported_at && order.no_show_disputed_at && (
+                              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-red-100 text-red-800">
+                                Buyer responded — needs your decision
+                              </span>
+                            )}
+                            {isOpen(order) && order.no_show_auto_approve_at && (
+                              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                                Closes automatically after {new Date(order.no_show_auto_approve_at).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="text-base font-bold text-gray-900">
+                            {order.quantity} {order.unit_type} of {order.listing_title}
+                          </h3>
+                          <p>
+                            Farm: <span className="font-semibold">{order.farm_name}</span> · Buyer:{' '}
+                            <span className="font-semibold">{order.buyer_email || 'Unknown'}</span>
+                          </p>
+                          <p>
+                            Paid: <span className="font-semibold">${order.total_price.toFixed(2)}</span>
+                            {order.refunded_amount > 0 && ` · Refunded: $${order.refunded_amount.toFixed(2)}`}
+                            {' · '}
+                            {!order.paid_via_stripe
+                              ? 'Not paid through Stripe'
+                              : order.payout_released
+                                ? 'Payout released to farmer'
+                                : 'Payout held by platform'}
+                          </p>
+                          <p>
+                            Pickup code:{' '}
+                            <span className="font-mono font-bold text-gray-900">{order.pickup_code || '—'}</span>
+                            {order.failed_code_attempts > 0 && (
+                              <span className="text-red-600 font-semibold">
+                                {' '}
+                                · {order.failed_code_attempts} wrong attempt{order.failed_code_attempts === 1 ? '' : 's'}
+                              </span>
+                            )}
+                          </p>
+                          {order.stripe_payment_intent_id && (
+                            <p className="font-mono text-[10px] text-gray-400">{order.stripe_payment_intent_id}</p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 shrink-0">
+                          {isOpen(order) && (
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                runAction(
+                                  order,
+                                  'release',
+                                  `Complete this order WITHOUT a pickup code and release the payout to ${order.farm_name}?`
+                                )
+                              }
+                              className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                            >
+                              Release Payout
+                            </button>
+                          )}
+                          {isOpen(order) && order.paid_via_stripe && (
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                runAction(
+                                  order,
+                                  'no_show',
+                                  `Close this order as a no-show? The buyer is refunded the produce cost minus a 10% restocking fee paid to ${order.farm_name}, and the platform fee is kept.`
+                                )
+                              }
+                              className="bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                            >
+                              No-Show
+                            </button>
+                          )}
+                          {refundable && (
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                runAction(
+                                  order,
+                                  'refund',
+                                  `Cancel this order and refund $${order.total_price.toFixed(2)} to ${order.buyer_email || 'the buyer'}?` +
+                                    (order.payout_released ? ` This also pulls the payout back from ${order.farm_name}.` : '')
+                                )
+                              }
+                              className="bg-white border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                            >
+                              Cancel & Refund
+                            </button>
+                          )}
+                          {isOpen(order) && order.no_show_reported_at && !order.no_show_disputed_at && (
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                runAction(
+                                  order,
+                                  'hold_no_show',
+                                  'Put this report on hold? It will not be closed automatically and will wait for your decision.'
+                                )
+                              }
+                              className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                            >
+                              Hold for Review
+                            </button>
+                          )}
+                          {isOpen(order) && order.no_show_reported_at && (
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                runAction(
+                                  order,
+                                  'dismiss_no_show',
+                                  "Dismiss the farmer's no-show report? The order stays open and no money moves."
+                                )
+                              }
+                              className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                            >
+                              Dismiss Report
+                            </button>
+                          )}
+                          {isOpen(order) && order.failed_code_attempts > 0 && (
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                runAction(order, 'reset_attempts', 'Reset the wrong-code counter so the farmer can try again?')
+                              }
+                              className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                            >
+                              Reset Code Attempts
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
