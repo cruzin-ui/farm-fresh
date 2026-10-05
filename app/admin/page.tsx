@@ -14,6 +14,8 @@ import {
   Mail,
   TrendingUp,
   Star,
+  PieChart,
+  Search,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
@@ -62,7 +64,7 @@ type ContactMessage = {
 };
 
 // The sections of the admin page, chosen from the menu down the side.
-type AdminSection = 'overview' | 'attention' | 'open' | 'all' | 'messages' | 'reviews' | 'reports';
+type AdminSection = 'overview' | 'attention' | 'open' | 'all' | 'messages' | 'reviews' | 'fees' | 'reports';
 
 type AdminReview = {
   id: string;
@@ -139,6 +141,10 @@ export default function AdminPage() {
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [showResolvedMessages, setShowResolvedMessages] = useState(false);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
+  // Fee breakdown: one month ("YYYY-MM") or every month together, and the
+  // text typed to find a farm.
+  const [feeMonth, setFeeMonth] = useState<string>('all');
+  const [farmSearch, setFarmSearch] = useState('');
   const [downloadingReport, setDownloadingReport] = useState(false);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -298,7 +304,44 @@ export default function AdminPage() {
     }),
     { produce_sales: 0, farmer_paid: 0, platform_fees: 0, estimated_net: 0 }
   );
-  const farmersAtALoss = monthRows.filter((r) => r.estimated_net < 0).length;
+
+  // Where the money from finished orders went, farm by farm, for the chosen
+  // month or for all months together. Stripe's share is the estimate the
+  // summary already makes (card fees plus the monthly charge per active farmer).
+  const feeByFarm = new Map<
+    string,
+    { farmer_id: string; farm_name: string; orders: number; produce_sales: number; to_farmer: number; to_stripe: number; to_platform: number }
+  >();
+  for (const r of feeMonth === 'all' ? summaryRows : summaryRows.filter((row) => row.month === feeMonth)) {
+    const farm = feeByFarm.get(r.farmer_id) || {
+      farmer_id: r.farmer_id,
+      farm_name: r.farm_name,
+      orders: 0,
+      produce_sales: 0,
+      to_farmer: 0,
+      to_stripe: 0,
+      to_platform: 0,
+    };
+    farm.orders += r.orders;
+    farm.produce_sales += r.produce_sales;
+    farm.to_farmer += r.farmer_paid;
+    farm.to_stripe += r.platform_fees - r.estimated_net;
+    farm.to_platform += r.estimated_net;
+    feeByFarm.set(r.farmer_id, farm);
+  }
+  const feeRows = [...feeByFarm.values()].sort((a, b) => b.to_farmer - a.to_farmer);
+  const feeTotals = feeRows.reduce(
+    (acc, r) => ({
+      to_farmer: acc.to_farmer + r.to_farmer,
+      to_stripe: acc.to_stripe + r.to_stripe,
+      to_platform: acc.to_platform + r.to_platform,
+    }),
+    { to_farmer: 0, to_stripe: 0, to_platform: 0 }
+  );
+  const feeGrandTotal = feeTotals.to_farmer + feeTotals.to_stripe + feeTotals.to_platform;
+  const shareOf = (amount: number) => (feeGrandTotal > 0 ? `${Math.round((amount / feeGrandTotal) * 100)}%` : '—');
+  const shownFeeRows = feeRows.filter((r) => r.farm_name.toLowerCase().includes(farmSearch.trim().toLowerCase()));
+  const feePeriodLabel = feeMonth === 'all' ? 'all months' : formatMonth(feeMonth);
 
   const openMessages = messages.filter((m) => !m.resolved);
   const visibleMessages = showResolvedMessages ? messages : openMessages;
@@ -310,7 +353,8 @@ export default function AdminPage() {
     { id: 'all', label: 'All orders', icon: Archive },
     { id: 'messages', label: 'Messages', icon: Mail, count: openMessages.length, urgent: true },
     { id: 'reviews', label: 'Reviews', icon: Star },
-    { id: 'reports', label: 'Sales & reports', icon: TrendingUp },
+    { id: 'fees', label: 'Fee breakdown', icon: PieChart },
+    { id: 'reports', label: 'Reports', icon: TrendingUp },
   ];
 
   const disputedNoShows = reportedNoShows.filter((o) => o.no_show_disputed_at).length;
@@ -340,10 +384,10 @@ export default function AdminPage() {
       urgent: openMessages.length > 0,
     },
     {
-      section: 'reports',
+      section: 'fees',
       label: summaryMonth ? `Produce sold in ${formatMonth(summaryMonth)}` : 'Produce sold',
       value: `$${monthTotals.produce_sales.toFixed(2)}`,
-      detail: `Estimated platform net $${monthTotals.estimated_net.toFixed(2)}. Monthly reports are here.`,
+      detail: `Estimated platform net $${monthTotals.estimated_net.toFixed(2)}. See where the money went.`,
       urgent: false,
     },
   ];
@@ -576,14 +620,147 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* FARMER SALES BY MONTH */}
+          {/* FEE BREAKDOWN */}
+          {section === 'fees' && (
+            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Fee Breakdown</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Where the money from picked-up orders and no-shows went. Refunds and sales tax are left out.
+                  </p>
+                </div>
+                <select
+                  aria-label="Month"
+                  value={feeMonth}
+                  onChange={(e) => setFeeMonth(e.target.value)}
+                  className="px-3 py-2 border rounded-xl text-xs font-semibold bg-white"
+                >
+                  <option value="all">All months</option>
+                  {summaryMonths.map((m) => (
+                    <option key={m} value={m}>
+                      {formatMonth(m)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {feeRows.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">No completed sales in {feePeriodLabel}.</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                      <p className="text-xs font-semibold text-gray-600">Paid to farmers</p>
+                      <p className="text-2xl font-black text-gray-900">${feeTotals.to_farmer.toFixed(2)}</p>
+                      <p className="text-xs text-gray-600">{shareOf(feeTotals.to_farmer)} of what buyers paid</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                      <p className="text-xs font-semibold text-gray-600">Stripe fees (estimated)</p>
+                      <p className="text-2xl font-black text-gray-900">${feeTotals.to_stripe.toFixed(2)}</p>
+                      <p className="text-xs text-gray-600">{shareOf(feeTotals.to_stripe)} of what buyers paid</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                      <p className="text-xs font-semibold text-gray-600">Kept by the platform (estimated)</p>
+                      <p className={`text-2xl font-black ${feeTotals.to_platform < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                        ${feeTotals.to_platform.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-gray-600">{shareOf(feeTotals.to_platform)} of what buyers paid</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="relative flex-1 min-w-48 max-w-sm">
+                      <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+                      <input
+                        type="search"
+                        aria-label="Search farms"
+                        placeholder="Search farms..."
+                        value={farmSearch}
+                        onChange={(e) => setFarmSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 border rounded-xl text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={() =>
+                        downloadCsv(
+                          `farm-fresh-direct-fee-breakdown-${feeMonth}.csv`,
+                          shownFeeRows.map(({ farmer_id, ...row }) => ({
+                            farm: row.farm_name,
+                            orders: row.orders,
+                            produce_sold: row.produce_sales.toFixed(2),
+                            paid_to_farmer: row.to_farmer.toFixed(2),
+                            stripe_fees_estimated: row.to_stripe.toFixed(2),
+                            kept_by_platform_estimated: row.to_platform.toFixed(2),
+                          }))
+                        )
+                      }
+                      disabled={shownFeeRows.length === 0}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white border text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                      Download (CSV)
+                    </button>
+                  </div>
+
+                  {shownFeeRows.length === 0 ? (
+                    <p className="text-sm text-gray-500 py-4 text-center">No farm matches "{farmSearch}".</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <caption className="sr-only">Fee breakdown by farm for {feePeriodLabel}</caption>
+                        <thead className="text-gray-500 border-b">
+                          <tr>
+                            <th scope="col" className="py-2 pr-4 font-semibold">Farm</th>
+                            <th scope="col" className="py-2 pr-4 font-semibold text-right">Orders</th>
+                            <th scope="col" className="py-2 pr-4 font-semibold text-right">Produce sold</th>
+                            <th scope="col" className="py-2 pr-4 font-semibold text-right">Paid to farmer</th>
+                            <th scope="col" className="py-2 pr-4 font-semibold text-right">Stripe (est.)</th>
+                            <th scope="col" className="py-2 font-semibold text-right">Platform (est.)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {shownFeeRows.map((r) => (
+                            <tr key={r.farmer_id}>
+                              <th scope="row" className="py-2 pr-4 font-semibold text-gray-900">
+                                <a href={`/sellers/${r.farmer_id}`} target="_blank" className="hover:underline">
+                                  {r.farm_name}
+                                </a>
+                              </th>
+                              <td className="py-2 pr-4 text-right">{r.orders}</td>
+                              <td className="py-2 pr-4 text-right">${r.produce_sales.toFixed(2)}</td>
+                              <td className="py-2 pr-4 text-right">${r.to_farmer.toFixed(2)}</td>
+                              <td className="py-2 pr-4 text-right">${r.to_stripe.toFixed(2)}</td>
+                              <td className={`py-2 text-right font-bold ${r.to_platform < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                                ${r.to_platform.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-gray-400">
+                    The three amounts add up to what buyers paid, before tax. Paid to farmers includes no-show
+                    restocking fees. Stripe's share is an estimate, not read from your Stripe account: card fees
+                    (2.9% + 30¢ per payment) plus Stripe's $2 monthly fee per active farmer. It leaves out
+                    per-payout fees, 1099 fees and disputes, so the platform's real share is a little lower. A
+                    red platform figure means that farm cost more in Stripe fees than it brought in.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* REPORTS */}
           {section === 'reports' && (
             <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Farmer Sales by Month</h2>
+                  <h2 className="text-lg font-bold text-gray-900">Reports</h2>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Completed orders and no-shows, grouped by the month the order was placed.
+                    Spreadsheets for your records or your accountant, one month at a time.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -629,81 +806,6 @@ export default function AdminPage() {
                 Sheets, or send it to your accountant.
               </p>
 
-              {monthRows.length === 0 ? (
-                <p className="text-sm text-gray-500 py-4 text-center">
-                  No completed sales in {summaryMonth ? formatMonth(summaryMonth) : 'this month'}.
-                </p>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                    <div className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-gray-500">Active farmers</p>
-                      <p className="text-lg font-black text-gray-900">{monthRows.length}</p>
-                    </div>
-                    <div className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-gray-500">Produce sold</p>
-                      <p className="text-lg font-black text-gray-900">${monthTotals.produce_sales.toFixed(2)}</p>
-                    </div>
-                    <div className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-gray-500">Estimated platform net</p>
-                      <p
-                        className={`text-lg font-black ${
-                          monthTotals.estimated_net < 0 ? 'text-red-600' : 'text-emerald-700'
-                        }`}
-                      >
-                        ${monthTotals.estimated_net.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-gray-500">Farmers below break-even</p>
-                      <p className="text-lg font-black text-gray-900">
-                        {farmersAtALoss} of {monthRows.length}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left">
-                      <thead className="text-gray-500 border-b">
-                        <tr>
-                          <th className="py-2 pr-4 font-semibold">Farm</th>
-                          <th className="py-2 pr-4 font-semibold text-right">Orders</th>
-                          <th className="py-2 pr-4 font-semibold text-right">Produce sold</th>
-                          <th className="py-2 pr-4 font-semibold text-right">Paid to farmer</th>
-                          <th className="py-2 pr-4 font-semibold text-right">Platform fees</th>
-                          <th className="py-2 pr-4 font-semibold text-right">Est. card fees</th>
-                          <th className="py-2 font-semibold text-right">Est. net</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {monthRows.map((r) => (
-                          <tr key={r.farmer_id}>
-                            <td className="py-2 pr-4 font-semibold text-gray-900">{r.farm_name}</td>
-                            <td className="py-2 pr-4 text-right">{r.orders}</td>
-                            <td className="py-2 pr-4 text-right">${r.produce_sales.toFixed(2)}</td>
-                            <td className="py-2 pr-4 text-right">${r.farmer_paid.toFixed(2)}</td>
-                            <td className="py-2 pr-4 text-right">${r.platform_fees.toFixed(2)}</td>
-                            <td className="py-2 pr-4 text-right">${r.estimated_card_fees.toFixed(2)}</td>
-                            <td
-                              className={`py-2 text-right font-bold ${
-                                r.estimated_net < 0 ? 'text-red-600' : 'text-emerald-700'
-                              }`}
-                            >
-                              ${r.estimated_net.toFixed(2)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <p className="text-[11px] text-gray-400">
-                    Estimated net = platform fees − card fees (2.9% + 30¢ per order) − Stripe's $2 monthly fee per
-                    active farmer. It leaves out Stripe's per-payout fees, 1099 fees and disputes, so the real figure is
-                    a little lower. Orders placed before fee tracking was added may be slightly off.
-                  </p>
-                </>
-              )}
             </div>
           )}
 
