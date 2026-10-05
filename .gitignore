@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Stripe agent tooling (created by `stripe agent setup`); not part of the site
+.agents/
