@@ -6,6 +6,7 @@ import { postWithAuth } from '@/lib/authedFetch';
 import { resizeImage } from '@/lib/resizeImage';
 import { SELLER_FEE_RATE } from '@/lib/pricing';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
+import QrScanner from '@/components/QrScanner';
 import {
   Sprout,
   AlertCircle,
@@ -24,6 +25,7 @@ import {
   Camera,
   ImageIcon,
   X,
+  QrCode,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { loadConnectAndInitialize } from '@stripe/connect-js/pure';
@@ -149,6 +151,9 @@ export default function SellerDashboardPage() {
   // Other items from the same buyer's checkout being handed over in the same
   // visit — one pickup code covers them all.
   const [completeAlsoIds, setCompleteAlsoIds] = useState<string[]>([]);
+  // Scanning the buyer's QR code with the camera, as an alternative to typing.
+  const [scanningCode, setScanningCode] = useState(false);
+  const [scanNote, setScanNote] = useState<string | null>(null);
 
   // Cancel / Adjust flow — per-order draft of the reduced quantity (0 = cancel)
   const [adjustOrderId, setAdjustOrderId] = useState<string | null>(null);
@@ -396,6 +401,8 @@ export default function SellerDashboardPage() {
     setAdjustOrderId(null);
     setCompleteOrderId(order.id);
     setCompleteCode('');
+    setScanningCode(false);
+    setScanNote(null);
     // Start with the ones already marked ready ticked; the farmer unticks
     // anything the buyer isn't taking today.
     setCompleteAlsoIds(
@@ -405,8 +412,11 @@ export default function SellerDashboardPage() {
     );
   };
 
-  const handleMarkCompleted = async (orderId: string) => {
-    if (!completeCode.trim()) {
+  // `scannedCode` is passed when the code came from the camera rather than
+  // the text box.
+  const handleMarkCompleted = async (orderId: string, scannedCode?: string) => {
+    const code = scannedCode ?? completeCode;
+    if (!code.trim()) {
       alert("Enter the buyer's pickup code to complete this order.");
       return;
     }
@@ -415,7 +425,7 @@ export default function SellerDashboardPage() {
     try {
       const res = await postWithAuth('/api/orders/complete', {
         orderId,
-        code: completeCode,
+        code,
         alsoOrderIds: completeAlsoIds,
       });
       const data = await res.json();
@@ -436,6 +446,28 @@ export default function SellerDashboardPage() {
       alert(err.message || 'Could not complete order.');
     } finally {
       setSubmittingComplete(false);
+    }
+  };
+
+  // The buyer's QR code holds their pickup code. If this is the only item the
+  // code covers, scanning it completes the order straight away. If the buyer
+  // has other items with this farm, the farmer still has to say which ones are
+  // being handed over, so the code is filled in and they confirm.
+  const handleCodeScanned = (order: any, text: string) => {
+    setScanningCode(false);
+
+    const scanned = text.trim();
+    if (!/^(FFD)?[\s-]*\d{6}$/i.test(scanned)) {
+      setScanNote("That QR code isn't a Farm Fresh Direct pickup code. Ask the buyer to open their order and try again.");
+      return;
+    }
+
+    setCompleteCode(scanned.toUpperCase());
+    if (sameCheckoutOrders(order).length > 0) {
+      setScanNote('Code scanned. Tick the items you are handing over, then confirm.');
+    } else {
+      setScanNote(null);
+      handleMarkCompleted(order.id, scanned);
     }
   };
 
@@ -1094,7 +1126,8 @@ export default function SellerDashboardPage() {
                       At pickup, hand over the produce and <strong>ask the buyer for their pickup code</strong>.
                     </li>
                     <li>
-                      Click <strong>Mark Completed</strong> and enter the code. That releases your payment.
+                      Click <strong>Mark Completed</strong>, then scan the QR code on the buyer's phone or type
+                      their code. That releases your payment.
                     </li>
                   </ol>
                 </div>
@@ -1780,8 +1813,31 @@ export default function SellerDashboardPage() {
 
                       {completeOrderId === order.id && (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+                          {scanningCode ? (
+                            <QrScanner
+                              onResult={(text) => handleCodeScanned(order, text)}
+                              onClose={() => setScanningCode(false)}
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setScanNote(null);
+                                setScanningCode(true);
+                              }}
+                              disabled={submittingComplete}
+                              className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white text-sm font-bold px-4 py-3 rounded-xl transition-colors w-full sm:w-auto"
+                            >
+                              <QrCode className="w-4 h-4" aria-hidden="true" /> Scan Buyer's QR Code
+                            </button>
+                          )}
+                          {scanNote && (
+                            <p role="status" className="text-xs font-semibold text-emerald-950 bg-white border border-emerald-200 rounded-lg p-2">
+                              {scanNote}
+                            </p>
+                          )}
                           <label htmlFor="dash-enter-the-buyer-s-pickup-code" className="block text-xs font-semibold text-emerald-900">
-                            Enter the buyer's pickup code
+                            Or type the buyer's pickup code
                           </label>
                           <input id="dash-enter-the-buyer-s-pickup-code"
                             type="text"
@@ -1791,8 +1847,9 @@ export default function SellerDashboardPage() {
                             className="w-44 px-3 py-2 border border-emerald-200 rounded-lg text-sm bg-white font-mono uppercase"
                           />
                           <p className="text-[11px] text-emerald-900">
-                            Ask the buyer for the code from their order confirmation when they collect
-                            their produce. Entering it completes the order and releases your payout.
+                            Ask the buyer to show the QR code or read you the code from their order when they
+                            collect their produce. Scanning or entering it completes the order and releases your
+                            payout.
                           </p>
                           {sameCheckoutOrders(order).length > 0 && (
                             <fieldset className="space-y-2">

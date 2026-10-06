@@ -5,7 +5,7 @@ export const HOW_PICKUP_WORKS = [
   'You pay online now. Farm Fresh Direct holds your payment — the farmer has not been paid yet.',
   "We email you when the farmer marks your order ready, with the pickup details. Please don't head over before then.",
   'Collect your produce at the pickup address on your order and check that it is what you ordered.',
-  'Once you have your produce, give the farmer your pickup code. That confirms the handover and releases their payment.',
+  'Once you have your produce, show the farmer the QR code on your order to scan, or give them your pickup code. That confirms the handover and releases their payment.',
 ];
 
 export const SAFETY_TIPS = [

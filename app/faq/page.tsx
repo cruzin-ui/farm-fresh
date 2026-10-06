@@ -49,7 +49,7 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'What is the pickup code?',
     answer:
-      "A code you receive when you order. Give it to the farmer once your produce is in your hands — it confirms the handover and releases their payment. Don't share it before then, by text, phone or email.",
+      "A code you receive when you order, shown on your order page as both a QR code and a short code. Once your produce is in your hands, let the farmer scan the QR code or read them the short code — it confirms the handover and releases their payment. Don't share either before then, by text, phone or email.",
   },
   {
     question: 'Where and when do I pick up?',

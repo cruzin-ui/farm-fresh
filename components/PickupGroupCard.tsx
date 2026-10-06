@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { QRCodeSVG } from 'qrcode.react';
 import { MapPin, Store } from 'lucide-react';
 import ReviewForm from '@/components/ReviewForm';
 import { describeItems, isOpenStatus, type PickupGroup } from '@/lib/pickupGroups';
@@ -63,8 +66,21 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
             For: {describeItems(codeItems)} from {group.farmName}
           </p>
           {open && (
+            // The same code as above, for the farmer to scan instead of typing.
+            <div className="mt-3 inline-block bg-white p-3 rounded-xl border border-emerald-200">
+              <QRCodeSVG
+                value={code}
+                size={160}
+                marginSize={2}
+                role="img"
+                title={`QR code for pickup code ${code}`}
+              />
+            </div>
+          )}
+          {open && (
             <p className="text-xs text-gray-600 mt-1">
-              Give this code to the farmer only when you collect your produce — it releases their payment.
+              Show this QR code to the farmer to scan, or read them the code, only when you collect your
+              produce — it releases their payment.
               {openItems.length > 1 &&
                 " If you collect only some of these items, this code is used up and we'll email you a new one for the rest."}
             </p>
