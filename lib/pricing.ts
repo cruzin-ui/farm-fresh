@@ -1,9 +1,11 @@
 // Buyer service fee: a percentage of the produce subtotal plus a fixed amount.
-// The fixed part is what keeps small orders from costing the platform money —
-// Stripe charges roughly 2.9% + 30¢ per card payment, which a percentage alone
-// doesn't cover on orders under about $15.
+// The fixed part is what keeps small orders from costing the platform money.
+// Two per-payment charges from Stripe have to come out of it: roughly 30¢ of
+// its 2.9% + 30¢ card fee, and 50¢ for working out sales tax on a payment
+// wherever the business is registered to collect it (charged even when the
+// tax comes to zero). A percentage alone doesn't cover those on small orders.
 export const BUYER_FEE_RATE = 0.05;
-export const BUYER_FEE_FIXED_CENTS = 50;
+export const BUYER_FEE_FIXED_CENTS = 100;
 export const BUYER_FEE_LABEL = `${BUYER_FEE_RATE * 100}% + $${(BUYER_FEE_FIXED_CENTS / 100).toFixed(2)}`;
 
 // Seller fee: the share of the produce subtotal the platform keeps out of the
