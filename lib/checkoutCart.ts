@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { calculateCartTotals } from '@/lib/pricing';
 import { calculateCartTax } from '@/lib/tax';
+import { isAllowedCategory } from '@/lib/categories';
 
 // SERVER-ONLY. Prices a buyer's cart. Used both to show the checkout page its
 // totals and to create the charge, so the two always agree — and so nothing
@@ -61,7 +62,7 @@ export async function priceCart(items: CartRequestItem[]) {
 
   const { data: listings } = await supabaseAdmin
     .from('produce_listings')
-    .select('id, title, unit_type, price_per_unit, available_quantity, farmer_id, category, zip_code, location_name')
+    .select('id, title, unit_type, price_per_unit, available_quantity, farmer_id, category, zip_code, location_name, status')
     .in('id', listingIds);
   const listingById = new Map((listings || []).map((l) => [l.id as string, l]));
 
@@ -94,6 +95,8 @@ export async function priceCart(items: CartRequestItem[]) {
     let problem: string | null = null;
     if (!listing) {
       problem = 'This listing is no longer available. Please remove it.';
+    } else if (listing.status === 'removed' || !isAllowedCategory(listing.category)) {
+      problem = 'This kind of item is no longer sold on Farm Fresh Direct. Please remove it.';
     } else if (available < 1) {
       problem = 'Sold out. Please remove it.';
     } else if (item.quantity > available) {

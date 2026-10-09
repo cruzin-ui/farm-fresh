@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { SELLER_FEE_RATE } from '@/lib/pricing';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { OPERATOR_DESCRIPTION } from '@/lib/legal';
+import { LISTING_CATEGORIES } from '@/lib/categories';
 
 export const metadata: Metadata = { title: 'Seller Terms' };
 
@@ -41,8 +42,15 @@ export default function SellerTermsPage() {
           <p>
             You are the seller of the products you list. You are responsible for knowing and following all
             federal, state and local laws that apply to them, including any licenses, permits, registrations,
-            labeling, packaging and food-safety requirements. Rules for items such as eggs, seeds, honey, jam and
+            labeling, packaging and food-safety requirements. Rules for items such as eggs, honey, jam and
             other prepared foods vary by state; it is your responsibility to check them before you list.
+          </p>
+          <p className="mt-2">
+            <strong>Local produce only.</strong> Farm Fresh Direct is for locally grown produce. You may only
+            list items that belong in one of our categories ({LISTING_CATEGORIES.join(', ')}), and that you
+            grew, raised or made yourself. Seeds, plants, meat, dairy, baked goods, crafts and anything that is
+            not food may not be listed. We may remove any listing that does not belong, without notice, and
+            cancel and refund any open orders for it.
           </p>
         </section>
 

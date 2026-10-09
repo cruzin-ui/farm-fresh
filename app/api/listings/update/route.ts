@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { checkListingAllowed, saveListingPickupAddress, MAX_LISTING_TAGS } from '@/lib/listingRules';
+import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { geocodeZip } from '@/lib/geo';
 import { alertAdmin } from '@/lib/alerts';
 
@@ -39,6 +40,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Listing not found.' }, { status: 404 });
     }
 
+    if (listing.status === 'removed') {
+      return NextResponse.json(
+        { error: 'This listing was removed by Farm Fresh Direct and can no longer be changed. Contact us if you think that was a mistake.' },
+        { status: 403 }
+      );
+    }
+
     const { count: orderCount, error: countError } = await supabaseAdmin
       .from('orders')
       .select('id', { count: 'exact', head: true })
@@ -55,6 +63,15 @@ export async function POST(request: Request) {
     const variety = typeof fields.variety === 'string' ? fields.variety.trim() || null : listing.variety ?? null;
     const category = typeof fields.category === 'string' ? fields.category : listing.category;
     const unitType = typeof fields.unit_type === 'string' ? fields.unit_type : listing.unit_type;
+
+    // Also stops a listing in a category that has since been removed (such
+    // as seeds) from being edited back onto sale.
+    if (!isAllowedCategory(category)) {
+      return NextResponse.json(
+        { error: `This category can no longer be sold here. ${PRODUCE_ONLY_NOTICE}` },
+        { status: 400 }
+      );
+    }
 
     if (!title) {
       return NextResponse.json({ error: 'Crop name is required.' }, { status: 400 });

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { checkListingAllowed, saveListingPickupAddress, MAX_LISTING_TAGS } from '@/lib/listingRules';
+import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { geocodeZip } from '@/lib/geo';
 import { alertAdmin } from '@/lib/alerts';
@@ -52,6 +53,9 @@ export async function POST(request: Request) {
     if (!pickupAddress) {
       return NextResponse.json({ error: 'A pickup address is required.' }, { status: 400 });
     }
+    if (!isAllowedCategory(fields.category)) {
+      return NextResponse.json({ error: `Choose one of the listed categories. ${PRODUCE_ONLY_NOTICE}` }, { status: 400 });
+    }
 
     const notAllowed = await checkListingAllowed({
       farmerId: user.id,
@@ -101,7 +105,7 @@ export async function POST(request: Request) {
           farmer_id: user.id,
           title,
           variety,
-          category: typeof fields.category === 'string' ? fields.category : 'Vegetables',
+          category: fields.category,
           description: typeof fields.description === 'string' ? fields.description : '',
           unit_type: typeof fields.unit_type === 'string' ? fields.unit_type : 'lbs',
           price_per_unit: price,

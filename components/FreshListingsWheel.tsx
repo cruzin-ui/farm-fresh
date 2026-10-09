@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Sprout, Pause, Play } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { LISTING_CATEGORIES } from '@/lib/categories';
 
 const MAX_LISTINGS = 12;
 // How fast the strip drifts on its own, in pixels per second.
@@ -57,6 +58,7 @@ export default function FreshListingsWheel() {
         .from('produce_listings')
         .select('id, title, variety, price_per_unit, unit_type, image_url, farmer_id, location_name')
         .gte('available_quantity', 1)
+        .in('category', LISTING_CATEGORIES)
         .order('created_at', { ascending: false })
         .limit(60);
 
