@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { resolveNoShow, refundOrderQuantity } from '@/lib/orderActions';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
+import { clearOldCheckoutAttempts } from '@/lib/checkoutGuard';
 import {
   readyBy,
   autoCancelAt,
@@ -114,6 +115,13 @@ export async function GET(request: Request) {
       }
     }
 
+    // Housekeeping: old checkout-attempt records are no longer needed.
+    try {
+      await clearOldCheckoutAttempts();
+    } catch (cleanupError) {
+      console.error('Could not clear old checkout attempts:', cleanupError);
+    }
+
     // ---- Pickup deadlines ----
     const siteUrl = new URL(request.url).origin;
     const now = Date.now();
@@ -173,6 +181,7 @@ export async function GET(request: Request) {
             listing,
             newQuantity: 0,
             restock: true,
+            reason: 'never_ready',
             note: "The farmer didn't have this order ready in time, so it was cancelled automatically and refunded in full, including the service fee.",
           });
           autoCancelled.push(`${label} — $${refundAmount.toFixed(2)} refunded`);

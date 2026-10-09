@@ -45,11 +45,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
     }
 
-    // The pickup address is fixed when the buyer pays: it is what they agreed
-    // to and what their sales tax was worked out for, so it can't be changed
-    // here. Only an order that somehow has none (a listing from before
-    // addresses were required) takes the one the farmer enters now.
-    const pickupAddress: string | null = order.pickup_address || enteredAddress || null;
+    // The pickup address is fixed when the buyer pays — it is what their sales
+    // tax was worked out for — and kept privately until now. Marking the order
+    // ready is what puts it on the order, where the buyer can see it. If the
+    // private copy is missing, the listing's current address is used; only an
+    // order with neither takes one the farmer types in.
+    const { data: savedAddress } = await supabaseAdmin
+      .from('order_pickup_addresses')
+      .select('address')
+      .eq('order_id', order.id)
+      .maybeSingle();
+    const { data: listingAddress } = savedAddress?.address
+      ? { data: null }
+      : await supabaseAdmin
+          .from('listing_pickup_addresses')
+          .select('address')
+          .eq('listing_id', order.listing_id)
+          .maybeSingle();
+
+    const pickupAddress: string | null =
+      order.pickup_address || savedAddress?.address || listingAddress?.address || enteredAddress || null;
     if (!pickupAddress) {
       return NextResponse.json({ error: 'Enter the pickup address for this order.' }, { status: 400 });
     }

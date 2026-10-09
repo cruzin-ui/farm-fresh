@@ -57,7 +57,9 @@ export function parseCartItems(raw: unknown): CartRequestItem[] | null {
   return [...quantities].map(([listingId, quantity]) => ({ listingId, quantity }));
 }
 
-export async function priceCart(items: CartRequestItem[]) {
+// `buyerId` is the signed-in buyer, if there is one: they can't buy from their
+// own listings.
+export async function priceCart(items: CartRequestItem[], buyerId?: string | null) {
   const listingIds = items.map((item) => item.listingId);
 
   const { data: listings } = await supabaseAdmin
@@ -95,6 +97,8 @@ export async function priceCart(items: CartRequestItem[]) {
     let problem: string | null = null;
     if (!listing) {
       problem = 'This listing is no longer available. Please remove it.';
+    } else if (buyerId && listing.farmer_id === buyerId) {
+      problem = "This is your own listing, and you can't buy from yourself. Please remove it.";
     } else if (listing.status === 'removed' || !isAllowedCategory(listing.category)) {
       problem = 'This kind of item is no longer sold on Farm Fresh Direct. Please remove it.';
     } else if (available < 1) {

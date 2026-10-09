@@ -20,6 +20,8 @@ import {
 import Link from 'next/link';
 import { postWithAuth } from '@/lib/authedFetch';
 import BuyerGuidance from '@/components/BuyerGuidance';
+import TurnstileBox from '@/components/TurnstileBox';
+import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
 import { BUYER_FEE_LABEL, MIN_CHARGE_CENTS } from '@/lib/pricing';
 import { useCart, addToCart, setCartQuantity, removeFromCart, clearCart, type CartItem } from '@/lib/cart';
 
@@ -29,6 +31,9 @@ const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : 
 // The guest email box sits in its own card above the payment form, and is tied
 // back to the form by this id so the browser still insists on it before paying.
 const PAYMENT_FORM_ID = 'checkout-payment-form';
+
+// The "I'm human" check shown above the Pay button.
+const captchaSiteKey = TURNSTILE_SITE_KEY;
 
 // One item of the cart as priced by /api/checkout/quote.
 type QuoteLine = {
@@ -127,6 +132,12 @@ function PaymentForm({
 
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  // Proof from the "I'm human" check. Each one works for a single attempt.
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  // True if the check itself couldn't run. The buyer isn't held up waiting
+  // for it; the server makes the final decision.
+  const [captchaUnavailable, setCaptchaUnavailable] = useState(false);
 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,6 +154,7 @@ function PaymentForm({
       const intentRes = await postWithAuth('/api/checkout', {
         items,
         ...(signedIn ? {} : { guestEmail }),
+        ...(captchaSiteKey ? { captchaToken } : {}),
       });
       const intentData = await intentRes.json();
       if (!intentRes.ok) {
@@ -180,6 +192,8 @@ function PaymentForm({
       clearCart();
     } catch (err: any) {
       setPaymentError(err.message || 'Payment processing failed.');
+      // The proof has been used up; get a new one for the next try.
+      setCaptchaResetKey((key) => key + 1);
     } finally {
       setLoadingPayment(false);
     }
@@ -212,13 +226,25 @@ function PaymentForm({
         </span>
       </label>
 
+      {captchaSiteKey && (
+        <TurnstileBox
+          siteKey={captchaSiteKey}
+          onToken={(token) => {
+            setCaptchaToken(token);
+            if (token) setCaptchaUnavailable(false);
+          }}
+          onUnavailable={() => setCaptchaUnavailable(true)}
+          resetKey={captchaResetKey}
+        />
+      )}
+
       {paymentError && (
         <p role="alert" className="text-xs text-red-600 bg-red-50 border border-red-200 p-2 rounded-lg">{paymentError}</p>
       )}
 
       <button
         type="submit"
-        disabled={loadingPayment || !stripe || !elements}
+        disabled={loadingPayment || !stripe || !elements || Boolean(captchaSiteKey && !captchaToken && !captchaUnavailable)}
         className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 text-sm"
       >
         {loadingPayment ? 'Processing Payment...' : `Pay $${grandTotal.toFixed(2)} Now`}
@@ -280,11 +306,9 @@ function CheckoutContent() {
     // A short pause so typing a quantity doesn't ask for a price on every keystroke.
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch('/api/checkout/quote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items }),
-        });
+        // Sent with the sign-in, if there is one, so the server can spot a
+        // seller trying to buy their own listing.
+        const res = await postWithAuth('/api/checkout/quote', { items });
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok) throw new Error(data.error || 'Could not price this order.');

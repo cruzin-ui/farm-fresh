@@ -5,6 +5,7 @@ import { MIN_CHARGE_CENTS, SELLER_FEE_RATE } from '@/lib/pricing';
 import { parseCartItems, priceCart } from '@/lib/checkoutCart';
 import { TaxError } from '@/lib/tax';
 import { alertAdmin } from '@/lib/alerts';
+import { verifyCaptcha, allowCheckoutAttempt, requestIp } from '@/lib/checkoutGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,9 +40,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Your cart is empty or could not be read.' }, { status: 400 });
     }
 
+    // Guards against scripts trying stolen card numbers: prove a person is
+    // here, and cap how many payments one visitor can start.
+    const ip = requestIp(request);
+    const captchaToken = typeof body.captchaToken === 'string' ? body.captchaToken : '';
+    if (!(await verifyCaptcha(captchaToken, ip, new URL(request.url).hostname))) {
+      return NextResponse.json(
+        { error: "We couldn't confirm you're not a robot. Please wait for the check above the Pay button to finish, then try again." },
+        { status: 400 }
+      );
+    }
+    if (!(await allowCheckoutAttempt(ip, buyerEmail))) {
+      return NextResponse.json(
+        { error: 'Too many payment attempts from this connection. Please wait 15 minutes and try again, or contact us if you need help.' },
+        { status: 429 }
+      );
+    }
+
     // Totals are always computed server-side from the listing prices — never
     // trusted from the client.
-    const cart = await priceCart(items);
+    const cart = await priceCart(items, user?.id);
 
     const blocked = cart.lines.find((line) => line.problem);
     if (blocked) {

@@ -56,7 +56,17 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'Where and when do I pick up?',
     answer:
-      "Listings show the farmer's city and zip code. You get the full pickup address once you've paid. Wait for our \"ready for pickup\" email before heading over — it includes the days and times you can come and any instructions.",
+      "Listings show the farmer's city and zip code, and that's what you see when you order. The full pickup address comes in our \"ready for pickup\" email, along with the days and times you can come and any instructions. Many sellers are home gardeners, so we only share their address once there's something to collect.",
+  },
+  {
+    question: 'How do I contact the farmer?',
+    answer:
+      "Use Message the Farmer on your order page. We email them your message and they reply the same way, so neither of you has to share an email address or phone number. It's for things like running late or finding the right gate; if something has gone wrong, use Report a problem instead, which comes to us.",
+  },
+  {
+    question: 'The farmer marked my order as picked up, but I never got it. What do I do?',
+    answer:
+      "Your order page asks you to confirm each picked-up item. Choose No, I Didn't Get It and tell us what happened. That comes straight to us, and we'll look into it with you and the farmer.",
   },
   {
     question: 'How long do I have to pick up?',

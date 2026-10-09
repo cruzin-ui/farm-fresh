@@ -17,10 +17,17 @@ export type BuyerOrder = {
   // buyer must collect it by. Empty on orders from before deadlines existed.
   ready_by: string | null;
   pickup_by: string | null;
+  // The buyer's own account of the order: confirmed received, or a problem
+  // they reported (and when).
+  buyer_received: boolean;
+  buyer_problem_at: string | null;
   // True once the farmer has reported the order as not collected.
   no_show_reported: boolean;
   pickup_details: string | null;
+  // The full address appears once the farmer marks the order ready; until
+  // then the buyer sees only the area (city and zip).
   pickup_address: string | null;
+  pickup_area: string;
   pickup_code: string | null;
   reviewed: boolean;
   listing_title: string;

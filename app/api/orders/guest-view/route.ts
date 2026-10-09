@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
     const { data: listings } = await supabaseAdmin
       .from('produce_listings')
-      .select('id, title, unit_type, location_name, farmer_id')
+      .select('id, title, unit_type, location_name, zip_code, farmer_id')
       .in('id', listingIds);
     const listingById = new Map((listings || []).map((l) => [l.id, l]));
 
@@ -95,10 +95,13 @@ export async function POST(request: Request) {
           refunded_amount: Number(o.refunded_amount ?? 0),
           ready_by: o.ready_by || null,
           pickup_by: o.pickup_by || null,
+          buyer_received: Boolean(o.buyer_received_at),
+          buyer_problem_at: o.buyer_problem_at || null,
           no_show_reported: Boolean(o.no_show_reported_at),
           pickup_details: o.status === 'ready_for_pickup' ? o.pickup_details || null : null,
           pickup_code: codeRowByOrderId.get(o.id)?.code || null,
           pickup_address: o.pickup_address || null,
+          pickup_area: [listing?.location_name, listing?.zip_code].filter(Boolean).join(' '),
           reviewed: reviewedOrderIds.has(o.id),
           listing_title: listing?.title || 'Harvest Crop',
           listing_unit_type: listing?.unit_type || 'units',

@@ -3,8 +3,20 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { calculateFarmerPayoutCents, calculateCancellationSplit, RESTOCKING_RATE } from '@/lib/pricing';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
-import { alertAdmin } from '@/lib/alerts';
+import { alertAdmin, notifyAdmins } from '@/lib/alerts';
 import { reverseOrderTax } from '@/lib/tax';
+
+// An order completed this soon after it was paid for is unusual for produce
+// that has to be picked and collected in person, and is how someone would
+// cash out a stolen card through their own listing. It is still completed,
+// but an admin is told.
+export const FAST_COMPLETION_MINUTES = 30;
+
+// True while the buyer's bank is disputing the payment (or has taken it back).
+// No money is paid out to a farmer on a payment in that state.
+export function hasOpenDispute(order: { dispute_status?: string | null }) {
+  return Boolean(order.dispute_status) && !['won', 'warning_closed'].includes(String(order.dispute_status));
+}
 
 // On a no-show, the farmer keeps this share of the produce subtotal as a
 // restocking fee; the platform keeps its buyer fee; the buyer gets the rest.
@@ -185,6 +197,13 @@ export async function completeOrderAndReleasePayout(
     throw new OrderActionError(409, 'Only open orders can be completed.');
   }
 
+  if (hasOpenDispute(order)) {
+    throw new OrderActionError(
+      409,
+      "The buyer's bank is disputing this payment, so it can't be paid out right now. Please contact us."
+    );
+  }
+
   let transferId: string | null = order.stripe_transfer_id ?? null;
   let payoutAmount = 0;
 
@@ -257,6 +276,7 @@ export async function completeOrderAndReleasePayout(
     .from('orders')
     .update({
       status: 'completed',
+      completed_at: new Date().toISOString(),
       stripe_transfer_id: transferId,
       ...(payoutAmount > 0 ? { farmer_payout_amount: payoutAmount } : {}),
     })
@@ -271,6 +291,27 @@ export async function completeOrderAndReleasePayout(
   // The order has just moved to completed (an already-completed order returned
   // early, above), so this is sent once.
   if (sendThankYou) await sendBuyerThankYouEmail(order, farmerId, siteUrl);
+
+  const minutesSincePurchase = (Date.now() - new Date(order.created_at).getTime()) / 60000;
+  if (minutesSincePurchase < FAST_COMPLETION_MINUTES) {
+    await notifyAdmins(
+      `Order completed ${Math.max(1, Math.round(minutesSincePurchase))} minutes after purchase`,
+      `
+        <h2 style="color: #b45309;">An order was completed very quickly</h2>
+        <p>
+          Order <strong>#${String(order.id).slice(0, 8)}</strong> (buyer ${escapeHtml(order.buyer_email || 'unknown')})
+          was paid for and marked picked up within ${FAST_COMPLETION_MINUTES} minutes.
+          ${payoutAmount > 0 ? `$${payoutAmount.toFixed(2)} was released to the seller.` : ''}
+        </p>
+        <p>
+          That is unusual for produce collected in person. It can be innocent (a buyer ordering at the farm
+          stand), but it is also how a seller would cash out a stolen card through their own listing. Check
+          the seller in the admin page; if it looks wrong, use Cancel &amp; Refund before the weekly payout.
+        </p>
+        ${siteUrl ? `<p><a href="${siteUrl}/admin">Open the admin page</a></p>` : ''}
+      `
+    );
+  }
 
   return { payoutAmount };
 }
@@ -287,8 +328,11 @@ export async function refundOrderQuantity(params: {
   restock?: boolean;
   note?: string;
   allowCompleted?: boolean;
+  // Who or what cancelled it, recorded on the order when it is cancelled
+  // outright: 'seller', 'admin', 'seller_late', 'never_ready', 'listing_removed'.
+  reason?: string;
 }) {
-  const { order, listing, newQuantity, restock = false, note = '', allowCompleted = false } = params;
+  const { order, listing, newQuantity, restock = false, note = '', allowCompleted = false, reason } = params;
 
   const completed = order.status === 'completed';
 
@@ -375,7 +419,7 @@ export async function refundOrderQuantity(params: {
           }
         : {}),
       refunded_amount: Number(order.refunded_amount ?? 0) + refundAmount,
-      ...(cancelled ? { status: 'cancelled' } : {}),
+      ...(cancelled ? { status: 'cancelled', ...(reason ? { cancel_reason: reason } : {}) } : {}),
     })
     .eq('id', order.id);
 
@@ -548,6 +592,7 @@ export async function resolveNoShow(params: {
       subtotal_amount: 0,
       farmer_payout_amount: restockingFee,
       stripe_transfer_id: transferId,
+      cancel_reason: cancelledByBuyer ? 'buyer' : 'no_show',
       ...(cancelledByBuyer ? { cancelled_by_buyer_at: new Date().toISOString() } : {}),
     })
     .eq('id', order.id);

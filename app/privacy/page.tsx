@@ -40,8 +40,9 @@ export default function PrivacyPolicyPage() {
               zip code, the listings you post, and the pickup address for each listing.
             </li>
             <li>
-              <strong>Messages.</strong> What you send us through the Contact Us form, and messages a seller
-              sends a buyer through the site about an order.
+              <strong>Messages.</strong> What you send us through the Contact Us form, problems you report
+              with an order, and the messages buyers and sellers send each other through the site about an
+              order.
             </li>
             <li>
               <strong>Payment information.</strong> Card details are entered directly with our payment
@@ -74,13 +75,14 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">3. What buyers and sellers see about each other</h2>
           <ul className="list-disc pl-5 space-y-1.5">
             <li>
-              <strong>Sellers see</strong> the email address of a buyer who orders from them, and what was
-              ordered.
+              <strong>Sellers see</strong> what a buyer ordered from them, and any messages the buyer sends
+              them through the site. A buyer&apos;s email address is shown to the seller only once the order has
+              been picked up or closed.
             </li>
             <li>
               <strong>Buyers see</strong> a seller&apos;s farm name, photos, description, city and zip code on
-              public listings. A seller&apos;s pickup address is shown to a buyer only after that buyer has
-              paid for an order.
+              public listings. A seller&apos;s pickup address is shown to a buyer only once that buyer&apos;s
+              paid order has been marked ready for pickup.
             </li>
           </ul>
         </section>
@@ -100,6 +102,10 @@ export default function PrivacyPolicyPage() {
             </li>
             <li>
               <strong>Resend</strong> — sending our emails.
+            </li>
+            <li>
+              <strong>Cloudflare</strong> — the automated &quot;I&apos;m human&quot; check at checkout
+              (Turnstile), which looks at your browser and connection to tell people from scripts.
             </li>
             <li>
               <strong>Address and zip code lookup services</strong> (Photon and Zippopotam) — when a seller

@@ -21,6 +21,7 @@ export const dynamic = 'force-dynamic';
 //   dismiss_no_show — clear a farmer's no-show report without closing the order
 //   hold_no_show   — keep a reported no-show from being closed automatically
 //   reset_attempts — unlock an order after too many wrong pickup codes
+//   resolve_problem — mark a problem the buyer reported as dealt with
 export async function POST(request: Request) {
   try {
     const admin = await getRequestAdmin(request);
@@ -73,6 +74,16 @@ export async function POST(request: Request) {
       });
     }
 
+    if (action === 'resolve_problem') {
+      const { error } = await supabaseAdmin
+        .from('orders')
+        .update({ buyer_problem_resolved_at: new Date().toISOString() })
+        .eq('id', order.id);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true, message: "Marked as resolved. Nothing else about the order was changed." });
+    }
+
     if (action === 'reset_attempts') {
       // Wrong guesses are counted against every item the code covers, so they
       // are cleared for the whole checkout.
@@ -122,6 +133,7 @@ export async function POST(request: Request) {
         listing,
         newQuantity: 0,
         allowCompleted: true,
+        reason: 'admin',
         note: 'This order was cancelled and refunded by Farm Fresh Direct support.',
       });
       return NextResponse.json({

@@ -67,3 +67,21 @@ export async function alertAdmin(where: string, error: unknown, details?: Record
     console.error('Could not send error alert:', err);
   }
 }
+
+// Emails the administrators about something they should look at that isn't a
+// fault in the site: a payment dispute, a buyer reporting a problem, an order
+// that looks suspicious. `html` must already be escaped. Never throws.
+export async function notifyAdmins(subject: string, html: string) {
+  try {
+    const recipients = alertRecipients();
+    if (recipients.length === 0) return;
+
+    await sendEmail({
+      to: recipients,
+      subject: `[Farm Fresh Direct] ${subject}`,
+      html: `<div style="font-family: sans-serif; max-width: 640px;">${html}</div>`,
+    });
+  } catch (err) {
+    console.error('Could not send admin notice:', err);
+  }
+}

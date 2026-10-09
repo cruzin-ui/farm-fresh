@@ -52,6 +52,7 @@ export async function POST(request: Request) {
       newQuantity,
       restock: Boolean(restock),
       note: note ? `Message from the farmer: ${note}` : '',
+      reason: 'seller',
     });
 
     return NextResponse.json({ success: true, ...result });

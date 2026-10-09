@@ -12,6 +12,7 @@ import {
 } from '@/lib/pricing';
 import { MapPin, Store } from 'lucide-react';
 import ReviewForm from '@/components/ReviewForm';
+import OrderMessages from '@/components/OrderMessages';
 import { describeItems, isOpenStatus, type BuyerOrder, type PickupGroup } from '@/lib/pickupGroups';
 import { isSellerLate } from '@/lib/pickupRules';
 
@@ -130,6 +131,142 @@ function CancelItem({ item, token }: { item: BuyerOrder; token?: string | null }
           Keep My Order
         </button>
       </div>
+    </div>
+  );
+}
+
+// The buyer's side of a pickup. Once the farmer marks an item picked up, the
+// buyer is asked whether they actually received it — a "no" goes to the
+// admins, because the two accounts don't match. Any item, picked up or not,
+// can also have a problem reported against it.
+function ItemFeedback({ item, token }: { item: BuyerOrder; token?: string | null }) {
+  const [mode, setMode] = useState<'idle' | 'not-received' | 'problem'>('idle');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [received, setReceived] = useState(item.buyer_received);
+  const [reportedAt, setReportedAt] = useState(item.buyer_problem_at);
+
+  const send = async (payload: { received?: boolean; note?: string }) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await postWithAuth('/api/orders/feedback', { orderId: item.id, ...(token ? { token } : {}), ...payload });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not send that.');
+
+      if (payload.received === true) setReceived(true);
+      else setReportedAt(new Date().toISOString());
+      setMode('idle');
+      setNote('');
+    } catch (err: any) {
+      setError(err.message || 'Could not send that.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (reportedAt) {
+    return (
+      <p role="status" className="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3">
+        You reported a problem with this item on {shortDate(reportedAt)}. We're looking into it and will email you.
+      </p>
+    );
+  }
+
+  if (mode !== 'idle') {
+    const inputId = `problem-${item.id}`;
+    return (
+      <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-950 space-y-2 print:hidden">
+        <label htmlFor={inputId} className="block font-bold text-sm">
+          {mode === 'not-received' ? "Tell us what happened — you didn't get this item?" : 'What went wrong with this item?'}
+        </label>
+        <textarea
+          id={inputId}
+          rows={3}
+          maxLength={1000}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={
+            mode === 'not-received'
+              ? 'For example: I picked up the corn but the farmer said the potatoes had run out.'
+              : 'For example: the farmer asked me to pay cash, or nobody was at the address.'
+          }
+          className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm bg-white"
+        />
+        <p>This goes to Farm Fresh Direct, not to the farmer. We'll reply by email.</p>
+        {error && (
+          <p role="alert" className="font-semibold text-red-700">
+            {error}
+          </p>
+        )}
+        <div className="flex gap-2 flex-wrap">
+          <button
+            type="button"
+            disabled={busy || note.trim().length < 5}
+            onClick={() => send({ ...(mode === 'not-received' ? { received: false } : {}), note })}
+            className="bg-amber-700 hover:bg-amber-800 disabled:bg-gray-400 text-white font-bold px-3.5 py-2 rounded-xl"
+          >
+            {busy ? 'Sending...' : 'Send to Farm Fresh Direct'}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setMode('idle')}
+            className="bg-white border text-gray-700 font-bold px-3.5 py-2 rounded-xl hover:bg-gray-50"
+          >
+            Never Mind
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (item.status === 'completed' && !received) {
+    return (
+      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-950 space-y-2 print:hidden">
+        <p className="font-bold text-sm">The farmer marked this as picked up. Did you receive it?</p>
+        {error && (
+          <p role="alert" className="font-semibold text-red-700">
+            {error}
+          </p>
+        )}
+        <div className="flex gap-2 flex-wrap">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => send({ received: true })}
+            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-bold px-3.5 py-2 rounded-xl"
+          >
+            {busy ? 'Saving...' : 'Yes, I Got It'}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setMode('not-received')}
+            className="bg-white border border-red-200 text-red-700 font-bold px-3.5 py-2 rounded-xl hover:bg-red-50"
+          >
+            No, I Didn't Get It
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 flex-wrap print:hidden">
+      {item.status === 'completed' && received && (
+        <span className="text-xs font-semibold text-emerald-800">You confirmed you received this.</span>
+      )}
+      {item.status !== 'cancelled' && (
+        <button
+          type="button"
+          onClick={() => setMode('problem')}
+          className="text-xs font-semibold text-gray-600 hover:underline py-1"
+        >
+          Report a problem
+        </button>
+      )}
     </div>
   );
 }
@@ -256,11 +393,23 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
                 </p>
               )}
 
+              {item.status === 'pending_pickup' && !item.pickup_address && (
+                <p className="text-xs text-gray-600 flex items-start gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+                  <span>
+                    Pickup{item.pickup_area ? ` in ${item.pickup_area}` : ''}. You'll get the exact address when the
+                    farmer marks this ready.
+                  </span>
+                </p>
+              )}
+
               {item.status === 'ready_for_pickup' && item.pickup_by && (
                 <p className="text-xs font-semibold text-blue-900">Please pick up by {shortDate(item.pickup_by)}.</p>
               )}
 
               {isOpenStatus(item.status) && <CancelItem item={item} token={token} />}
+
+              <ItemFeedback item={item} token={token} />
             </li>
           );
         })}
@@ -279,6 +428,8 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
           </span>
         </p>
       )}
+
+      <OrderMessages orderId={(openItems[0] || first).id} role="buyer" token={token} />
 
       {completedItems.length > 0 && (
         <ReviewForm

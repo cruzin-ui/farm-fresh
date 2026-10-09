@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { recordOrderForPaymentIntent, isCheckoutPayment } from '@/lib/orders';
 import { alertAdmin } from '@/lib/alerts';
+import { handleDisputeEvent } from '@/lib/disputes';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,11 @@ export async function POST(request: Request) {
       if (isCheckoutPayment(paymentIntent)) {
         await recordOrderForPaymentIntent(paymentIntent, new URL(request.url).origin);
       }
+    }
+
+    // A buyer's bank disputing a payment, and the bank's decision on it.
+    if (event.type === 'charge.dispute.created' || event.type === 'charge.dispute.updated' || event.type === 'charge.dispute.closed') {
+      await handleDisputeEvent(event, new URL(request.url).origin);
     }
 
     return NextResponse.json({ received: true });
