@@ -90,7 +90,11 @@ export default function AccountMenu() {
   }
 
   if (!email) {
-    const redirect = pathname && pathname !== '/login' ? `?redirect=${encodeURIComponent(pathname)}` : '';
+    // Someone in the middle of shopping comes back to the page they were on.
+    // From anywhere else, signing in sends sellers to their dashboard and
+    // everyone else to Browse (see /signed-in).
+    const midShopping = ['/checkout', '/listings/', '/sellers/'].some((start) => (pathname || '').startsWith(start));
+    const redirect = midShopping ? `?redirect=${encodeURIComponent(pathname!)}` : '';
 
     return (
       <div className="flex items-center gap-3">

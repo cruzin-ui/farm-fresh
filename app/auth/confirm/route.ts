@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { safeNextPath } from '@/lib/safeRedirect';
+import { safeNextPath, AFTER_SIGN_IN_PATH } from '@/lib/safeRedirect';
 
 // Where the links in our sign-up confirmation and password-reset emails land,
 // once Supabase's email templates are pointed here. The link carries a
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     destination = safeNextPath(next, '/auth/reset-password');
   } else {
     const headedTo = safeNextPath(next, '');
-    const specific = headedTo && !['/browse', '/dashboard', '/welcome'].includes(headedTo);
+    const specific = headedTo && !['/browse', '/dashboard', '/welcome', AFTER_SIGN_IN_PATH].includes(headedTo);
     destination = specific ? `/welcome?next=${encodeURIComponent(headedTo)}` : '/welcome';
   }
 
