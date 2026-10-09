@@ -61,6 +61,7 @@ export async function POST(request: Request) {
             order,
             listing,
             newQuantity: 0,
+            reason: 'listing_removed',
             note: 'This item was removed from Farm Fresh Direct because it is not allowed on the site, so your order for it was cancelled and refunded in full.',
           });
           refunded += 1;

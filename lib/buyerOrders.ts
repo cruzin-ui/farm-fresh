@@ -12,7 +12,7 @@ export async function describeBuyerOrders(rows: any[]): Promise<BuyerOrder[]> {
   const listingIds = [...new Set(rows.map((o) => o.listing_id).filter(Boolean))];
 
   const { data: listings } = listingIds.length
-    ? await supabase.from('produce_listings').select('id, title, unit_type, farmer_id').in('id', listingIds)
+    ? await supabase.from('produce_listings').select('id, title, unit_type, farmer_id, location_name, zip_code').in('id', listingIds)
     : { data: [] as any[] };
   const listingById = new Map((listings || []).map((l) => [l.id, l]));
 
@@ -42,9 +42,12 @@ export async function describeBuyerOrders(rows: any[]): Promise<BuyerOrder[]> {
       refunded_amount: Number(o.refunded_amount ?? 0),
       ready_by: o.ready_by || null,
       pickup_by: o.pickup_by || null,
+      buyer_received: Boolean(o.buyer_received_at),
+      buyer_problem_at: o.buyer_problem_at || null,
       no_show_reported: Boolean(o.no_show_reported_at),
       pickup_details: o.pickup_details || null,
       pickup_address: o.pickup_address || null,
+      pickup_area: [listing?.location_name, listing?.zip_code].filter(Boolean).join(' '),
       // Orders from before codes were stored separately keep theirs on the row.
       pickup_code: codeByOrderId.get(o.id) || o.pickup_code || null,
       reviewed: reviewedOrderIds.has(o.id),

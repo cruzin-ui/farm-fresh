@@ -78,6 +78,7 @@ export async function POST(request: Request) {
         listing,
         newQuantity: 0,
         restock: true,
+        reason: 'seller_late',
         note: "You cancelled this order because the farmer didn't have it ready in time, so it has been refunded in full, including the service fee.",
       }));
       await supabaseAdmin.from('orders').update({ cancelled_by_buyer_at: new Date().toISOString() }).eq('id', order.id);

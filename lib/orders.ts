@@ -89,7 +89,7 @@ async function sendSellerNotification(params: {
       <div style="font-family: sans-serif; max-width: 480px;">
         <h2 style="color: #059669;">You've got a new reservation!</h2>
         <ul>${items.map((item) => `<li><strong>${itemText(item)}</strong> — mark it ready by <strong>${item.readyBy}</strong></li>`).join('')}</ul>
-        <p>Buyer: ${buyerEmail ? escapeHtml(buyerEmail) : 'N/A'}</p>
+        <p>Need to reach the buyer? Use <strong>Message Buyer</strong> on the order in your Seller Dashboard.</p>
         <p>Produce total: $${produceTotal.toFixed(2)}</p>
         <p>
           At pickup, ask the buyer for their pickup code and enter it in your Seller Dashboard
@@ -121,7 +121,7 @@ async function sendBuyerConfirmation(params: {
   farms: {
     farmName: string;
     code: string;
-    pickupAddress: string | null;
+    pickupArea: string;
     items: { quantity: number; unitType: string; title: string; readyBy: string }[];
   }[];
   orderLink: string | null;
@@ -136,7 +136,7 @@ async function sendBuyerConfirmation(params: {
         <div style="margin: 16px 0; padding: 14px; border: 1px solid #a7f3d0; border-radius: 8px;">
           <p style="margin: 0 0 6px;"><strong>${escapeHtml(farm.farmName)}</strong></p>
           <ul style="margin: 0 0 8px; padding-left: 20px;">${farm.items.map((item) => `<li>${itemText(item)} — the farmer should have it ready by ${item.readyBy}</li>`).join('')}</ul>
-          ${farm.pickupAddress ? `<p style="margin: 0 0 8px;">Pickup address: <strong>${escapeHtml(farm.pickupAddress)}</strong></p>` : ''}
+          <p style="margin: 0 0 8px;">Pickup${farm.pickupArea ? ` in <strong>${escapeHtml(farm.pickupArea)}</strong>` : ''}. We'll send the exact address when the farmer marks your order ready.</p>
           <p style="margin: 0;">Pickup code for ${farm.items.length > 1 ? 'these items' : 'this item'}: <strong style="font-size: 20px;">${farm.code}</strong></p>
         </div>`
     )
@@ -190,7 +190,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
 
   const { data: listings } = await supabaseAdmin
     .from('produce_listings')
-    .select('id, available_quantity, title, unit_type, farmer_id, harvest_ready_date')
+    .select('id, available_quantity, title, unit_type, farmer_id, harvest_ready_date, location_name, zip_code')
     .in('id', listingIds);
   const listingById = new Map((listings || []).map((l) => [l.id as string, l]));
 
@@ -236,9 +236,11 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     buyerEmail = buyerUser?.user?.email || buyerEmail;
   }
 
-  // Copy each listing's pickup address onto its order: the buyer can then read
-  // it from their own order, and later edits to the listing don't change
-  // where this order is collected.
+  // Each listing's pickup address is copied for its order now, so later edits
+  // to the listing don't change where this order is collected. The copy goes
+  // in a private table, not on the order row, because the buyer can read their
+  // order row — and a seller's full address is only shown to a buyer once the
+  // order is marked ready, not to anyone willing to pay for an item and cancel.
   const { data: addressRows } = await supabaseAdmin
     .from('listing_pickup_addresses')
     .select('listing_id, address')
@@ -265,7 +267,6 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
           buyer_email: buyerEmail,
           checkout_id: checkoutId,
           ready_by: readyByFor(line.listingId).toISOString(),
-          pickup_address: addressByListingId.get(line.listingId) || null,
           listing_id: line.listingId,
           quantity: line.quantity,
           reserved_quantity: line.quantity,
@@ -311,6 +312,21 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     .filter((order): order is NonNullable<typeof order> => Boolean(order));
 
   const result = await finish(orders);
+
+  // The private copies of the pickup addresses. If this fails the order still
+  // stands; marking it ready falls back to the listing's current address.
+  const addressCopies = orders
+    .map((order) => ({ order_id: order.id, address: addressByListingId.get(order.listing_id) || '' }))
+    .filter((row) => row.address);
+  if (addressCopies.length > 0) {
+    const { error: addressError } = await supabaseAdmin
+      .from('order_pickup_addresses')
+      .upsert(addressCopies, { onConflict: 'order_id', ignoreDuplicates: true });
+    if (addressError) {
+      console.error('Could not save the pickup address for an order:', addressError);
+      await alertAdmin('saving the pickup address for a new order', addressError, { payment: paymentIntent.id });
+    }
+  }
 
   // A cart picked up in several zip codes: tell Stripe the tax was collected,
   // and note on each order which tax record it belongs to. A failure here
@@ -370,7 +386,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     farmerId: string;
     farmName: string;
     code: string;
-    pickupAddress: string | null;
+    pickupArea: string;
     items: { quantity: number; unitType: string; title: string; subtotalCents: number; readyBy: string }[];
   }[] = [];
 
@@ -385,7 +401,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
         farmerId,
         farmName: farmNameById.get(farmerId) || 'Local Farm',
         code: (order && result.codeByOrderId.get(order.id)) || pickupCodeForFarm(checkoutKey, farmerId),
-        pickupAddress: addressByListingId.get(line.listingId) || null,
+        pickupArea: [listing?.location_name, listing?.zip_code].filter(Boolean).join(' '),
         items: [],
       };
       farms.push(farm);

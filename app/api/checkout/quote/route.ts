@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { parseCartItems, priceCart, MAX_CART_LINES } from '@/lib/checkoutCart';
 import { TaxError, TAX_ENABLED } from '@/lib/tax';
 import { alertAdmin } from '@/lib/alerts';
+import { getRequestUser } from '@/lib/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const cart = await priceCart(items);
+    const user = await getRequestUser(request);
+    const cart = await priceCart(items, user?.id);
 
     return NextResponse.json({
       lines: cart.lines,

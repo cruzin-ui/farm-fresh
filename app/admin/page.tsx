@@ -17,11 +17,40 @@ import {
   PieChart,
   Search,
   Store,
+  Users,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 
+type AdminSeller = {
+  farmer_id: string;
+  farm_name: string;
+  payouts_set_up: boolean;
+  listings: number;
+  orders: number;
+  open: number;
+  completed: number;
+  seller_cancelled: number;
+  not_ready_in_time: number;
+  no_shows: number;
+  no_show_reports_open: number;
+  buyer_cancelled: number;
+  buyer_problems: number;
+  disputes: number;
+  fast_completions: number;
+  flags: string[];
+};
+
 type AdminOrder = {
+  completed_at: string | null;
+  cancel_reason: string | null;
+  fast_completion: boolean;
+  dispute_status: string | null;
+  dispute_open: boolean;
+  buyer_received_at: string | null;
+  buyer_problem_at: string | null;
+  buyer_problem_note: string | null;
+  buyer_problem_resolved_at: string | null;
   id: string;
   created_at: string;
   status: string;
@@ -65,7 +94,17 @@ type ContactMessage = {
 };
 
 // The sections of the admin page, chosen from the menu down the side.
-type AdminSection = 'overview' | 'attention' | 'open' | 'all' | 'messages' | 'listings' | 'reviews' | 'fees' | 'reports';
+type AdminSection =
+  | 'overview'
+  | 'attention'
+  | 'open'
+  | 'all'
+  | 'messages'
+  | 'listings'
+  | 'sellers'
+  | 'reviews'
+  | 'fees'
+  | 'reports';
 
 type AdminListing = {
   id: string;
@@ -160,6 +199,8 @@ export default function AdminPage() {
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [listings, setListings] = useState<AdminListing[]>([]);
   const [listingSearch, setListingSearch] = useState('');
+  const [sellers, setSellers] = useState<AdminSeller[]>([]);
+  const [sellerSearch, setSellerSearch] = useState('');
   const [busyListingId, setBusyListingId] = useState<string | null>(null);
   // Fee breakdown: one month ("YYYY-MM") or every month together, and the
   // text typed to find a farm.
@@ -203,6 +244,10 @@ export default function AdminPage() {
     const messagesRes = await postWithAuth('/api/admin/messages');
     const messagesData = await messagesRes.json();
     if (messagesRes.ok) setMessages(messagesData.messages);
+
+    const sellersRes = await postWithAuth('/api/admin/sellers');
+    const sellersData = await sellersRes.json();
+    if (sellersRes.ok) setSellers(sellersData.sellers);
 
     const listingsRes = await postWithAuth('/api/admin/listings');
     const listingsData = await listingsRes.json();
@@ -318,9 +363,19 @@ export default function AdminPage() {
   const staleOrders = openOrders.filter((o) => daysOpen(o) > STALE_AFTER_DAYS);
   // Open orders a farmer has reported as a no-show, waiting for a decision.
   const reportedNoShows = openOrders.filter((o) => o.no_show_reported_at);
-  // Everything that may need a decision from the admin: no-show reports and
-  // orders that have sat open too long.
-  const attentionOrders = openOrders.filter((o) => o.no_show_reported_at || daysOpen(o) > STALE_AFTER_DAYS);
+  // Orders of any status where the buyer has reported a problem that hasn't
+  // been marked resolved, or whose payment the buyer's bank is disputing.
+  const openProblems = orders.filter((o) => o.buyer_problem_at && !o.buyer_problem_resolved_at);
+  const openDisputes = orders.filter((o) => o.dispute_open);
+  // Everything that may need a decision from the admin: those, no-show
+  // reports, and orders that have sat open too long.
+  const attentionOrders = orders.filter(
+    (o) =>
+      (o.buyer_problem_at && !o.buyer_problem_resolved_at) ||
+      o.dispute_open ||
+      (isOpen(o) && (o.no_show_reported_at || daysOpen(o) > STALE_AFTER_DAYS))
+  );
+  const flaggedSellers = sellers.filter((s) => s.flags.length > 0);
 
   const isOrderSection = section === 'attention' || section === 'open' || section === 'all';
   const visibleOrders = section === 'attention' ? attentionOrders : section === 'open' ? openOrders : orders;
@@ -405,6 +460,7 @@ export default function AdminPage() {
     { id: 'all', label: 'All orders', icon: Archive },
     { id: 'messages', label: 'Messages', icon: Mail, count: openMessages.length, urgent: true },
     { id: 'listings', label: 'Listings', icon: Store },
+    { id: 'sellers', label: 'Sellers', icon: Users, count: flaggedSellers.length, urgent: true },
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'fees', label: 'Fee breakdown', icon: PieChart },
     { id: 'reports', label: 'Reports', icon: TrendingUp },
@@ -419,7 +475,7 @@ export default function AdminPage() {
       detail:
         attentionOrders.length === 0
           ? 'Nothing is waiting on you right now.'
-          : `${reportedNoShows.length} no-show report${reportedNoShows.length === 1 ? '' : 's'} (${disputedNoShows} waiting on your decision) · ${staleOrders.length} open more than ${STALE_AFTER_DAYS} days`,
+          : `${openDisputes.length} payment dispute${openDisputes.length === 1 ? '' : 's'} · ${openProblems.length} problem${openProblems.length === 1 ? '' : 's'} reported by buyers · ${reportedNoShows.length} no-show report${reportedNoShows.length === 1 ? '' : 's'} (${disputedNoShows} waiting on your decision) · ${staleOrders.length} open more than ${STALE_AFTER_DAYS} days`,
       urgent: attentionOrders.length > 0,
     },
     {
@@ -695,6 +751,103 @@ export default function AdminPage() {
                     ))}
                   </div>
                 )}
+              </div>
+            );
+          })()}
+
+          {/* SELLERS */}
+          {section === 'sellers' && (() => {
+            const term = sellerSearch.trim().toLowerCase();
+            const shownSellers = sellers.filter((s) => s.farm_name.toLowerCase().includes(term));
+            const cell = (value: number, warn = false) => (
+              <td className={`py-2 pr-4 text-right ${warn && value > 0 ? 'font-bold text-red-700' : ''}`}>{value}</td>
+            );
+
+            return (
+              <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Sellers</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Each seller's track record, with flagged sellers first. A flag is a pattern worth a closer
+                    look, not proof of anything.
+                  </p>
+                </div>
+
+                <div className="relative max-w-sm">
+                  <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+                  <input
+                    type="search"
+                    aria-label="Search sellers"
+                    placeholder="Search farms..."
+                    value={sellerSearch}
+                    onChange={(e) => setSellerSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 border rounded-xl text-sm"
+                  />
+                </div>
+
+                {shownSellers.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-2 text-center">
+                    {sellers.length === 0 ? 'No sellers yet.' : `No farm matches "${sellerSearch}".`}
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <caption className="sr-only">Seller track records</caption>
+                      <thead className="text-gray-500 border-b">
+                        <tr>
+                          <th scope="col" className="py-2 pr-4 font-semibold">Farm</th>
+                          <th scope="col" className="py-2 pr-4 font-semibold text-right">Orders</th>
+                          <th scope="col" className="py-2 pr-4 font-semibold text-right">Picked up</th>
+                          <th scope="col" className="py-2 pr-4 font-semibold text-right">No-shows</th>
+                          <th scope="col" className="py-2 pr-4 font-semibold text-right">Seller cancelled</th>
+                          <th scope="col" className="py-2 pr-4 font-semibold text-right">Not ready in time</th>
+                          <th scope="col" className="py-2 pr-4 font-semibold text-right">Buyer cancelled</th>
+                          <th scope="col" className="py-2 pr-4 font-semibold text-right">Buyer problems</th>
+                          <th scope="col" className="py-2 pr-4 font-semibold text-right">Fast completions</th>
+                          <th scope="col" className="py-2 font-semibold text-right">Disputes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {shownSellers.map((s) => (
+                          <tr key={s.farmer_id} className={s.flags.length > 0 ? 'bg-red-50/60' : ''}>
+                            <th scope="row" className="py-2 pr-4 font-semibold text-gray-900 align-top">
+                              <a href={`/sellers/${s.farmer_id}`} target="_blank" className="hover:underline">
+                                {s.farm_name}
+                              </a>
+                              <span className="block font-normal text-gray-500">
+                                {s.listings} listing{s.listings === 1 ? '' : 's'} · {s.open} open
+                                {s.no_show_reports_open > 0 ? ` · ${s.no_show_reports_open} no-show report${s.no_show_reports_open === 1 ? '' : 's'} pending` : ''}
+                                {!s.payouts_set_up ? ' · payouts not set up' : ''}
+                              </span>
+                              {s.flags.map((flag) => (
+                                <span key={flag} className="block font-bold text-red-700">
+                                  Flag: {flag}
+                                </span>
+                              ))}
+                            </th>
+                            {cell(s.orders)}
+                            {cell(s.completed)}
+                            {cell(s.no_shows, true)}
+                            {cell(s.seller_cancelled, true)}
+                            {cell(s.not_ready_in_time, true)}
+                            {cell(s.buyer_cancelled)}
+                            {cell(s.buyer_problems, true)}
+                            {cell(s.fast_completions, true)}
+                            {cell(s.disputes, true)}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <p className="text-[11px] text-gray-400">
+                  A seller is flagged for: 3 or more no-shows making up 30% of their pickups; cancelling or failing
+                  to ready 3 or more orders making up 30% of their orders; 2 or more orders completed within 30
+                  minutes of purchase; 2 or more problems reported by buyers; any payment dispute; or any listing
+                  you removed. Counts cover the 5,000 most recent orders. Orders from before these reasons were
+                  recorded may be missing from the cancellation columns.
+                </p>
               </div>
             );
           })()}
@@ -1036,6 +1189,35 @@ export default function AdminPage() {
                                 Buyer responded — needs your decision
                               </span>
                             )}
+                            {order.dispute_status && (
+                              <span
+                                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                                  order.dispute_open ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'
+                                }`}
+                              >
+                                Payment dispute: {order.dispute_status.replace(/_/g, ' ')}
+                              </span>
+                            )}
+                            {order.buyer_problem_at && (
+                              <span
+                                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                                  order.buyer_problem_resolved_at ? 'bg-gray-200 text-gray-700' : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {order.status === 'completed' ? 'Buyer says not received / problem' : 'Buyer reported a problem'}
+                                {order.buyer_problem_resolved_at ? ' (resolved)' : ''}
+                              </span>
+                            )}
+                            {order.status === 'completed' && order.buyer_received_at && (
+                              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-emerald-100 text-emerald-800">
+                                Buyer confirmed receipt
+                              </span>
+                            )}
+                            {order.fast_completion && (
+                              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-amber-200 text-amber-950">
+                                Completed within minutes of purchase
+                              </span>
+                            )}
                             {isOpen(order) && order.no_show_auto_approve_at && (
                               <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
                                 Closes automatically after {new Date(order.no_show_auto_approve_at).toLocaleString()}
@@ -1071,6 +1253,14 @@ export default function AdminPage() {
                           </p>
                           {order.stripe_payment_intent_id && (
                             <p className="font-mono text-[10px] text-gray-400">{order.stripe_payment_intent_id}</p>
+                          )}
+                          {order.buyer_problem_at && order.buyer_problem_note && (
+                            <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg text-red-950">
+                              <p className="font-bold">
+                                Buyer wrote on {new Date(order.buyer_problem_at).toLocaleString()}:
+                              </p>
+                              <p className="whitespace-pre-wrap break-words">{order.buyer_problem_note}</p>
+                            </div>
                           )}
                         </div>
 
@@ -1149,6 +1339,21 @@ export default function AdminPage() {
                               className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
                             >
                               Dismiss Report
+                            </button>
+                          )}
+                          {order.buyer_problem_at && !order.buyer_problem_resolved_at && (
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                runAction(
+                                  order,
+                                  'resolve_problem',
+                                  "Mark the buyer's problem as resolved? This only clears the flag; it doesn't refund or change the order."
+                                )
+                              }
+                              className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                            >
+                              Mark Problem Resolved
                             </button>
                           )}
                           {isOpen(order) && order.failed_code_attempts > 0 && (

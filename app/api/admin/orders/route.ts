@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
 import { noShowAutoApproveAt } from '@/lib/noShow';
 import { alertAdmin } from '@/lib/alerts';
+import { FAST_COMPLETION_MINUTES, hasOpenDispute } from '@/lib/orderActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +73,22 @@ export async function POST(request: Request) {
         stripe_payment_intent_id: o.stripe_payment_intent_id || null,
         pickup_code: code?.code || o.pickup_code || o.verification_code || null,
         failed_code_attempts: Number(code?.failed_attempts ?? 0),
+        completed_at: o.completed_at || null,
+        cancel_reason: o.cancel_reason || null,
+        // Marked picked up within minutes of being paid for.
+        fast_completion: Boolean(
+          o.status === 'completed' &&
+            o.completed_at &&
+            new Date(o.completed_at).getTime() - new Date(o.created_at).getTime() < FAST_COMPLETION_MINUTES * 60 * 1000
+        ),
+        // A payment dispute with the buyer's bank, and whether it is still open.
+        dispute_status: o.dispute_status || null,
+        dispute_open: hasOpenDispute(o),
+        // The buyer's own account of the order.
+        buyer_received_at: o.buyer_received_at || null,
+        buyer_problem_at: o.buyer_problem_at || null,
+        buyer_problem_note: o.buyer_problem_note || null,
+        buyer_problem_resolved_at: o.buyer_problem_resolved_at || null,
         no_show_reported_at: o.no_show_reported_at || null,
         // The buyer responded (or an admin put it on hold): no automatic closing.
         no_show_disputed_at: o.no_show_disputed_at || null,

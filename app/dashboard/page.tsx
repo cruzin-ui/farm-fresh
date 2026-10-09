@@ -7,6 +7,7 @@ import { resizeImage } from '@/lib/resizeImage';
 import { SELLER_FEE_RATE } from '@/lib/pricing';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
+import OrderMessages from '@/components/OrderMessages';
 import { LISTING_CATEGORIES, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import {
   isSellerLate,
@@ -265,7 +266,7 @@ export default function SellerDashboardPage() {
     }
 
     const listingIds = (listings || []).map((l) => l.id);
-    const listingLookup = (listings || []).reduce((acc, l) => {
+    const listingLookup = listingsWithAddress.reduce((acc, l) => {
       acc[l.id] = l;
       return acc;
     }, {} as Record<string, any>);
@@ -285,6 +286,9 @@ export default function SellerDashboardPage() {
           listing_title: listingLookup[o.listing_id]?.title || 'Harvest Crop',
           listing_unit_type: listingLookup[o.listing_id]?.unit_type || 'units',
           listing_pickup_instructions: listingLookup[o.listing_id]?.pickup_instructions || '',
+          // The address the buyer is sent when this is marked ready: the one
+          // on the order if it has been revealed already, else the listing's.
+          known_pickup_address: o.pickup_address || listingLookup[o.listing_id]?.pickup_address || '',
         }));
 
         setIncomingOrders(
@@ -518,7 +522,7 @@ export default function SellerDashboardPage() {
     const orderId = order.id;
     const address = readyAddress.trim();
 
-    if (!order.pickup_address && !address) {
+    if (!order.known_pickup_address && !address) {
       alert('Enter the pickup address for this order.');
       return;
     }
@@ -541,7 +545,7 @@ export default function SellerDashboardPage() {
       const res = await postWithAuth('/api/orders/mark-ready', {
         orderId,
         pickupDetails,
-        ...(order.pickup_address ? {} : { pickupAddress: address }),
+        ...(order.known_pickup_address ? {} : { pickupAddress: address }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to mark order ready.');
@@ -1798,7 +1802,7 @@ export default function SellerDashboardPage() {
                             {order.listing_title}
                           </h3>
                           <p className="text-xs text-gray-600">
-                            Buyer: <span className="font-semibold">{order.buyer_email || 'Buyer'}</span> ({order.reserved_quantity} {order.listing_unit_type})
+                            Quantity: <span className="font-semibold">{order.reserved_quantity} {order.listing_unit_type}</span>
                           </p>
                           <p className="text-xs font-extrabold text-emerald-700">
                             {order.farmer_payout_amount != null
@@ -1877,6 +1881,8 @@ export default function SellerDashboardPage() {
                             )}
                         </div>
                       </div>
+
+                      <OrderMessages orderId={order.id} role="seller" />
 
                       {order.no_show_reported_at && (
                         <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3">
@@ -2058,13 +2064,14 @@ export default function SellerDashboardPage() {
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
                           <p className="text-sm font-bold text-blue-950">Tell the buyer where and when to pick up</p>
 
-                          {order.pickup_address ? (
+                          {order.known_pickup_address ? (
                             <div className="text-xs text-blue-950">
                               <p className="font-semibold">Pickup address</p>
-                              <p className="text-sm">{order.pickup_address}</p>
+                              <p className="text-sm">{order.known_pickup_address}</p>
                               <p className="text-[11px] text-blue-900 mt-0.5">
-                                This is the address from your listing that the buyer agreed to when they paid, so it
-                                can't be changed for this order.
+                                This is the address from your listing. The buyer has only seen your city and zip
+                                code so far; sending this is what gives them the full address. It can't be changed
+                                for this order.
                               </p>
                             </div>
                           ) : (
