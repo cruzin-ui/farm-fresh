@@ -6,6 +6,7 @@ import { calculateFarmerPayoutCents } from '@/lib/pricing';
 import { buyerGuidanceEmailHtml } from '@/lib/buyerGuidance';
 import { alertAdmin } from '@/lib/alerts';
 import { recordCartTax } from '@/lib/tax';
+import { readyDeadline, formatDeadline, SELLER_READY_DAYS, BUYER_PICKUP_DAYS } from '@/lib/pickupRules';
 
 // One item of a checkout, as saved on the payment by /api/checkout.
 type CheckoutLine = {
@@ -72,7 +73,7 @@ const itemText = (item: { quantity: number; unitType: string; title: string }) =
 // it from the buyer at pickup, and need it to release their payout.
 async function sendSellerNotification(params: {
   sellerEmail: string;
-  items: { quantity: number; unitType: string; title: string; subtotalCents: number }[];
+  items: { quantity: number; unitType: string; title: string; subtotalCents: number; readyBy: string }[];
   buyerEmail: string | null;
 }) {
   const { sellerEmail, items, buyerEmail } = params;
@@ -87,7 +88,7 @@ async function sendSellerNotification(params: {
     html: `
       <div style="font-family: sans-serif; max-width: 480px;">
         <h2 style="color: #059669;">You've got a new reservation!</h2>
-        <ul>${items.map((item) => `<li><strong>${itemText(item)}</strong></li>`).join('')}</ul>
+        <ul>${items.map((item) => `<li><strong>${itemText(item)}</strong> — mark it ready by <strong>${item.readyBy}</strong></li>`).join('')}</ul>
         <p>Buyer: ${buyerEmail ? escapeHtml(buyerEmail) : 'N/A'}</p>
         <p>Produce total: $${produceTotal.toFixed(2)}</p>
         <p>
@@ -97,6 +98,12 @@ async function sendSellerNotification(params: {
               ? ' The buyer has one code for everything they bought from you. If they collect only some of it, tick just those items; the code then stops working and the buyer is sent a new one for the rest.'
               : ''
           }
+        </p>
+        <p>
+          <strong>Please mark ${items.length > 1 ? 'each item' : 'it'} ready by the date shown.</strong> You have
+          ${SELLER_READY_DAYS} days from the order (or from your listing's harvest date, if that is later). After
+          that the buyer can cancel for a full refund, and an order that still isn't ready is cancelled
+          automatically. Once you mark it ready, the buyer has ${BUYER_PICKUP_DAYS} days to collect it.
         </p>
         <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">
           Visit your Seller Dashboard to mark ${items.length > 1 ? 'each item' : 'this order'} ready for pickup.
@@ -115,7 +122,7 @@ async function sendBuyerConfirmation(params: {
     farmName: string;
     code: string;
     pickupAddress: string | null;
-    items: { quantity: number; unitType: string; title: string }[];
+    items: { quantity: number; unitType: string; title: string; readyBy: string }[];
   }[];
   orderLink: string | null;
   siteUrl?: string;
@@ -128,7 +135,7 @@ async function sendBuyerConfirmation(params: {
       (farm) => `
         <div style="margin: 16px 0; padding: 14px; border: 1px solid #a7f3d0; border-radius: 8px;">
           <p style="margin: 0 0 6px;"><strong>${escapeHtml(farm.farmName)}</strong></p>
-          <ul style="margin: 0 0 8px; padding-left: 20px;">${farm.items.map((item) => `<li>${itemText(item)}</li>`).join('')}</ul>
+          <ul style="margin: 0 0 8px; padding-left: 20px;">${farm.items.map((item) => `<li>${itemText(item)} — the farmer should have it ready by ${item.readyBy}</li>`).join('')}</ul>
           ${farm.pickupAddress ? `<p style="margin: 0 0 8px;">Pickup address: <strong>${escapeHtml(farm.pickupAddress)}</strong></p>` : ''}
           <p style="margin: 0;">Pickup code for ${farm.items.length > 1 ? 'these items' : 'this item'}: <strong style="font-size: 20px;">${farm.code}</strong></p>
         </div>`
@@ -150,7 +157,7 @@ async function sendBuyerConfirmation(params: {
           ${farms.length > 1 ? 'Each farm has its own pickup code. ' : ''}Give a code to the farmer
           <strong>only when you collect your produce</strong> — it confirms you received your order and
           releases their payment. We'll email you as each item is ready for pickup; please wait for that
-          email before heading over.
+          email before heading over. From then you have ${BUYER_PICKUP_DAYS} days to collect it.
         </p>
         ${buyerGuidanceEmailHtml(siteUrl)}
         ${orderLink ? `<p><a href="${orderLink}">View your order and pickup ${farms.length > 1 ? 'codes' : 'code'}</a> at any time — keep this email, the link is how you get back to it.</p>` : ''}
@@ -183,7 +190,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
 
   const { data: listings } = await supabaseAdmin
     .from('produce_listings')
-    .select('id, available_quantity, title, unit_type, farmer_id')
+    .select('id, available_quantity, title, unit_type, farmer_id, harvest_ready_date')
     .in('id', listingIds);
   const listingById = new Map((listings || []).map((l) => [l.id as string, l]));
 
@@ -238,6 +245,12 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     .in('listing_id', listingIds);
   const addressByListingId = new Map((addressRows || []).map((row) => [row.listing_id as string, row.address as string]));
 
+  // When each item must be marked ready by: the seller's days start when the
+  // order is placed, or on the listing's harvest date if that is still to come.
+  const orderedAt = new Date();
+  const readyByFor = (listingId: string) =>
+    readyDeadline(orderedAt, listingById.get(listingId)?.harvest_ready_date as string | null | undefined);
+
   // All the items go in together, so a checkout is never half recorded.
   const { data: inserted, error: orderError } = await supabaseAdmin
     .from('orders')
@@ -251,6 +264,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
           buyer_id: buyerId,
           buyer_email: buyerEmail,
           checkout_id: checkoutId,
+          ready_by: readyByFor(line.listingId).toISOString(),
           pickup_address: addressByListingId.get(line.listingId) || null,
           listing_id: line.listingId,
           quantity: line.quantity,
@@ -357,7 +371,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     farmName: string;
     code: string;
     pickupAddress: string | null;
-    items: { quantity: number; unitType: string; title: string; subtotalCents: number }[];
+    items: { quantity: number; unitType: string; title: string; subtotalCents: number; readyBy: string }[];
   }[] = [];
 
   for (const line of lines) {
@@ -381,6 +395,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
       unitType: listing?.unit_type || 'units',
       title: listing?.title || 'your order',
       subtotalCents: line.subtotalCents,
+      readyBy: formatDeadline(readyByFor(line.listingId)),
     });
   }
 

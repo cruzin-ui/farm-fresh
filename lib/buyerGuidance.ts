@@ -1,10 +1,12 @@
+import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS } from '@/lib/pickupRules';
+
 // What buyers are told about how pickup works and how to stay safe. Kept in
 // one place so the checkout page and the emails always say the same thing.
 
 export const HOW_PICKUP_WORKS = [
   'You pay online now. Farm Fresh Direct holds your payment — the farmer has not been paid yet.',
-  "We email you when the farmer marks your order ready, with the pickup details. Please don't head over before then.",
-  'Collect your produce at the pickup address on your order and check that it is what you ordered.',
+  `The farmer has ${SELLER_READY_DAYS} days to get your order ready (longer if the crop isn't harvested yet). We email you when it is, with the pickup days and times. Please don't head over before then.`,
+  `Collect your produce within ${BUYER_PICKUP_DAYS} days of that email, at the pickup address on your order, and check that it is what you ordered.`,
   'Once you have your produce, show the farmer the QR code on your order to scan, or give them your pickup code. That confirms the handover and releases their payment.',
 ];
 

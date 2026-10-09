@@ -40,6 +40,8 @@ export async function describeBuyerOrders(rows: any[]): Promise<BuyerOrder[]> {
       subtotal_amount: Number(o.subtotal_amount ?? 0),
       tax_amount: Number(o.tax_amount ?? 0),
       refunded_amount: Number(o.refunded_amount ?? 0),
+      ready_by: o.ready_by || null,
+      pickup_by: o.pickup_by || null,
       no_show_reported: Boolean(o.no_show_reported_at),
       pickup_details: o.pickup_details || null,
       pickup_address: o.pickup_address || null,

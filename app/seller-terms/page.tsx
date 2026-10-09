@@ -4,6 +4,7 @@ import { SELLER_FEE_RATE } from '@/lib/pricing';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { OPERATOR_DESCRIPTION } from '@/lib/legal';
 import { LISTING_CATEGORIES } from '@/lib/categories';
+import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
 
 export const metadata: Metadata = { title: 'Seller Terms' };
 
@@ -87,7 +88,13 @@ export default function SellerTermsPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">5. Fulfilling orders</h2>
           <p>
             You agree to have the produce you list available for pickup at the address and times you give the
-            buyer. If you cannot fulfill an order in full, reduce or cancel it through your Seller Dashboard so
+            buyer. You must mark each order ready for pickup within {SELLER_READY_DAYS} days of the order, or of
+            your listing&apos;s harvest date if that is later. If you do not, the buyer may cancel for a full
+            refund, and an order still not marked ready after {AUTO_CANCEL_DAYS} days is cancelled and refunded
+            automatically; you are not paid for it. Once you mark an order ready, the buyer has{' '}
+            {BUYER_PICKUP_DAYS} days to collect it, and you must offer pickup times within those days. You may
+            report an order as not collected only after that time has passed. If you cannot fulfill an order in
+            full, reduce or cancel it through your Seller Dashboard so
             the buyer is refunded. If a buyer does not collect an order, we may close it and pay you a restocking
             fee.
           </p>

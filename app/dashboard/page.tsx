@@ -8,9 +8,28 @@ import { SELLER_FEE_RATE } from '@/lib/pricing';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
 import { LISTING_CATEGORIES, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
+import {
+  isSellerLate,
+  canReportNoShow,
+  autoCancelAt,
+  SELLER_READY_DAYS,
+  BUYER_PICKUP_DAYS,
+  AUTO_CANCEL_DAYS,
+} from '@/lib/pickupRules';
 
-// What a farmer can tick when telling a buyer their order is ready.
-const PICKUP_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+// What a farmer can tick when telling a buyer their order is ready. The days
+// offered are the ones inside the buyer's pickup window: today and the days
+// that follow it.
+const pickupDayOptions = () =>
+  Array.from({ length: BUYER_PICKUP_DAYS + 1 }, (_, i) =>
+    new Date(Date.now() + i * 24 * 60 * 60 * 1000).toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    })
+  );
+const shortDate = (date: string | Date) =>
+  new Date(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 const PICKUP_TIMES = ['Morning (8am–12pm)', 'Afternoon (12–4pm)', 'Evening (4–7pm)'];
 import {
   Sprout,
@@ -510,7 +529,7 @@ export default function SellerDashboardPage() {
 
     // What the buyer is sent, in the order the options are listed.
     const pickupDetails = [
-      `Pickup days: ${PICKUP_DAYS.filter((day) => readyDays.includes(day)).join(', ')}`,
+      `Pickup days: ${pickupDayOptions().filter((day) => readyDays.includes(day)).join(', ')}`,
       `Pickup times: ${PICKUP_TIMES.filter((time) => readyTimes.includes(time)).join(', ')}`,
       readyDraftText.trim(),
     ]
@@ -1173,7 +1192,17 @@ export default function SellerDashboardPage() {
                       it. The buyer is refunded automatically.
                     </li>
                     <li>
-                      Buyer never came? Once an order is marked ready, use <strong>Buyer Did Not Show</strong>.
+                      <strong>Mark each order ready within {SELLER_READY_DAYS} days</strong> of the order, or of
+                      your listing's harvest date if that's later. Each order shows its date. After it, the buyer
+                      can cancel for a full refund, and an order still not ready after {AUTO_CANCEL_DAYS} days is
+                      cancelled automatically.
+                    </li>
+                    <li>
+                      Once you mark an order ready, the buyer has {BUYER_PICKUP_DAYS} days to collect it, so
+                      offer pickup times on those days.
+                    </li>
+                    <li>
+                      Buyer never came? After those {BUYER_PICKUP_DAYS} days, use <strong>Buyer Did Not Show</strong>.
                       We review it, and if it's confirmed you're paid a restocking fee and the produce goes
                       back on your listing.
                     </li>
@@ -1776,6 +1805,26 @@ export default function SellerDashboardPage() {
                               ? `Your payout at pickup: $${Number(order.farmer_payout_amount).toFixed(2)}`
                               : `Total Paid: $${Number(order.total_price || 0).toFixed(2)}`}
                           </p>
+                          {order.status === 'pending_pickup' &&
+                            order.ready_by &&
+                            (isSellerLate(order) ? (
+                              <p className="text-xs font-bold text-red-700">
+                                Overdue: this was due to be marked ready by {shortDate(order.ready_by)}. The buyer
+                                can now cancel for a full refund, and it is cancelled automatically on{' '}
+                                {shortDate(autoCancelAt(order)!)}.
+                              </p>
+                            ) : (
+                              <p className="text-xs font-semibold text-gray-700">
+                                Mark ready by {shortDate(order.ready_by)}
+                              </p>
+                            ))}
+                          {order.status === 'ready_for_pickup' && order.pickup_by && (
+                            <p className="text-xs font-semibold text-gray-700">
+                              {canReportNoShow(order)
+                                ? `The buyer's pickup time ended ${shortDate(order.pickup_by)}.`
+                                : `The buyer has until ${shortDate(order.pickup_by)} to pick up. You can report a no-show after that.`}
+                            </p>
+                          )}
                           {sameCheckoutOrders(order).length > 0 && (
                             <p className="text-xs text-gray-600">
                               Same buyer also ordered:{' '}
@@ -1817,6 +1866,7 @@ export default function SellerDashboardPage() {
                           )}
                           {order.status === 'ready_for_pickup' &&
                             order.stripe_payment_intent_id &&
+                            canReportNoShow(order) &&
                             !order.no_show_reported_at && (
                               <button
                                 onClick={() => handleReportNoShow(order)}
@@ -2035,9 +2085,11 @@ export default function SellerDashboardPage() {
                           )}
 
                           <fieldset>
-                            <legend className="text-xs font-semibold text-blue-900 mb-1.5">Days the buyer can come *</legend>
+                            <legend className="text-xs font-semibold text-blue-900 mb-1.5">
+                              Days the buyer can come * (they have {BUYER_PICKUP_DAYS} days from today)
+                            </legend>
                             <div className="flex flex-wrap gap-2">
-                              {PICKUP_DAYS.map((day) => (
+                              {pickupDayOptions().map((day) => (
                                 <label
                                   key={day}
                                   className="inline-flex items-center gap-1.5 bg-white border border-blue-200 rounded-lg px-2.5 py-2 text-xs text-blue-950"

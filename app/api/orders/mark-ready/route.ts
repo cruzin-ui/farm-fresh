@@ -5,6 +5,7 @@ import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { buyerGuidanceEmailHtml } from '@/lib/buyerGuidance';
 import { alertAdmin } from '@/lib/alerts';
+import { pickupDeadline, formatDeadline, BUYER_PICKUP_DAYS } from '@/lib/pickupRules';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,9 +54,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Enter the pickup address for this order.' }, { status: 400 });
     }
 
+    // The buyer's time to collect starts now. An order already marked ready
+    // keeps the deadline it was first given.
+    const readyAt = order.ready_at ? new Date(order.ready_at) : new Date();
+    const pickupBy = order.pickup_by ? new Date(order.pickup_by) : pickupDeadline(readyAt);
+
     const { error: updateError } = await supabaseAdmin
       .from('orders')
-      .update({ status: 'ready_for_pickup', pickup_details: pickupDetails, pickup_address: pickupAddress })
+      .update({
+        status: 'ready_for_pickup',
+        pickup_details: pickupDetails,
+        pickup_address: pickupAddress,
+        ready_at: readyAt.toISOString(),
+        pickup_by: pickupBy.toISOString(),
+      })
       .eq('id', orderId);
 
     if (updateError) {
@@ -77,6 +89,11 @@ export async function POST(request: Request) {
             <p><strong>${escapeHtml(listing.title || 'Your order')}</strong> is ready for pickup.</p>
             <p>Pickup address: <strong>${escapeHtml(pickupAddress)}</strong></p>
             <p style="white-space: pre-wrap;">${escapeHtml(String(pickupDetails))}</p>
+            <p>
+              <strong>Please pick up by ${formatDeadline(pickupBy)}.</strong> You have ${BUYER_PICKUP_DAYS} days
+              from today; an order that isn't collected in that time can be closed as not picked up, with a
+              restocking fee.
+            </p>
             <p>Your pickup code: <strong>${pickupCode}</strong></p>
             <p>Give this code to the farmer only when you collect your produce — it releases their payment.</p>
             ${buyerGuidanceEmailHtml(new URL(request.url).origin)}

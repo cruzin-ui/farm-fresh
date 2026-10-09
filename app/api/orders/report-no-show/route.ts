@@ -4,6 +4,7 @@ import { getRequestUser } from '@/lib/apiAuth';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { NO_SHOW_RESTOCKING_RATE } from '@/lib/orderActions';
+import { canReportNoShow, formatDeadline } from '@/lib/pickupRules';
 import { NO_SHOW_REVIEW_HOURS } from '@/lib/noShow';
 import { signNoShowDispute } from '@/lib/noShowDispute';
 import { alertAdmin } from '@/lib/alerts';
@@ -71,6 +72,15 @@ export async function POST(request: Request) {
 
     if (order.no_show_reported_at) {
       return NextResponse.json({ success: true, alreadyReported: true });
+    }
+
+    // The buyer was told how long they have to collect it; until that runs
+    // out they haven't failed to show.
+    if (!canReportNoShow(order)) {
+      return NextResponse.json(
+        { error: `The buyer has until ${formatDeadline(order.pickup_by)} to pick up this order. You can report a no-show after that.` },
+        { status: 409 }
+      );
     }
 
     const { error: updateError } = await supabaseAdmin

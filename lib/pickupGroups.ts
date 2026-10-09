@@ -13,6 +13,10 @@ export type BuyerOrder = {
   subtotal_amount: number;
   tax_amount: number;
   refunded_amount: number;
+  // When the farmer must have it ready by, and — once it is ready — when the
+  // buyer must collect it by. Empty on orders from before deadlines existed.
+  ready_by: string | null;
+  pickup_by: string | null;
   // True once the farmer has reported the order as not collected.
   no_show_reported: boolean;
   pickup_details: string | null;
