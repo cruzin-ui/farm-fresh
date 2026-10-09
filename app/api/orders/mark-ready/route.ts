@@ -17,6 +17,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { orderId, pickupDetails } = body;
+    const enteredAddress = typeof body.pickupAddress === 'string' ? body.pickupAddress.trim().slice(0, 300) : '';
 
     if (!orderId || !pickupDetails) {
       return NextResponse.json({ error: 'Missing order or pickup details.' }, { status: 400 });
@@ -43,9 +44,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
     }
 
+    // The pickup address is fixed when the buyer pays: it is what they agreed
+    // to and what their sales tax was worked out for, so it can't be changed
+    // here. Only an order that somehow has none (a listing from before
+    // addresses were required) takes the one the farmer enters now.
+    const pickupAddress: string | null = order.pickup_address || enteredAddress || null;
+    if (!pickupAddress) {
+      return NextResponse.json({ error: 'Enter the pickup address for this order.' }, { status: 400 });
+    }
+
     const { error: updateError } = await supabaseAdmin
       .from('orders')
-      .update({ status: 'ready_for_pickup', pickup_details: pickupDetails })
+      .update({ status: 'ready_for_pickup', pickup_details: pickupDetails, pickup_address: pickupAddress })
       .eq('id', orderId);
 
     if (updateError) {
@@ -65,8 +75,8 @@ export async function POST(request: Request) {
           <div style="font-family: sans-serif; max-width: 480px;">
             <h2 style="color: #059669;">Your harvest is ready!</h2>
             <p><strong>${escapeHtml(listing.title || 'Your order')}</strong> is ready for pickup.</p>
+            <p>Pickup address: <strong>${escapeHtml(pickupAddress)}</strong></p>
             <p style="white-space: pre-wrap;">${escapeHtml(String(pickupDetails))}</p>
-            ${order.pickup_address ? `<p>Pickup address: <strong>${escapeHtml(order.pickup_address)}</strong></p>` : ''}
             <p>Your pickup code: <strong>${pickupCode}</strong></p>
             <p>Give this code to the farmer only when you collect your produce — it releases their payment.</p>
             ${buyerGuidanceEmailHtml(new URL(request.url).origin)}

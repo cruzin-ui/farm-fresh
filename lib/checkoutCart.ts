@@ -29,6 +29,13 @@ export type PricedLine = {
   problem: string | null;
 };
 
+// The zip code in a street address: the last five-digit number in it, so a
+// five-digit house number at the front isn't mistaken for it.
+export function zipFromAddress(address: string | null | undefined) {
+  const matches = [...(address || '').trim().matchAll(/\b\d{5}(?!\d)/g)].filter((match) => match.index! > 0);
+  return matches.length ? matches[matches.length - 1][0] : null;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Reads the cart sent by the browser. Returns null if it isn't a usable list
@@ -57,6 +64,17 @@ export async function priceCart(items: CartRequestItem[]) {
     .select('id, title, unit_type, price_per_unit, available_quantity, farmer_id, category, zip_code, location_name')
     .in('id', listingIds);
   const listingById = new Map((listings || []).map((l) => [l.id as string, l]));
+
+  // Where each item is actually collected. Sales tax is worked out for that
+  // place, so the zip in the pickup address is used in preference to the zip
+  // typed on the listing, which is only the general area shown to shoppers.
+  const { data: addressRows } = await supabaseAdmin
+    .from('listing_pickup_addresses')
+    .select('listing_id, address')
+    .in('listing_id', listingIds);
+  const pickupZipByListing = new Map(
+    (addressRows || []).map((row) => [row.listing_id as string, zipFromAddress(row.address as string)])
+  );
 
   const farmerIds = [...new Set((listings || []).map((l) => l.farmer_id).filter(Boolean))];
   const { data: sellers } = farmerIds.length
@@ -111,7 +129,7 @@ export async function priceCart(items: CartRequestItem[]) {
       const listing = listingById.get(line.listingId);
       return {
         category: listing?.category,
-        pickupZip: listing?.zip_code,
+        pickupZip: pickupZipByListing.get(line.listingId) || listing?.zip_code,
         subtotalCents: totals.lines[i].subtotalCents,
         feeCents: totals.lines[i].feeCents,
       };
