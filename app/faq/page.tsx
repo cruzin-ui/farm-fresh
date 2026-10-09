@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { HelpCircle } from 'lucide-react';
 import { BUYER_FEE_LABEL, SELLER_FEE_RATE } from '@/lib/pricing';
 import { PRODUCE_ONLY_NOTICE } from '@/lib/categories';
+import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
 
 export const metadata: Metadata = { title: 'FAQ' };
 
@@ -55,7 +56,15 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'Where and when do I pick up?',
     answer:
-      "Listings show the farmer's city and zip code. You get the full pickup address once you've paid. Wait for our \"ready for pickup\" email before heading over — it includes the farmer's hours and any instructions.",
+      "Listings show the farmer's city and zip code. You get the full pickup address once you've paid. Wait for our \"ready for pickup\" email before heading over — it includes the days and times you can come and any instructions.",
+  },
+  {
+    question: 'How long do I have to pick up?',
+    answer: `${BUYER_PICKUP_DAYS} days from the "ready for pickup" email, which gives the exact date. We send a reminder the day before. If you can't make it, cancel from your order page; an order that isn't collected in time can be closed as not picked up, with a restocking fee.`,
+  },
+  {
+    question: 'How long does the farmer have to get my order ready?',
+    answer: `${SELLER_READY_DAYS} days from your order, or from the listing's harvest date if the crop isn't ready yet. Your order page shows the date. If the farmer misses it, you can cancel for a full refund including the service fee, and an order that still isn't ready after ${AUTO_CANCEL_DAYS} days is cancelled and refunded automatically.`,
   },
   {
     question: "I've lost my pickup code. How do I find it?",
@@ -212,6 +221,10 @@ const SELLER_FAQS: Faq[] = [
     question: "What if I end up with less produce than I listed?",
     answer:
       'Use Cancel / Adjust on the order in your dashboard to reduce the quantity or cancel it. The buyer is refunded automatically, and your payout is adjusted to match.',
+  },
+  {
+    question: 'How quickly do I have to get an order ready?',
+    answer: `Within ${SELLER_READY_DAYS} days of the order, or of your listing's harvest date if that's later. Each order in your dashboard shows its date, and we email a reminder the day before. After that date the buyer can cancel for a full refund, and an order still not marked ready after ${AUTO_CANCEL_DAYS} days is cancelled and refunded automatically. Once you mark an order ready, the buyer has ${BUYER_PICKUP_DAYS} days to collect it, so offer pickup times on those days.`,
   },
   {
     question: "What if a buyer doesn't show up?",

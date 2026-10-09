@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BUYER_FEE_LABEL } from '@/lib/pricing';
 import { LEGAL_LAST_UPDATED, OPERATOR_DESCRIPTION } from '@/lib/legal';
+import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
 
 export const metadata: Metadata = { title: 'Terms of Use' };
 
@@ -67,7 +68,9 @@ export default function TermsPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">4. Pickup and your pickup code</h2>
           <p>
             Orders are collected in person from the seller at the pickup address shown on your order, once the
-            seller tells you it is ready. You receive a pickup code with your order. Give it to the seller only
+            seller tells you it is ready. The seller has {SELLER_READY_DAYS} days to do that, counted from your
+            order or from the listing&apos;s harvest date if that is later. You then have {BUYER_PICKUP_DAYS} days
+            to collect it, on the days and at the times the seller gives you. You receive a pickup code with your order. Give it to the seller only
             when you have received your produce: giving the code confirms that you have collected your order
             and releases your payment to the seller. Do not pay the seller anything further at pickup.
           </p>
@@ -81,13 +84,19 @@ export default function TermsPage() {
               whatever you will not receive, including the matching share of the service fee.
             </li>
             <li>
+              <strong>If the seller does not have your order ready in time,</strong> you can cancel it for a
+              full refund, including the service fee. An order that is still not ready {AUTO_CANCEL_DAYS} days
+              after it should have started is cancelled and refunded in full automatically.
+            </li>
+            <li>
               <strong>If you cancel your order,</strong> which you can do from your order page any time before
               pickup, you are refunded what you paid for the produce. The service fee is not refunded. If you
               cancel more than 48 hours after ordering, or after the seller has reported the order as not
               collected, the seller also keeps a {NO_SHOW_FEE} restocking fee.
             </li>
             <li>
-              <strong>If you cannot collect your order,</strong> cancel it or contact us as early as you can. If a seller
+              <strong>If you cannot collect your order,</strong> cancel it or contact us as early as you can. If you do not collect an order within {BUYER_PICKUP_DAYS} days of being told it is ready, the seller
+              may report it as not collected. If a seller
               reports that an order was not collected, we email you, and you have 48 hours to tell us if that
               is wrong. If an order is not collected, the service fee is not refunded and the seller keeps a{' '}
               {NO_SHOW_FEE} restocking fee; the rest of what you paid for the produce is refunded.

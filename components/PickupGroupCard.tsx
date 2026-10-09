@@ -13,6 +13,11 @@ import {
 import { MapPin, Store } from 'lucide-react';
 import ReviewForm from '@/components/ReviewForm';
 import { describeItems, isOpenStatus, type BuyerOrder, type PickupGroup } from '@/lib/pickupGroups';
+import { isSellerLate } from '@/lib/pickupRules';
+
+// "Mon, Oct 12" in the reader's own time zone.
+const shortDate = (date: string) =>
+  new Date(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
 const STATUS_STYLES: Record<string, { label: string; className: string }> = {
   pending_pickup: { label: 'Being Prepared', className: 'bg-amber-100 text-amber-800' },
@@ -35,6 +40,8 @@ function CancelItem({ item, token }: { item: BuyerOrder; token?: string | null }
   // they are cancelled through support instead.
   if (item.subtotal_amount <= 0) return null;
 
+  // The farmer missed their deadline, so this cancellation costs the buyer nothing.
+  const sellerLate = isSellerLate(item);
   const late = !isWithinFreeCancellation(item.created_at) || item.no_show_reported;
   const split = calculateCancellationSplit({
     subtotalCents: Math.round(item.subtotal_amount * 100),
@@ -76,6 +83,12 @@ function CancelItem({ item, token }: { item: BuyerOrder; token?: string | null }
       <p className="font-bold text-sm">
         Cancel {item.quantity} {item.listing_unit_type} of {item.listing_title}?
       </p>
+      {sellerLate ? (
+        <p>
+          The farmer didn't have this ready in time, so you'll be refunded in full:{' '}
+          <strong>${item.total_price.toFixed(2)}</strong>, including the service fee.
+        </p>
+      ) : (
       <ul className="list-disc pl-5 space-y-1">
         <li>
           You'll be refunded <strong>{money(split.refundCents)}</strong> to your original payment method.
@@ -93,6 +106,7 @@ function CancelItem({ item, token }: { item: BuyerOrder; token?: string | null }
           </li>
         )}
       </ul>
+      )}
       {error && (
         <p role="alert" className="font-semibold text-red-700">
           {error}
@@ -232,6 +246,18 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
                   <p className="font-bold mb-1">Pickup details from the farmer</p>
                   <p className="whitespace-pre-wrap">{item.pickup_details}</p>
                 </div>
+              )}
+
+              {item.status === 'pending_pickup' && item.ready_by && (
+                <p className={`text-xs ${isSellerLate(item) ? 'font-semibold text-red-700' : 'text-gray-600'}`}>
+                  {isSellerLate(item)
+                    ? `The farmer was due to have this ready by ${shortDate(item.ready_by)}. You can wait, or cancel it for a full refund.`
+                    : `The farmer should have this ready by ${shortDate(item.ready_by)}. We'll email you when it is.`}
+                </p>
+              )}
+
+              {item.status === 'ready_for_pickup' && item.pickup_by && (
+                <p className="text-xs font-semibold text-blue-900">Please pick up by {shortDate(item.pickup_by)}.</p>
               )}
 
               {isOpenStatus(item.status) && <CancelItem item={item} token={token} />}
