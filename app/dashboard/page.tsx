@@ -7,6 +7,10 @@ import { resizeImage } from '@/lib/resizeImage';
 import { SELLER_FEE_RATE } from '@/lib/pricing';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
+
+// What a farmer can tick when telling a buyer their order is ready.
+const PICKUP_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const PICKUP_TIMES = ['Morning (8am–12pm)', 'Afternoon (12–4pm)', 'Evening (4–7pm)'];
 import {
   Sprout,
   AlertCircle,
@@ -142,6 +146,11 @@ export default function SellerDashboardPage() {
   // Mark Ready flow — per-order draft of the pickup message before sending
   const [readyDraftOrderId, setReadyDraftOrderId] = useState<string | null>(null);
   const [readyDraftText, setReadyDraftText] = useState('');
+  // The days and times of day the buyer can come, ticked by the farmer, and
+  // the address — only asked for when the order doesn't already have one.
+  const [readyDays, setReadyDays] = useState<string[]>([]);
+  const [readyTimes, setReadyTimes] = useState<string[]>([]);
+  const [readyAddress, setReadyAddress] = useState('');
   const [sendingReady, setSendingReady] = useState(false);
 
   // Complete flow — the farmer enters the pickup code the buyer gives them
@@ -473,13 +482,11 @@ export default function SellerDashboardPage() {
 
   const openReadyDraft = (order: any) => {
     setReadyDraftOrderId(order.id);
-    setReadyDraftText(
-      order.pickup_address
-        ? `Your order is ready! Pick up at ${order.pickup_address} during [hours]. [Any other instructions, e.g. where to park or who to ask for.]`
-        : order.listing_pickup_instructions
-          ? order.listing_pickup_instructions
-          : 'Your order is ready! Please pick up at [location] during [hours].'
-    );
+    // Any standing instructions from the listing, as a starting point.
+    setReadyDraftText(order.listing_pickup_instructions || '');
+    setReadyDays([]);
+    setReadyTimes([]);
+    setReadyAddress('');
   };
 
   const cancelReadyDraft = () => {
@@ -487,17 +494,34 @@ export default function SellerDashboardPage() {
     setReadyDraftText('');
   };
 
-  const confirmMarkReady = async (orderId: string) => {
-    if (!readyDraftText.trim()) {
-      alert('Please enter pickup details before sending.');
+  const confirmMarkReady = async (order: any) => {
+    const orderId = order.id;
+    const address = readyAddress.trim();
+
+    if (!order.pickup_address && !address) {
+      alert('Enter the pickup address for this order.');
       return;
     }
+    if (readyDays.length === 0 || readyTimes.length === 0) {
+      alert('Tick at least one day and one time the buyer can pick up.');
+      return;
+    }
+
+    // What the buyer is sent, in the order the options are listed.
+    const pickupDetails = [
+      `Pickup days: ${PICKUP_DAYS.filter((day) => readyDays.includes(day)).join(', ')}`,
+      `Pickup times: ${PICKUP_TIMES.filter((time) => readyTimes.includes(time)).join(', ')}`,
+      readyDraftText.trim(),
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     setSendingReady(true);
     try {
       const res = await postWithAuth('/api/orders/mark-ready', {
         orderId,
-        pickupDetails: readyDraftText,
+        pickupDetails,
+        ...(order.pickup_address ? {} : { pickupAddress: address }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to mark order ready.');
@@ -1980,18 +2004,95 @@ export default function SellerDashboardPage() {
 
                       {readyDraftOrderId === order.id && (
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                          <p className="text-sm font-bold text-blue-950">Tell the buyer where and when to pick up</p>
+
+                          {order.pickup_address ? (
+                            <div className="text-xs text-blue-950">
+                              <p className="font-semibold">Pickup address</p>
+                              <p className="text-sm">{order.pickup_address}</p>
+                              <p className="text-[11px] text-blue-900 mt-0.5">
+                                This is the address from your listing that the buyer agreed to when they paid, so it
+                                can't be changed for this order.
+                              </p>
+                            </div>
+                          ) : (
+                            <div>
+                              <label htmlFor="dash-ready-address" className="block text-xs font-semibold text-blue-900 mb-1">
+                                Pickup address *
+                              </label>
+                              <input
+                                id="dash-ready-address"
+                                type="text"
+                                autoComplete="street-address"
+                                placeholder="Street, city, state and zip"
+                                value={readyAddress}
+                                onChange={(e) => setReadyAddress(e.target.value)}
+                                className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white"
+                              />
+                            </div>
+                          )}
+
+                          <fieldset>
+                            <legend className="text-xs font-semibold text-blue-900 mb-1.5">Days the buyer can come *</legend>
+                            <div className="flex flex-wrap gap-2">
+                              {PICKUP_DAYS.map((day) => (
+                                <label
+                                  key={day}
+                                  className="inline-flex items-center gap-1.5 bg-white border border-blue-200 rounded-lg px-2.5 py-2 text-xs text-blue-950"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="w-4 h-4"
+                                    checked={readyDays.includes(day)}
+                                    onChange={(e) =>
+                                      setReadyDays((current) =>
+                                        e.target.checked ? [...current, day] : current.filter((d) => d !== day)
+                                      )
+                                    }
+                                  />
+                                  {day}
+                                </label>
+                              ))}
+                            </div>
+                          </fieldset>
+
+                          <fieldset>
+                            <legend className="text-xs font-semibold text-blue-900 mb-1.5">Times of day *</legend>
+                            <div className="flex flex-wrap gap-2">
+                              {PICKUP_TIMES.map((time) => (
+                                <label
+                                  key={time}
+                                  className="inline-flex items-center gap-1.5 bg-white border border-blue-200 rounded-lg px-2.5 py-2 text-xs text-blue-950"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="w-4 h-4"
+                                    checked={readyTimes.includes(time)}
+                                    onChange={(e) =>
+                                      setReadyTimes((current) =>
+                                        e.target.checked ? [...current, time] : current.filter((t) => t !== time)
+                                      )
+                                    }
+                                  />
+                                  {time}
+                                </label>
+                              ))}
+                            </div>
+                          </fieldset>
+
                           <label htmlFor="dash-pickup-details-to-email-the-buyer" className="block text-xs font-semibold text-blue-900">
-                            Pickup details to email the buyer
+                            Anything else the buyer should know (optional)
                           </label>
                           <textarea id="dash-pickup-details-to-email-the-buyer"
-                            rows={3}
+                            rows={2}
+                            placeholder="For example: where to park, which door, or who to ask for."
                             value={readyDraftText}
                             onChange={(e) => setReadyDraftText(e.target.value)}
                             className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white"
                           />
                           <div className="flex gap-2">
                             <button
-                              onClick={() => confirmMarkReady(order.id)}
+                              onClick={() => confirmMarkReady(order)}
                               disabled={sendingReady}
                               className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
                             >
