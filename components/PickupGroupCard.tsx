@@ -85,6 +85,13 @@ function CancelItem({ item, token }: { item: BuyerOrder; token?: string | null }
       <p className="font-bold text-sm">
         Cancel {item.quantity} {item.listing_unit_type} of {item.listing_title}?
       </p>
+      {item.status === 'ready_for_pickup' && (
+        <p className="bg-amber-50 border border-amber-300 text-amber-950 rounded-lg p-2 font-semibold">
+          This order is ready for pickup, which means the farmer has likely already picked and packed it for you.
+          If it's cancelled now and doesn't sell again quickly, the produce and the farmer's work go to waste.
+          Please cancel only if you really can't make it.
+        </p>
+      )}
       {sellerLate ? (
         <p>
           The farmer didn't have this ready in time, so you'll be refunded in full:{' '}

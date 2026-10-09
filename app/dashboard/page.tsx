@@ -294,8 +294,14 @@ export default function SellerDashboardPage() {
     }, {} as Record<string, any>);
 
     if (listingIds.length > 0) {
+      // Sellers read their orders through the seller_orders view, not the
+      // orders table itself. The view only returns orders for the signed-in
+      // seller's own listings, and leaves out the buyer's email address until
+      // an order has been picked up or closed. It is defined in
+      // db/seller_orders_view.sql and has to be rebuilt from that file whenever
+      // a column is added to the orders table.
       const { data: orders, error: ordersError } = await supabase
-        .from('orders')
+        .from('seller_orders')
         .select('*')
         .in('listing_id', listingIds)
         .order('created_at', { ascending: false });
