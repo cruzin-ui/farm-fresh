@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       return {
         order_id: o.id,
         order_date: String(o.created_at).slice(0, 10),
-        status: noShowFee > 0 ? 'no_show' : o.status,
+        status: o.cancelled_by_buyer_at ? 'cancelled_by_buyer' : noShowFee > 0 ? 'no_show' : o.status,
         farm: (listing && farmNameById.get(listing.farmer_id)) || '',
         buyer_email: o.buyer_email || '',
         item: listing ? [listing.title, listing.variety].filter(Boolean).join(' - ') : '',

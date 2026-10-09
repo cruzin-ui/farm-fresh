@@ -1,10 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
+import { postWithAuth } from '@/lib/authedFetch';
+import {
+  calculateCancellationSplit,
+  isWithinFreeCancellation,
+  RESTOCKING_RATE,
+  FREE_CANCELLATION_HOURS,
+} from '@/lib/pricing';
 import { MapPin, Store } from 'lucide-react';
 import ReviewForm from '@/components/ReviewForm';
-import { describeItems, isOpenStatus, type PickupGroup } from '@/lib/pickupGroups';
+import { describeItems, isOpenStatus, type BuyerOrder, type PickupGroup } from '@/lib/pickupGroups';
 
 const STATUS_STYLES: Record<string, { label: string; className: string }> = {
   pending_pickup: { label: 'Being Prepared', className: 'bg-amber-100 text-amber-800' },
@@ -12,6 +20,105 @@ const STATUS_STYLES: Record<string, { label: string; className: string }> = {
   completed: { label: 'Picked Up', className: 'bg-emerald-100 text-emerald-800' },
   cancelled: { label: 'Cancelled', className: 'bg-gray-100 text-gray-600' },
 };
+
+// Lets the buyer cancel one item that hasn't been picked up yet. Before they
+// confirm, it spells out what comes back: the produce price, less a restocking
+// fee once the free-cancellation window has passed. The service fee is kept
+// either way. The server works the amounts out again itself; this is only the
+// preview.
+function CancelItem({ item, token }: { item: BuyerOrder; token?: string | null }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Orders from before these amounts were recorded can't be previewed, so
+  // they are cancelled through support instead.
+  if (item.subtotal_amount <= 0) return null;
+
+  const late = !isWithinFreeCancellation(item.created_at) || item.no_show_reported;
+  const split = calculateCancellationSplit({
+    subtotalCents: Math.round(item.subtotal_amount * 100),
+    paidCents: Math.round(item.total_price * 100),
+    taxCents: Math.round(item.tax_amount * 100),
+    restockingRate: late ? RESTOCKING_RATE : 0,
+  });
+  const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+  const cancel = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await postWithAuth('/api/orders/cancel', { orderId: item.id, ...(token ? { token } : {}) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not cancel this order.');
+      // Reload so the code, statuses and totals all reflect the cancellation.
+      window.location.reload();
+    } catch (err: any) {
+      setError(err.message || 'Could not cancel this order.');
+      setBusy(false);
+    }
+  };
+
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        className="text-xs font-semibold text-red-600 hover:underline py-1 print:hidden"
+      >
+        Cancel this item
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-950 space-y-2 print:hidden">
+      <p className="font-bold text-sm">
+        Cancel {item.quantity} {item.listing_unit_type} of {item.listing_title}?
+      </p>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>
+          You'll be refunded <strong>{money(split.refundCents)}</strong> to your original payment method.
+        </li>
+        <li>
+          The service fee for this item ({money(split.keptCents)}) is not refunded.
+        </li>
+        {split.restockingCents > 0 && (
+          <li>
+            A {RESTOCKING_RATE * 100}% restocking fee ({money(split.restockingCents)}) goes to the farmer, because{' '}
+            {item.no_show_reported
+              ? 'the farmer has reported this order as not collected'
+              : `it has been more than ${FREE_CANCELLATION_HOURS} hours since you ordered`}
+            .
+          </li>
+        )}
+      </ul>
+      {error && (
+        <p role="alert" className="font-semibold text-red-700">
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={cancel}
+          disabled={busy}
+          className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-bold px-3.5 py-2 rounded-xl"
+        >
+          {busy ? 'Cancelling...' : 'Yes, Cancel It'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          disabled={busy}
+          className="bg-white border text-gray-700 font-bold px-3.5 py-2 rounded-xl hover:bg-gray-50"
+        >
+          Keep My Order
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // Everything a buyer bought from one farm in one checkout: the pickup code
 // that covers it, what the code is for, and where each item stands. `token` is
@@ -126,6 +233,8 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
                   <p className="whitespace-pre-wrap">{item.pickup_details}</p>
                 </div>
               )}
+
+              {isOpenStatus(item.status) && <CancelItem item={item} token={token} />}
             </li>
           );
         })}

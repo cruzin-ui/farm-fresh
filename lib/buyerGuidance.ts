@@ -13,7 +13,7 @@ export const SAFETY_TIPS = [
   "Only meet at the pickup address shown on your order. If you're asked to meet somewhere else, or somewhere that feels isolated or unsafe, don't go.",
   "Pick up during daylight hours when you can, let someone know where you're going, and bring someone along if you'd feel more comfortable.",
   'Your order is fully paid online. Never hand over cash or pay anything extra at pickup.',
-  "If something doesn't feel right, leave. You can contact us to cancel and refund an order you haven't collected.",
+  "If something doesn't feel right, leave. You can cancel an order you haven't collected from your order page, or contact us.",
 ];
 
 // The same guidance as HTML for emails. The strings above are fixed text, so

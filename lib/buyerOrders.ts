@@ -37,7 +37,10 @@ export async function describeBuyerOrders(rows: any[]): Promise<BuyerOrder[]> {
       created_at: o.created_at,
       quantity: Number(o.reserved_quantity ?? o.quantity ?? 0),
       total_price: Number(o.total_price ?? 0),
+      subtotal_amount: Number(o.subtotal_amount ?? 0),
+      tax_amount: Number(o.tax_amount ?? 0),
       refunded_amount: Number(o.refunded_amount ?? 0),
+      no_show_reported: Boolean(o.no_show_reported_at),
       pickup_details: o.pickup_details || null,
       pickup_address: o.pickup_address || null,
       // Orders from before codes were stored separately keep theirs on the row.
