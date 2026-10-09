@@ -87,3 +87,26 @@ export function formatDeadline(date: Date | string) {
     timeZone: SITE_TIME_ZONE,
   }).format(new Date(date));
 }
+
+// The days and times of day a seller can offer for pickup. A seller saves the
+// ones they're usually available on their farm profile; shoppers see those
+// before they buy, and they are ticked for the seller when marking an order
+// ready.
+export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+export const PICKUP_TIMES = ['Morning (8am–12pm)', 'Afternoon (12–4pm)', 'Evening (4–7pm)'];
+
+// "Sat, Sun · Morning (8am–12pm)" — a seller's usual availability in words, or
+// null if they haven't set it.
+export function describeUsualPickup(days?: string[] | null, times?: string[] | null) {
+  const usualDays = WEEKDAYS.filter((day) => (days || []).includes(day));
+  const usualTimes = PICKUP_TIMES.filter((time) => (times || []).includes(time));
+  if (usualDays.length === 0 && usualTimes.length === 0) return null;
+
+  const dayText = usualDays.length === 7 ? 'Every day' : usualDays.join(', ');
+  return [dayText, usualTimes.join(', ')].filter(Boolean).join(' · ');
+}
+
+// A link that opens directions to an address in the reader's maps app.
+export function mapLink(address: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}

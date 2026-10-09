@@ -16,6 +16,7 @@ import {
   Mail,
   Store,
   Trash2,
+  Clock,
 } from 'lucide-react';
 import Link from 'next/link';
 import { postWithAuth } from '@/lib/authedFetch';
@@ -46,6 +47,7 @@ type QuoteLine = {
   farmerId: string | null;
   farmName: string;
   locationName: string;
+  usualPickup: string;
   problem: string | null;
 };
 
@@ -361,12 +363,28 @@ function CheckoutContent() {
     .map((line) => ({ ...line, quantity: quantityById.get(line.listingId)! }));
 
   // Grouped by farm, since each farm is a separate pickup with its own code.
-  const farms: { key: string; farmerId: string | null; farmName: string; locationName: string; lines: typeof lines }[] = [];
+  const farms: {
+    key: string;
+    farmerId: string | null;
+    farmName: string;
+    locationName: string;
+    usualPickup: string;
+    lines: typeof lines;
+  }[] = [];
   for (const line of lines) {
     const key = line.farmerId || line.listingId;
     const farm = farms.find((f) => f.key === key);
     if (farm) farm.lines.push(line);
-    else farms.push({ key, farmerId: line.farmerId, farmName: line.farmName, locationName: line.locationName, lines: [line] });
+    else {
+      farms.push({
+        key,
+        farmerId: line.farmerId,
+        farmName: line.farmName,
+        locationName: line.locationName,
+        usualPickup: line.usualPickup,
+        lines: [line],
+      });
+    }
   }
 
   const totalCents = quote?.totalCents ?? 0;
@@ -402,6 +420,15 @@ function CheckoutContent() {
               {farm.farmName}
               {farm.locationName && <span className="text-xs font-medium text-gray-500">· Pickup in {farm.locationName}</span>}
             </h2>
+            {farm.usualPickup && (
+              <p className="text-xs text-gray-700 flex items-start gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>
+                  Usual pickup times: <span className="font-semibold">{farm.usualPickup}</span>. The farmer confirms
+                  the exact days when your order is ready.
+                </span>
+              </p>
+            )}
 
             <ul className="divide-y divide-gray-100">
               {farm.lines.map((line) => (

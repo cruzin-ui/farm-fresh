@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { CircleUser, ChevronDown, Receipt, LayoutDashboard, LogOut, LogIn, Mail, Sprout } from 'lucide-react';
+import { CircleUser, ChevronDown, Receipt, LayoutDashboard, LogOut, LogIn, Mail, Sprout, Heart } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { safeNextPath, AFTER_LOGIN_KEY } from '@/lib/safeRedirect';
 
@@ -139,6 +139,13 @@ export default function AccountMenu() {
             className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
           >
             <Receipt className="w-4 h-4" /> My Orders
+          </Link>
+          <Link
+            href="/following"
+            role="menuitem"
+            className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
+          >
+            <Heart className="w-4 h-4" /> Followed Farms
           </Link>
           <Link
             href="/dashboard"

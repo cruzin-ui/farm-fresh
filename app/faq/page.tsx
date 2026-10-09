@@ -56,7 +56,12 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'Where and when do I pick up?',
     answer:
-      "Listings show the farmer's city and zip code, and that's what you see when you order. The full pickup address comes in our \"ready for pickup\" email, along with the days and times you can come and any instructions. Many sellers are home gardeners, so we only share their address once there's something to collect.",
+      "Listings show the farmer's city and zip code, and the days and times they're usually available, and that's what you see when you order. The full pickup address comes in our \"ready for pickup\" email, along with the days and times you can come and any instructions. Many sellers are home gardeners, so we only share their address once there's something to collect.",
+  },
+  {
+    question: 'Can I find out when a farm has something new?',
+    answer:
+      "Yes, with an account. Click Follow This Farm on a farm's page, a listing or one of your orders, then open Followed Farms from the My Account menu to see what each of your farms has for sale, with new listings marked. We don't send emails about it.",
   },
   {
     question: 'How do I contact the farmer?',
@@ -235,6 +240,11 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'How quickly do I have to get an order ready?',
     answer: `Within ${SELLER_READY_DAYS} days of the order, or of your listing's harvest date if that's later. Each order in your dashboard shows its date, and we email a reminder the day before. After that date the buyer can cancel for a full refund, and an order still not marked ready after ${AUTO_CANCEL_DAYS} days is cancelled and refunded automatically. Once you mark an order ready, the buyer has ${BUYER_PICKUP_DAYS} days to collect it, so offer pickup times on those days.`,
+  },
+  {
+    question: 'How do I tell buyers when I am available for pickup?',
+    answer:
+      'Set your usual pickup days and times in Farm Profile. Shoppers see them on your listings and at checkout, before they buy, so they only order if the times work. The same days and times are ticked for you when you mark an order ready, and you can change them for that order. With them saved, you can also mark all your waiting orders ready in one go.',
   },
   {
     question: "What if a buyer doesn't show up?",

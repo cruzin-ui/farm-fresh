@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Sprout, MapPin, Calendar, ShoppingBag, ShoppingCart, CheckCircle2, ArrowLeft, User, ChevronRight } from 'lucide-react';
+import { Sprout, MapPin, Calendar, Clock, ShoppingBag, ShoppingCart, CheckCircle2, ArrowLeft, User, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { BUYER_FEE_LABEL } from '@/lib/pricing';
 import { addToCart, useCart } from '@/lib/cart';
+import { describeUsualPickup } from '@/lib/pickupRules';
+import FollowFarmButton from '@/components/FollowFarmButton';
 
 // Public listing detail page — no sign-in needed to view, or to buy: items go
 // into the cart, and checkout works for guests as well as signed-in buyers.
@@ -37,7 +39,7 @@ export default function ListingDetailPage() {
       if (listingData?.farmer_id) {
         const { data: sellerData } = await supabase
           .from('seller_profiles')
-          .select('id, farm_name, avatar_url, location, bio, growing_practices')
+          .select('id, farm_name, avatar_url, location, bio, growing_practices, pickup_days, pickup_times')
           .eq('id', listingData.farmer_id)
           .maybeSingle();
 
@@ -179,6 +181,12 @@ export default function ListingDetailPage() {
               Harvest date: {listing.harvest_ready_date || 'Available Now'}
               {listing.harvest_end_date ? ` · Available until ${listing.harvest_end_date}` : ''}
             </p>
+            {describeUsualPickup(seller?.pickup_days, seller?.pickup_times) && (
+              <p className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+                Usual pickup times: {describeUsualPickup(seller?.pickup_days, seller?.pickup_times)}
+              </p>
+            )}
           </div>
 
           {listing.category === 'Fresh Eggs' && (
@@ -293,6 +301,8 @@ export default function ListingDetailPage() {
               </span>
             </Link>
           )}
+
+          {seller && <FollowFarmButton farmerId={seller.id} farmName={seller.farm_name || 'this farm'} />}
         </div>
       </div>
     </div>

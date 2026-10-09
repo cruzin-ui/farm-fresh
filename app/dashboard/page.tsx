@@ -16,22 +16,36 @@ import {
   SELLER_READY_DAYS,
   BUYER_PICKUP_DAYS,
   AUTO_CANCEL_DAYS,
+  WEEKDAYS,
+  PICKUP_TIMES,
 } from '@/lib/pickupRules';
 
 // What a farmer can tick when telling a buyer their order is ready. The days
 // offered are the ones inside the buyer's pickup window: today and the days
 // that follow it.
+// Each label starts with the weekday ("Fri, Oct 9"), which is how a seller's
+// usual days are matched to them.
 const pickupDayOptions = () =>
   Array.from({ length: BUYER_PICKUP_DAYS + 1 }, (_, i) =>
-    new Date(Date.now() + i * 24 * 60 * 60 * 1000).toLocaleDateString(undefined, {
+    new Date(Date.now() + i * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
     })
   );
+
+// What the buyer is sent about when they can come, in the order the options
+// are listed, followed by any note from the seller.
+const pickupDetailsText = (days: string[], times: string[], note: string) =>
+  [
+    `Pickup days: ${pickupDayOptions().filter((day) => days.includes(day)).join(', ')}`,
+    `Pickup times: ${PICKUP_TIMES.filter((time) => times.includes(time)).join(', ')}`,
+    note.trim(),
+  ]
+    .filter(Boolean)
+    .join('\n');
 const shortDate = (date: string | Date) =>
   new Date(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-const PICKUP_TIMES = ['Morning (8am–12pm)', 'Afternoon (12–4pm)', 'Evening (4–7pm)'];
 import {
   Sprout,
   AlertCircle,
@@ -172,6 +186,12 @@ export default function SellerDashboardPage() {
   const [readyDays, setReadyDays] = useState<string[]>([]);
   const [readyTimes, setReadyTimes] = useState<string[]>([]);
   const [readyAddress, setReadyAddress] = useState('');
+  // The days and times the seller is usually available, saved on their farm
+  // profile. Shoppers see them before buying, and they are ticked for the
+  // seller when marking orders ready.
+  const [usualDays, setUsualDays] = useState<string[]>([]);
+  const [usualTimes, setUsualTimes] = useState<string[]>([]);
+  const [markingAllReady, setMarkingAllReady] = useState(false);
   const [sendingReady, setSendingReady] = useState(false);
 
   // Complete flow — the farmer enters the pickup code the buyer gives them
@@ -258,6 +278,8 @@ export default function SellerDashboardPage() {
       setProfileLocation(profile.location || '');
       setProfileZip(profile.zip_code || '');
       setGrowingPractices(profile.growing_practices || 'No Synthetic Pesticides');
+      setUsualDays(profile.pickup_days || []);
+      setUsualTimes(profile.pickup_times || []);
       // Start new listings from the farm's own location so it rarely needs typing.
       setZipCode((current) => current || profile.zip_code || '');
       setLocationName((current) => current || profile.location || '');
@@ -508,9 +530,61 @@ export default function SellerDashboardPage() {
     setReadyDraftOrderId(order.id);
     // Any standing instructions from the listing, as a starting point.
     setReadyDraftText(order.listing_pickup_instructions || '');
-    setReadyDays([]);
-    setReadyTimes([]);
+    // Start from the seller's usual availability: the dates in the buyer's
+    // pickup window that fall on their usual days, and their usual times.
+    setReadyDays(usualPickupDates());
+    setReadyTimes(usualTimes);
     setReadyAddress('');
+  };
+
+  // The dates on offer that fall on one of the seller's usual weekdays.
+  const usualPickupDates = () => pickupDayOptions().filter((day) => usualDays.includes(day.slice(0, 3)));
+
+  // Marks every waiting order ready at once, using the seller's usual days
+  // and times and each listing's own pickup instructions.
+  const markAllReady = async () => {
+    const waiting = incomingOrders.filter((o) => o.status === 'pending_pickup' && o.known_pickup_address);
+    const days = usualPickupDates();
+
+    if (usualTimes.length === 0 || usualDays.length === 0) {
+      alert('Set your usual pickup days and times in Farm Profile first. Then you can mark all your orders ready in one go.');
+      return;
+    }
+    if (days.length === 0) {
+      alert(
+        `None of your usual pickup days fall in the next ${BUYER_PICKUP_DAYS} days, which is how long buyers have to collect. Mark the orders ready one at a time and tick the days you can do.`
+      );
+      return;
+    }
+    if (
+      !confirm(
+        `Mark ${waiting.length} order${waiting.length === 1 ? '' : 's'} ready and email each buyer?\n\nDays: ${days.join(', ')}\nTimes: ${usualTimes.join(', ')}`
+      )
+    ) {
+      return;
+    }
+
+    setMarkingAllReady(true);
+    let done = 0;
+    const problems: string[] = [];
+    for (const order of waiting) {
+      try {
+        const res = await postWithAuth('/api/orders/mark-ready', {
+          orderId: order.id,
+          pickupDetails: pickupDetailsText(days, usualTimes, order.listing_pickup_instructions || ''),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'failed');
+        done += 1;
+      } catch (err: any) {
+        problems.push(`${order.listing_title}: ${err.message || 'failed'}`);
+      }
+    }
+    setMarkingAllReady(false);
+
+    if (done > 0) setSuccessMsg(`${done} order${done === 1 ? '' : 's'} marked ready — the buyers have been emailed.`);
+    if (problems.length > 0) setErrorMsg(`Could not mark these ready: ${problems.join('; ')}`);
+    await fetchDashboardData();
   };
 
   const cancelReadyDraft = () => {
@@ -531,14 +605,7 @@ export default function SellerDashboardPage() {
       return;
     }
 
-    // What the buyer is sent, in the order the options are listed.
-    const pickupDetails = [
-      `Pickup days: ${pickupDayOptions().filter((day) => readyDays.includes(day)).join(', ')}`,
-      `Pickup times: ${PICKUP_TIMES.filter((time) => readyTimes.includes(time)).join(', ')}`,
-      readyDraftText.trim(),
-    ]
-      .filter(Boolean)
-      .join('\n');
+    const pickupDetails = pickupDetailsText(readyDays, readyTimes, readyDraftText);
 
     setSendingReady(true);
     try {
@@ -738,6 +805,8 @@ export default function SellerDashboardPage() {
         location: profileLocation,
         zip_code: profileZip,
         growing_practices: growingPractices,
+        pickup_days: WEEKDAYS.filter((day) => usualDays.includes(day)),
+        pickup_times: PICKUP_TIMES.filter((time) => usualTimes.includes(time)),
       };
 
       const { error: upsertError } = await supabase
@@ -1765,6 +1834,24 @@ export default function SellerDashboardPage() {
                 <p className="text-xs text-gray-500 mt-0.5">
                   Confirm orders and mark when harvested produce is ready for pickup.
                 </p>
+                {incomingOrders.filter((o) => o.status === 'pending_pickup').length > 1 && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={markAllReady}
+                      disabled={markingAllReady}
+                      className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl transition-colors shadow-sm"
+                    >
+                      <PackageCheck className="w-4 h-4" aria-hidden="true" />
+                      {markingAllReady
+                        ? 'Marking ready...'
+                        : `Mark All ${incomingOrders.filter((o) => o.status === 'pending_pickup').length} Waiting Orders Ready`}
+                    </button>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      Uses your usual pickup days and times from Farm Profile.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {incomingOrders.length === 0 ? (
@@ -2394,6 +2481,60 @@ export default function SellerDashboardPage() {
                   onChange={(e) => setBio(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg text-sm"
                 />
+              </div>
+
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                <div>
+                  <p className="text-sm font-bold text-gray-900">When are you usually available for pickup?</p>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Shoppers see this on your listings and at checkout, before they buy. It's also ticked for you
+                    when you mark an order ready, where you can still change it for that order.
+                  </p>
+                </div>
+
+                <fieldset>
+                  <legend className="text-xs font-semibold text-gray-700 mb-1.5">Usual days</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {WEEKDAYS.map((day) => (
+                      <label
+                        key={day}
+                        className="inline-flex items-center gap-1.5 bg-white border rounded-lg px-2.5 py-2 text-xs text-gray-800"
+                      >
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4"
+                          checked={usualDays.includes(day)}
+                          onChange={(e) =>
+                            setUsualDays((current) => (e.target.checked ? [...current, day] : current.filter((d) => d !== day)))
+                          }
+                        />
+                        {day}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <fieldset>
+                  <legend className="text-xs font-semibold text-gray-700 mb-1.5">Usual times of day</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {PICKUP_TIMES.map((time) => (
+                      <label
+                        key={time}
+                        className="inline-flex items-center gap-1.5 bg-white border rounded-lg px-2.5 py-2 text-xs text-gray-800"
+                      >
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4"
+                          checked={usualTimes.includes(time)}
+                          onChange={(e) =>
+                            setUsualTimes((current) => (e.target.checked ? [...current, time] : current.filter((t) => t !== time)))
+                          }
+                        />
+                        {time}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               </div>
 
               <button

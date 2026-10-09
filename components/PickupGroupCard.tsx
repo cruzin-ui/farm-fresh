@@ -14,7 +14,8 @@ import { MapPin, Store } from 'lucide-react';
 import ReviewForm from '@/components/ReviewForm';
 import OrderMessages from '@/components/OrderMessages';
 import { describeItems, isOpenStatus, type BuyerOrder, type PickupGroup } from '@/lib/pickupGroups';
-import { isSellerLate } from '@/lib/pickupRules';
+import { isSellerLate, mapLink } from '@/lib/pickupRules';
+import FollowFarmButton from '@/components/FollowFarmButton';
 
 // "Mon, Oct 12" in the reader's own time zone.
 const shortDate = (date: string) =>
@@ -373,7 +374,15 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
                 <p className="text-xs text-gray-700 flex items-start gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
                   <span>
-                    Pickup address: <span className="font-semibold">{item.pickup_address}</span>
+                    Pickup address: <span className="font-semibold">{item.pickup_address}</span>{' '}
+                    <a
+                      href={mapLink(item.pickup_address)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-emerald-700 underline print:hidden"
+                    >
+                      Get directions
+                    </a>
                   </span>
                 </p>
               )}
@@ -419,7 +428,15 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
         <p className="text-sm text-gray-700 flex items-start gap-1.5">
           <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
           <span>
-            Pickup address: <span className="font-semibold">{addresses[0]}</span>
+            Pickup address: <span className="font-semibold">{addresses[0]}</span>{' '}
+            <a
+              href={mapLink(addresses[0]!)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-emerald-700 underline print:hidden"
+            >
+              Get directions
+            </a>
             {openItems.some((item) => item.status !== 'ready_for_pickup') && (
               <span className="block text-xs text-gray-500 mt-0.5">
                 Please wait until the farmer marks an item ready before heading over for it.
@@ -429,7 +446,10 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
         </p>
       )}
 
-      <OrderMessages orderId={(openItems[0] || first).id} role="buyer" token={token} />
+      <div className="flex items-start gap-2 flex-wrap">
+        <OrderMessages orderId={(openItems[0] || first).id} role="buyer" token={token} />
+        {group.farmerId && <FollowFarmButton farmerId={group.farmerId} farmName={group.farmName} />}
+      </div>
 
       {completedItems.length > 0 && (
         <ReviewForm

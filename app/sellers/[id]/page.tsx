@@ -6,6 +6,8 @@ import { Sprout, MapPin, Star, Calendar, ShoppingBag, CheckCircle2 } from 'lucid
 import Link from 'next/link';
 import AddToCartButton from '@/components/AddToCartButton';
 import { LISTING_CATEGORIES } from '@/lib/categories';
+import { describeUsualPickup } from '@/lib/pickupRules';
+import FollowFarmButton from '@/components/FollowFarmButton';
 import { useParams } from 'next/navigation';
 
 export default function PublicSellerProfilePage() {
@@ -113,6 +115,17 @@ export default function PublicSellerProfilePage() {
                 <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
                   <MapPin className="w-4 h-4 text-green-600" /> {profile.location} {profile.zip_code ? `(${profile.zip_code})` : ''}
                 </p>
+              )}
+              {describeUsualPickup(profile?.pickup_days, profile?.pickup_times) && (
+                <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                  <Calendar className="w-4 h-4 text-green-600" /> Usual pickup times:{' '}
+                  {describeUsualPickup(profile?.pickup_days, profile?.pickup_times)}
+                </p>
+              )}
+              {profile?.id && (
+                <div className="mt-3">
+                  <FollowFarmButton farmerId={profile.id} farmName={profile.farm_name || 'this farm'} />
+                </div>
               )}
             </div>
 
