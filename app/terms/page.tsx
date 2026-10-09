@@ -81,7 +81,13 @@ export default function TermsPage() {
               whatever you will not receive, including the matching share of the service fee.
             </li>
             <li>
-              <strong>If you cannot collect your order,</strong> contact us as early as you can. If a seller
+              <strong>If you cancel your order,</strong> which you can do from your order page any time before
+              pickup, you are refunded what you paid for the produce. The service fee is not refunded. If you
+              cancel more than 48 hours after ordering, or after the seller has reported the order as not
+              collected, the seller also keeps a {NO_SHOW_FEE} restocking fee.
+            </li>
+            <li>
+              <strong>If you cannot collect your order,</strong> cancel it or contact us as early as you can. If a seller
               reports that an order was not collected, we email you, and you have 48 hours to tell us if that
               is wrong. If an order is not collected, the service fee is not refunded and the seller keeps a{' '}
               {NO_SHOW_FEE} restocking fee; the rest of what you paid for the produce is refunded.

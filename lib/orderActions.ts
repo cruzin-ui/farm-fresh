@@ -1,14 +1,14 @@
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendEmail, escapeHtml } from '@/lib/email';
-import { calculateFarmerPayoutCents } from '@/lib/pricing';
+import { calculateFarmerPayoutCents, calculateCancellationSplit, RESTOCKING_RATE } from '@/lib/pricing';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { alertAdmin } from '@/lib/alerts';
 import { reverseOrderTax } from '@/lib/tax';
 
 // On a no-show, the farmer keeps this share of the produce subtotal as a
 // restocking fee; the platform keeps its buyer fee; the buyer gets the rest.
-export const NO_SHOW_RESTOCKING_RATE = 0.1;
+export const NO_SHOW_RESTOCKING_RATE = RESTOCKING_RATE;
 
 // SERVER-ONLY. The money-moving order operations, shared by the farmer's
 // routes (which first check the pickup code / ownership) and the admin
@@ -434,19 +434,29 @@ export async function refundOrderQuantity(params: {
   return { cancelled, refundAmount, newQuantity };
 }
 
-// Resolves an open order whose buyer never came to collect it. The platform
-// keeps its buyer fee, the farmer is paid a restocking fee out of the produce
-// subtotal, and the buyer is refunded the rest of the subtotal. The produce
-// goes back on the listing.
+// Closes an open order that will not be collected. The platform keeps its
+// buyer fee, the farmer is paid a restocking fee out of the produce subtotal,
+// and the buyer is refunded the rest of the subtotal. The produce goes back on
+// the listing.
+//
+// Used for a no-show (the buyer never came), and — with `cancelledByBuyer` —
+// for a buyer cancelling their own order, where `restockingRate` is 0 if they
+// cancelled soon enough for there to be no restocking fee.
 export async function resolveNoShow(params: {
   order: any;
   listing: { title?: string | null; unit_type?: string | null; available_quantity?: number | null };
   farmerId: string;
+  cancelledByBuyer?: boolean;
+  restockingRate?: number;
 }) {
-  const { order, listing, farmerId } = params;
+  const { order, listing, farmerId, cancelledByBuyer = false } = params;
+  const restockingRate = params.restockingRate ?? NO_SHOW_RESTOCKING_RATE;
 
   if (!isOpen(order)) {
-    throw new OrderActionError(409, 'Only open orders can be marked as a no-show.');
+    throw new OrderActionError(
+      409,
+      cancelledByBuyer ? 'This order can no longer be cancelled.' : 'Only open orders can be marked as a no-show.'
+    );
   }
 
   if (!order.stripe_payment_intent_id) {
@@ -470,19 +480,16 @@ export async function resolveNoShow(params: {
   // Capped at the quantity originally paid for, as in the payout above.
   const currentQuantity = Math.min(Number(order.reserved_quantity ?? order.quantity ?? 0), originalQuantity);
   const subtotalCents = Math.round((originalSubtotalCents * currentQuantity) / originalQuantity);
-  const restockingCents = Math.round(subtotalCents * NO_SHOW_RESTOCKING_RATE);
   // What the buyer gets back before tax, and the tax that goes with it. The
   // tax is refunded in the same proportion as the rest of the charge, which is
   // also how Stripe reverses it in its tax records.
-  const preTaxRefundCents = subtotalCents - restockingCents;
-  const currentPaidCents = Math.round(Number(order.total_price ?? 0) * 100);
   const currentTaxCents = Math.round(Number(order.tax_amount ?? 0) * 100);
-  const preTaxPaidCents = currentPaidCents - currentTaxCents;
-  const taxRefundCents =
-    currentTaxCents > 0 && preTaxPaidCents > 0
-      ? Math.round((currentTaxCents * preTaxRefundCents) / preTaxPaidCents)
-      : 0;
-  const refundCents = preTaxRefundCents + taxRefundCents;
+  const { restockingCents, preTaxRefundCents, taxRefundCents, refundCents } = calculateCancellationSplit({
+    subtotalCents,
+    paidCents: Math.round(Number(order.total_price ?? 0) * 100),
+    taxCents: currentTaxCents,
+    restockingRate,
+  });
 
   const { data: seller } = await supabaseAdmin
     .from('seller_profiles')
@@ -541,6 +548,7 @@ export async function resolveNoShow(params: {
       subtotal_amount: 0,
       farmer_payout_amount: restockingFee,
       stripe_transfer_id: transferId,
+      ...(cancelledByBuyer ? { cancelled_by_buyer_at: new Date().toISOString() } : {}),
     })
     .eq('id', order.id);
 
@@ -573,7 +581,30 @@ export async function resolveNoShow(params: {
     await alertAdmin('listing not restocked after a no-show', restockError, { order: order.id, listing: order.listing_id });
   }
 
-  if (order.buyer_email) {
+  if (order.buyer_email && cancelledByBuyer) {
+    await sendEmail({
+      to: order.buyer_email,
+      subject: `You cancelled your order of ${listing.title || 'produce'}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px;">
+          <h2 style="color: #b45309;">Your order was cancelled</h2>
+          <p>
+            As you asked, your order of <strong>${currentQuantity} ${escapeHtml(listing.unit_type || 'units')}</strong> of
+            <strong>${escapeHtml(listing.title || 'produce')}</strong> has been cancelled.
+          </p>
+          <p>
+            A refund of <strong>$${refundAmount.toFixed(2)}</strong> has been issued to your original
+            payment method. It usually takes 5–10 business days to appear. The service fee is not refunded on
+            orders you cancel${
+              restockingFee > 0
+                ? `, and a ${restockingRate * 100}% restocking fee ($${restockingFee.toFixed(2)}) went to the farmer because the order was cancelled more than 48 hours after it was placed`
+                : ''
+            }.
+          </p>
+        </div>
+      `,
+    });
+  } else if (order.buyer_email) {
     await sendEmail({
       to: order.buyer_email,
       subject: `Your order of ${listing.title || 'produce'} was closed as not picked up`,

@@ -44,7 +44,9 @@ export async function POST(request: Request) {
     // Only orders that paid the farmer something: completed pickups, and
     // no-shows (which pay a restocking fee). Plain cancellations paid nothing.
     const paidOrders = (orders || []).filter(
-      (o) => o.status === 'completed' || Number(o.no_show_fee_amount ?? 0) > 0
+      // Finished orders that left money with the platform or a farmer: picked
+      // up, closed as a no-show, or cancelled by the buyer (the fee is kept).
+      (o) => o.status === 'completed' || Number(o.no_show_fee_amount ?? 0) > 0 || Boolean(o.cancelled_by_buyer_at)
     );
 
     const listingIds = [...new Set(paidOrders.map((o) => o.listing_id).filter(Boolean))];

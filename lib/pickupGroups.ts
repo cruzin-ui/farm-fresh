@@ -9,7 +9,12 @@ export type BuyerOrder = {
   created_at: string;
   quantity: number;
   total_price: number;
+  // The produce price and the sales tax within total_price.
+  subtotal_amount: number;
+  tax_amount: number;
   refunded_amount: number;
+  // True once the farmer has reported the order as not collected.
+  no_show_reported: boolean;
   pickup_details: string | null;
   pickup_address: string | null;
   pickup_code: string | null;

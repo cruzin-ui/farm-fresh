@@ -79,11 +79,14 @@ const BUYER_FAQS: Faq[] = [
     question: "What if I can't make the pickup?",
     answer: (
       <>
-        Please{' '}
+        Cancel the order as early as you can, using the <strong>Cancel this item</strong> button on your
+        order page (in My Orders, or the link in your confirmation email). You're refunded what you paid for
+        the produce; the service fee isn't refunded. Cancel within 48 hours of ordering and that's all. After
+        48 hours the farmer also keeps a {NO_SHOW_FEE} restocking fee. If you can't cancel it yourself,{' '}
         <Link href="/contact" className="font-semibold text-emerald-800 underline">
           contact us
-        </Link>{' '}
-        as early as you can. If a farmer reports that you didn't pick up an order, we email you and you have 48
+        </Link>
+        . If a farmer reports that you didn't pick up an order, we email you and you have 48
         hours to tell us if that's wrong, using the button in that email. If an order is never collected, the
         service fee isn't refunded and the farmer keeps a {NO_SHOW_FEE} restocking fee; the rest of what you
         paid for the produce is refunded.

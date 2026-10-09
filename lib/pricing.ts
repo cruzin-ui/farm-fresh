@@ -47,3 +47,47 @@ export function calculateCartTotals(lines: { pricePerUnit: number; quantity: num
     totalCents: subtotalCents + feeCents,
   };
 }
+
+// When an order is closed without being picked up — a no-show, or a buyer
+// cancelling late — the farmer keeps this share of the produce price as a
+// restocking fee.
+export const RESTOCKING_RATE = 0.1;
+
+// A buyer can cancel their own order. For this long after ordering there is no
+// restocking fee; after that there is. Either way the service fee is kept,
+// because the card processor charges us for the payment whether or not it is
+// later refunded.
+export const FREE_CANCELLATION_HOURS = 48;
+
+export function isWithinFreeCancellation(orderedAt: string | Date, now: number = Date.now()) {
+  return now - new Date(orderedAt).getTime() <= FREE_CANCELLATION_HOURS * 60 * 60 * 1000;
+}
+
+// How the money for an uncollected order is split, in cents. The buyer gets
+// back the produce price less any restocking fee, plus the tax that goes with
+// that amount (in the same proportion as the rest of what they paid). The
+// service fee stays with the platform.
+export function calculateCancellationSplit(params: {
+  subtotalCents: number;
+  paidCents: number;
+  taxCents: number;
+  restockingRate: number;
+}) {
+  const { subtotalCents, paidCents, taxCents, restockingRate } = params;
+
+  const restockingCents = Math.round(subtotalCents * restockingRate);
+  const preTaxRefundCents = subtotalCents - restockingCents;
+  const preTaxPaidCents = paidCents - taxCents;
+  const taxRefundCents =
+    taxCents > 0 && preTaxPaidCents > 0 ? Math.round((taxCents * preTaxRefundCents) / preTaxPaidCents) : 0;
+  const refundCents = preTaxRefundCents + taxRefundCents;
+
+  return {
+    restockingCents,
+    preTaxRefundCents,
+    taxRefundCents,
+    refundCents,
+    // What the platform keeps: the service fee (and any tax on it).
+    keptCents: paidCents - refundCents - restockingCents,
+  };
+}
