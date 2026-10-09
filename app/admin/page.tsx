@@ -16,6 +16,7 @@ import {
   Star,
   PieChart,
   Search,
+  Store,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
@@ -64,7 +65,23 @@ type ContactMessage = {
 };
 
 // The sections of the admin page, chosen from the menu down the side.
-type AdminSection = 'overview' | 'attention' | 'open' | 'all' | 'messages' | 'reviews' | 'fees' | 'reports';
+type AdminSection = 'overview' | 'attention' | 'open' | 'all' | 'messages' | 'listings' | 'reviews' | 'fees' | 'reports';
+
+type AdminListing = {
+  id: string;
+  created_at: string;
+  title: string;
+  variety: string | null;
+  category: string;
+  price_per_unit: number;
+  unit_type: string;
+  available_quantity: number;
+  location_name: string;
+  farmer_id: string;
+  farm_name: string;
+  removed: boolean;
+  open_orders: number;
+};
 
 type AdminReview = {
   id: string;
@@ -141,6 +158,9 @@ export default function AdminPage() {
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [showResolvedMessages, setShowResolvedMessages] = useState(false);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
+  const [listings, setListings] = useState<AdminListing[]>([]);
+  const [listingSearch, setListingSearch] = useState('');
+  const [busyListingId, setBusyListingId] = useState<string | null>(null);
   // Fee breakdown: one month ("YYYY-MM") or every month together, and the
   // text typed to find a farm.
   const [feeMonth, setFeeMonth] = useState<string>('all');
@@ -184,6 +204,10 @@ export default function AdminPage() {
     const messagesData = await messagesRes.json();
     if (messagesRes.ok) setMessages(messagesData.messages);
 
+    const listingsRes = await postWithAuth('/api/admin/listings');
+    const listingsData = await listingsRes.json();
+    if (listingsRes.ok) setListings(listingsData.listings);
+
     const reviewsRes = await postWithAuth('/api/admin/reviews');
     const reviewsData = await reviewsRes.json();
     if (reviewsRes.ok) setReviews(reviewsData.reviews);
@@ -197,6 +221,34 @@ export default function AdminPage() {
       setMessages((current) => current.map((m) => (m.id === message.id ? { ...m, resolved } : m)));
     } else {
       setErrorMsg('Could not update that message.');
+    }
+  };
+
+  const removeListing = async (listing: AdminListing) => {
+    // Cancelling the box cancels the removal; the text goes to the seller.
+    const reason = prompt(
+      `Remove "${listing.title}" from ${listing.farm_name}?\n\n` +
+        (listing.open_orders > 0
+          ? `Its ${listing.open_orders} open order${listing.open_orders === 1 ? '' : 's'} will be cancelled and refunded in full.\n\n`
+          : '') +
+        'The seller is emailed the reason below. This cannot be undone.',
+      'It is not local produce, which is all that may be listed on Farm Fresh Direct.'
+    );
+    if (reason === null) return;
+
+    setBusyListingId(listing.id);
+    setSuccessMsg(null);
+    setErrorMsg(null);
+    try {
+      const res = await postWithAuth('/api/admin/listings', { id: listing.id, reason });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not remove that listing.');
+      setSuccessMsg(data.message);
+      await fetchOrders();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Could not remove that listing.');
+    } finally {
+      setBusyListingId(null);
     }
   };
 
@@ -352,6 +404,7 @@ export default function AdminPage() {
     { id: 'open', label: 'Open orders', icon: ClipboardList, count: openOrders.length },
     { id: 'all', label: 'All orders', icon: Archive },
     { id: 'messages', label: 'Messages', icon: Mail, count: openMessages.length, urgent: true },
+    { id: 'listings', label: 'Listings', icon: Store },
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'fees', label: 'Fee breakdown', icon: PieChart },
     { id: 'reports', label: 'Reports', icon: TrendingUp },
@@ -557,6 +610,94 @@ export default function AdminPage() {
               )}
             </div>
           )}
+
+          {/* LISTINGS */}
+          {section === 'listings' && (() => {
+            const term = listingSearch.trim().toLowerCase();
+            const shownListings = listings.filter((l) =>
+              [l.title, l.variety || '', l.category, l.farm_name, l.location_name].join(' ').toLowerCase().includes(term)
+            );
+
+            return (
+              <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Listings</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    The 300 most recent listings from all sellers. Remove one that isn't local produce: it comes
+                    off sale for good, its open orders are cancelled and refunded, and the seller is emailed.
+                  </p>
+                </div>
+
+                <div className="relative max-w-sm">
+                  <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+                  <input
+                    type="search"
+                    aria-label="Search listings"
+                    placeholder="Search by item, farm, category or city..."
+                    value={listingSearch}
+                    onChange={(e) => setListingSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 border rounded-xl text-sm"
+                  />
+                </div>
+
+                {shownListings.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-2 text-center">
+                    {listings.length === 0 ? 'No listings yet.' : `No listing matches "${listingSearch}".`}
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {shownListings.map((listing) => (
+                      <div
+                        key={listing.id}
+                        className={`p-4 border rounded-xl text-sm flex items-start justify-between gap-3 flex-wrap ${
+                          listing.removed ? 'bg-gray-50 border-gray-200' : 'border-gray-200'
+                        }`}
+                      >
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="font-bold text-gray-900 break-words">
+                            <a href={`/listings/${listing.id}`} target="_blank" className="hover:underline">
+                              {listing.title}
+                              {listing.variety ? ` — ${listing.variety}` : ''}
+                            </a>
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {listing.category} ·{' '}
+                            <a href={`/sellers/${listing.farmer_id}`} target="_blank" className="font-semibold text-emerald-700 underline">
+                              {listing.farm_name}
+                            </a>
+                            {listing.location_name ? ` · ${listing.location_name}` : ''}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            ${listing.price_per_unit.toFixed(2)} per {listing.unit_type} · {listing.available_quantity}{' '}
+                            available · posted {new Date(listing.created_at).toLocaleDateString()}
+                            {listing.open_orders > 0 && (
+                              <span className="font-semibold text-amber-800">
+                                {' '}
+                                · {listing.open_orders} open order{listing.open_orders === 1 ? '' : 's'}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        {listing.removed ? (
+                          <span className="shrink-0 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-gray-200 text-gray-700">
+                            Removed
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => removeListing(listing)}
+                            disabled={busyListingId === listing.id}
+                            className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-white border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {busyListingId === listing.id ? 'Removing...' : 'Remove Listing'}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* REVIEWS */}
           {section === 'reviews' && (

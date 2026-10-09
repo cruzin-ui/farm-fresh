@@ -24,8 +24,6 @@ export const CATEGORY_TAX_CODES: Record<string, string> = {
   'Herbs & Spices': FOOD_FOR_HOME,
   'Honey & Jam': FOOD_FOR_HOME,
   'Fresh Eggs': FOOD_FOR_HOME,
-  // Seeds for planting are goods, not food.
-  Seeds: GENERAL_GOODS,
 };
 
 // Used for a category that isn't listed above.

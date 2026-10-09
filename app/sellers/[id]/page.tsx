@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { Sprout, MapPin, Star, Calendar, ShoppingBag, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import AddToCartButton from '@/components/AddToCartButton';
+import { LISTING_CATEGORIES } from '@/lib/categories';
 import { useParams } from 'next/navigation';
 
 export default function PublicSellerProfilePage() {
@@ -45,6 +46,7 @@ export default function PublicSellerProfilePage() {
       .eq('farmer_id', sellerId)
       .eq('status', 'active')
       .gte('available_quantity', 1)
+      .in('category', LISTING_CATEGORIES)
       .order('created_at', { ascending: false });
 
     // Fetch Seller Reviews

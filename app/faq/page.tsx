@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { HelpCircle } from 'lucide-react';
 import { BUYER_FEE_LABEL, SELLER_FEE_RATE } from '@/lib/pricing';
+import { PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 
 export const metadata: Metadata = { title: 'FAQ' };
 
@@ -107,7 +108,11 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'Who can sell on Farm Fresh Direct?',
     answer:
-      "Home gardeners and small local farms. You're responsible for making sure what you sell is allowed where you live — see the next two questions.",
+      "Home gardeners and small local farms. You're responsible for making sure what you sell is allowed where you live — see the next three questions.",
+  },
+  {
+    question: 'What can I list?',
+    answer: `${PRODUCE_ONLY_NOTICE} That also rules out things like meat, dairy, baked goods, crafts and anything that isn't food. If you're not sure whether something fits, contact us before listing it.`,
   },
   {
     question: 'Are there rules about what I can sell?',
@@ -121,11 +126,6 @@ const SELLER_FAQS: Faq[] = [
           <li>
             <strong>Eggs:</strong> states commonly set rules on refrigeration, carton labeling and reusing
             cartons, and may require a license above a certain flock size or number of dozens sold.
-          </li>
-          <li>
-            <strong>Seeds:</strong> states commonly require labeling (such as variety, germination rate and test
-            date) and sometimes a seed dealer permit. Seed saved from patented or protected varieties
-            generally can't be resold.
           </li>
           <li>
             <strong>Honey, jam and other prepared foods:</strong> these usually fall under your state's

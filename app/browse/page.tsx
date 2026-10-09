@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { Search, MapPin, Calendar, ShoppingBag, Sprout, User } from 'lucide-react';
 import Link from 'next/link';
 import AddToCartButton from '@/components/AddToCartButton';
+import { LISTING_CATEGORIES } from '@/lib/categories';
 import { geocodeZip, milesBetween, type Coordinates } from '@/lib/geo';
 
 const RADIUS_OPTIONS = [10, 25, 50, 100];
@@ -72,13 +73,6 @@ const EGG_TYPES: typeof VEGETABLE_TYPES = [
   { name: 'Other Eggs', emoji: '🥚', keywords: ['goose', 'turkey'] },
 ];
 
-const SEED_TYPES: typeof VEGETABLE_TYPES = [
-  { name: 'Vegetable Seeds', emoji: '🥕', keywords: ['vegetable', 'tomato', 'pepper', 'squash', 'bean', 'pea', 'corn', 'lettuce', 'carrot', 'cucumber', 'melon', 'pumpkin', 'onion', 'radish', 'kale'] },
-  { name: 'Herb Seeds', emoji: '🌿', keywords: ['herb', 'basil', 'cilantro', 'parsley', 'dill', 'oregano', 'thyme', 'mint', 'sage'] },
-  { name: 'Flower Seeds', emoji: '🌻', keywords: ['flower', 'sunflower', 'marigold', 'zinnia', 'wildflower', 'cosmos', 'poppy'] },
-  { name: 'Seedlings & Starts', emoji: '🌱', keywords: ['seedling', 'start', 'transplant', 'plant'] },
-];
-
 // Which tiles to show under each category button. "All" shows none — the
 // entry here is only a fallback so lookups always succeed.
 const TILE_GROUPS: Record<string, { heading: string; types: typeof VEGETABLE_TYPES }> = {
@@ -88,7 +82,6 @@ const TILE_GROUPS: Record<string, { heading: string; types: typeof VEGETABLE_TYP
   'Herbs & Spices': { heading: 'Shop by Herb', types: HERB_TYPES },
   'Honey & Jam': { heading: 'Shop Honey, Jam & More', types: PANTRY_TYPES },
   'Fresh Eggs': { heading: 'Shop Fresh Eggs', types: EGG_TYPES },
-  Seeds: { heading: 'Shop Seeds & Starts', types: SEED_TYPES },
 };
 
 function matchesProduceType(item: { title?: string | null; variety?: string | null }, type: (typeof VEGETABLE_TYPES)[number]) {
@@ -236,6 +229,8 @@ export default function BrowsePage() {
       .from('produce_listings')
       .select('*')
       .gte('available_quantity', 1)
+      // Leaves out anything in a category that is no longer sold here.
+      .in('category', LISTING_CATEGORIES)
       .order('created_at', { ascending: false });
 
     if (listingsError) {
@@ -374,7 +369,7 @@ export default function BrowsePage() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {['All', 'Vegetables', 'Fruits & Berries', 'Herbs & Spices', 'Honey & Jam', 'Fresh Eggs', 'Seeds'].map(
+          {['All', ...LISTING_CATEGORIES].map(
             (cat) => (
               <button
                 key={cat}

@@ -38,8 +38,9 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-bold text-gray-900 mb-1">1. What Farm Fresh Direct is</h2>
           <p>
-            Farm Fresh Direct is a marketplace that connects buyers with local gardeners and small farms and
-            processes payment between them. The seller, not Farm Fresh Direct, is the seller of every product
+            Farm Fresh Direct is a marketplace for locally grown produce. It connects buyers with local
+            gardeners and small farms and processes payment between them. Listings for anything other than
+            local produce and the few farm foods in our categories are not allowed and will be removed. The seller, not Farm Fresh Direct, is the seller of every product
             listed. We do not grow, handle, store, inspect, test, certify or approve any product.
           </p>
         </section>
