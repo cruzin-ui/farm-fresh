@@ -132,6 +132,13 @@ export async function priceCart(items: CartRequestItem[]) {
     taxCents: tax.taxCents,
     totalCents: totals.totalCents + tax.taxCents,
     calculationId: tax.calculationId,
+    // Only for a cart picked up in several zip codes: the tax calculation each
+    // item belongs to, by listing, for recording the tax ourselves.
+    manualTaxCalculationByListing: new Map(
+      good.flatMap((line, i): [string, string][] =>
+        tax.manualCalculationIds[i] ? [[line.listingId, tax.manualCalculationIds[i]!]] : []
+      )
+    ),
     // True when every item can be bought as it stands.
     ok: good.length === lines.length,
   };

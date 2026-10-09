@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BUYER_FEE_LABEL } from '@/lib/pricing';
-import { LEGAL_LAST_UPDATED } from '@/lib/legal';
+import { LEGAL_LAST_UPDATED, OPERATOR_DESCRIPTION } from '@/lib/legal';
 
 export const metadata: Metadata = { title: 'Terms of Use' };
 
@@ -17,6 +17,15 @@ export default function TermsPage() {
       <p className="text-xs text-gray-500 mt-1">Last updated {LEGAL_LAST_UPDATED}</p>
 
       <div className="mt-6 space-y-6 text-sm text-gray-700 leading-relaxed">
+        <p>
+          Farm Fresh Direct is operated by {OPERATOR_DESCRIPTION} (&quot;Farm Fresh Direct&quot;, &quot;we&quot;,
+          &quot;us&quot;). You can reach us through the{' '}
+          <Link href="/contact" className="font-semibold text-emerald-800 underline">
+            Contact Us
+          </Link>{' '}
+          page.
+        </p>
+
         <p>
           These terms apply to everyone who uses Farm Fresh Direct, and in particular to anyone who buys through
           it. By placing an order you agree to them. If you sell on the site, the{' '}

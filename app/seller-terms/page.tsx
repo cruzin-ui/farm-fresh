@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SELLER_FEE_RATE } from '@/lib/pricing';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
+import { OPERATOR_DESCRIPTION } from '@/lib/legal';
 
 export const metadata: Metadata = { title: 'Seller Terms' };
 
@@ -17,6 +18,11 @@ export default function SellerTermsPage() {
       <p className="text-xs text-gray-500 mt-1">Version {SELLER_TERMS_VERSION}</p>
 
       <div className="mt-6 space-y-6 text-sm text-gray-700 leading-relaxed">
+        <p>
+          Farm Fresh Direct is operated by {OPERATOR_DESCRIPTION} (&quot;Farm Fresh Direct&quot;, &quot;we&quot;,
+          &quot;us&quot;).
+        </p>
+
         <p>
           These terms apply to everyone who lists products for sale on Farm Fresh Direct. By posting a listing you
           agree to them, in addition to our{' '}

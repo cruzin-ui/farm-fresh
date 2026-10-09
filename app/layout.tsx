@@ -114,7 +114,7 @@ export default function RootLayout({
           </Link>
           </div>
           <p className="mt-3 text-center">
-            © {new Date().getFullYear()} Farm Fresh Direct. Connecting local food communities.
+            © {new Date().getFullYear()} Farm Fresh Direct LLC. Connecting local food communities.
           </p>
         </footer>
 

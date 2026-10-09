@@ -4,6 +4,7 @@ import { sendEmail, escapeHtml } from '@/lib/email';
 import { calculateFarmerPayoutCents } from '@/lib/pricing';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { alertAdmin } from '@/lib/alerts';
+import { reverseOrderTax } from '@/lib/tax';
 
 // On a no-show, the farmer keeps this share of the produce subtotal as a
 // restocking fee; the platform keeps its buyer fee; the buyer gets the rest.
@@ -387,6 +388,23 @@ export async function refundOrderQuantity(params: {
     );
   }
 
+  // If we recorded this order's sales tax with Stripe ourselves, lower it to
+  // match. The refund is the same share of the produce, the fee and the tax.
+  const previousSubtotalCents = Math.round(Number(order.subtotal_amount ?? 0) * 100);
+  const previousTaxCents = Math.round(Number(order.tax_amount ?? 0) * 100);
+  const produceRefundCents = Math.max(0, previousSubtotalCents - newSubtotalCents);
+  const taxRefundCents = Math.max(
+    0,
+    previousTaxCents - Math.round((original.taxCents * newQuantity) / originalQuantity)
+  );
+  await reverseOrderTax({
+    order,
+    produceCents: produceRefundCents,
+    feeCents: Math.max(0, refundCents - produceRefundCents - taxRefundCents),
+    taxCents: taxRefundCents,
+    reason: `qty-${currentQuantity}-to-${newQuantity}`,
+  });
+
   if (restock) {
     const { error: restockError } = await supabaseAdmin
       .from('produce_listings')
@@ -534,6 +552,16 @@ export async function resolveNoShow(params: {
       `The refund and restocking fee were issued, but the order could not be updated: ${updateError.message}`
     );
   }
+
+  // The buyer gets the produce price back less the restocking fee; the buyer
+  // fee is kept. Lower the tax we recorded with Stripe to match.
+  await reverseOrderTax({
+    order,
+    produceCents: preTaxRefundCents,
+    feeCents: 0,
+    taxCents: taxRefundCents,
+    reason: 'no-show',
+  });
 
   const { error: restockError } = await supabaseAdmin
     .from('produce_listings')

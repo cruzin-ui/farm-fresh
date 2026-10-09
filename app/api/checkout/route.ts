@@ -56,10 +56,19 @@ export async function POST(request: Request) {
 
     // What was bought, saved on the payment so the orders can be recorded from
     // it later even if the buyer's browser never comes back. One entry per
-    // item: listing, quantity, produce subtotal, fee share and tax, in cents.
+    // item: listing, quantity, produce subtotal, fee share and tax, in cents —
+    // then, only for carts picked up in several zip codes, the tax calculation
+    // the item belongs to.
     const itemMetadata: Record<string, string> = {};
     cart.lines.forEach((line, i) => {
-      itemMetadata[`item_${i}`] = [line.listingId, line.quantity, line.subtotalCents, line.feeCents, line.taxCents].join(':');
+      itemMetadata[`item_${i}`] = [
+        line.listingId,
+        line.quantity,
+        line.subtotalCents,
+        line.feeCents,
+        line.taxCents,
+        cart.manualTaxCalculationByListing.get(line.listingId) || '',
+      ].join(':');
     });
 
     const description =

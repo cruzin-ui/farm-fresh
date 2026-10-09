@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { LEGAL_LAST_UPDATED } from '@/lib/legal';
+import { LEGAL_LAST_UPDATED, OPERATOR_DESCRIPTION } from '@/lib/legal';
 
 export const metadata: Metadata = { title: 'Privacy Policy' };
 
@@ -16,8 +16,9 @@ export default function PrivacyPolicyPage() {
 
       <div className="mt-6 space-y-6 text-sm text-gray-700 leading-relaxed">
         <p>
-          This policy explains what information Farm Fresh Direct (&quot;we&quot;, &quot;us&quot;) collects when you
-          use this website, how we use it, and who we share it with.
+          Farm Fresh Direct is operated by {OPERATOR_DESCRIPTION} (&quot;Farm Fresh Direct&quot;, &quot;we&quot;,
+          &quot;us&quot;). This policy explains what information we collect when you use this website, how we use
+          it, and who we share it with.
         </p>
 
         <section>

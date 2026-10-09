@@ -53,15 +53,27 @@ export type TaxLine = {
 // while tax collection is switched off.
 //
 // Stripe works out tax for one location at a time, so a cart with pickups in
-// several zip codes takes one calculation per zip. Only a single calculation
-// can be linked to a payment, which is what makes Stripe record the tax and
-// reverse it on refunds automatically; `calculationId` is therefore only set
-// when the whole cart is picked up in one zip code.
-export async function calculateCartTax(
-  lines: TaxLine[]
-): Promise<{ taxCentsByLine: number[]; taxCents: number; calculationId: string | null }> {
+// several zip codes takes one calculation per zip. Stripe then has to be told
+// the tax was actually collected, which happens in one of two ways:
+//
+// - A cart picked up in ONE zip code has a single calculation, returned as
+//   `calculationId`. It is linked to the payment, and Stripe records the tax
+//   when the payment succeeds and reverses it on refunds by itself.
+// - A cart spread over SEVERAL zip codes has several calculations, and a
+//   payment can only be linked to one. Their ids come back per item in
+//   `manualCalculationIds`, and we record and reverse the tax ourselves — see
+//   recordCartTax and reverseOrderTax below.
+export async function calculateCartTax(lines: TaxLine[]): Promise<{
+  taxCentsByLine: number[];
+  taxCents: number;
+  calculationId: string | null;
+  manualCalculationIds: (string | null)[];
+}> {
   const taxCentsByLine = lines.map(() => 0);
-  if (!TAX_ENABLED || lines.length === 0) return { taxCentsByLine, taxCents: 0, calculationId: null };
+  const manualCalculationIds: (string | null)[] = lines.map(() => null);
+  if (!TAX_ENABLED || lines.length === 0) {
+    return { taxCentsByLine, taxCents: 0, calculationId: null, manualCalculationIds };
+  }
 
   const lineIndexesByZip = new Map<string, number[]>();
   lines.forEach((line, index) => {
@@ -81,7 +93,7 @@ export async function calculateCartTax(
         const items = [
           {
             amount: line.subtotalCents,
-            reference: `produce_${index}`,
+            reference: produceReference(index),
             tax_code: CATEGORY_TAX_CODES[line.category || ''] || DEFAULT_TAX_CODE,
             tax_behavior: 'exclusive' as const,
           },
@@ -89,7 +101,7 @@ export async function calculateCartTax(
         if (TAX_SERVICE_FEE && line.feeCents > 0) {
           items.push({
             amount: line.feeCents,
-            reference: `fee_${index}`,
+            reference: feeReference(index),
             tax_code: SERVICE_FEE_TAX_CODE,
             tax_behavior: 'exclusive' as const,
           });
@@ -106,7 +118,10 @@ export async function calculateCartTax(
         },
         expand: ['line_items'],
       });
-      if (calculation.id) calculationIds.push(calculation.id);
+      if (calculation.id) {
+        calculationIds.push(calculation.id);
+        for (const index of indexes) manualCalculationIds[index] = calculation.id;
+      }
 
       // Stripe reports the tax on each line; add an item's produce and fee
       // lines together.
@@ -125,15 +140,110 @@ export async function calculateCartTax(
       if (missing !== 0) taxCentsByLine[indexes[0]] += missing;
     }
 
+    const oneLocation = lineIndexesByZip.size === 1;
     return {
       taxCentsByLine,
       taxCents: taxCentsByLine.reduce((sum, cents) => sum + cents, 0),
-      calculationId: lineIndexesByZip.size === 1 ? calculationIds[0] ?? null : null,
+      calculationId: oneLocation ? calculationIds[0] ?? null : null,
+      manualCalculationIds: oneLocation ? lines.map(() => null) : manualCalculationIds,
     };
   } catch (err: any) {
     if (err instanceof TaxError) throw err;
     console.error('Tax calculation failed:', err);
     await alertAdmin('sales tax calculation', err);
     throw new TaxError("We couldn't calculate tax for this order right now. Please try again in a moment.");
+  }
+}
+
+// The names given to an item's two lines in its tax calculation. `lineIndex`
+// is the item's position in the cart.
+const produceReference = (lineIndex: number) => `produce_${lineIndex}`;
+const feeReference = (lineIndex: number) => `fee_${lineIndex}`;
+
+// For a cart spread over several zip codes: tells Stripe the tax in each
+// calculation was collected, once the payment has succeeded. Returns the tax
+// transaction created for each calculation, to be saved on the orders it
+// covers. Safe to run twice for the same payment — the reference makes Stripe
+// refuse a duplicate, which is treated as already done.
+export async function recordCartTax(paymentId: string, calculationIds: string[]) {
+  const transactionIdByCalculation = new Map<string, string>();
+
+  for (const calculationId of [...new Set(calculationIds)]) {
+    const transaction = await stripeAdmin.tax.transactions.createFromCalculation(
+      { calculation: calculationId, reference: `${paymentId}-${calculationId}` },
+      { idempotencyKey: `tax-transaction-${paymentId}-${calculationId}` }
+    );
+    transactionIdByCalculation.set(calculationId, transaction.id);
+  }
+
+  return transactionIdByCalculation;
+}
+
+// For an order whose tax we recorded ourselves (see above): tells Stripe that
+// part of the order was refunded, so the tax owed goes down to match. The
+// amounts are what was refunded, in cents: of the produce price, of the buyer
+// fee, and of the tax. Orders whose tax Stripe manages (`tax_transaction_id`
+// is empty) need nothing — Stripe sees the refund itself.
+//
+// Never throws: the buyer's refund has already been issued by the time this
+// runs, and a failure here only means Stripe's tax report needs correcting by
+// hand, which an admin is alerted to.
+export async function reverseOrderTax(params: {
+  order: { id: string; tax_transaction_id?: string | null; tax_line_index?: number | null };
+  produceCents: number;
+  feeCents: number;
+  taxCents: number;
+  // Makes this reversal's reference unique, e.g. "qty-5-to-3" or "no-show".
+  reason: string;
+}) {
+  const { order, produceCents, feeCents, taxCents, reason } = params;
+  if (!order.tax_transaction_id || order.tax_line_index == null) return;
+  if (produceCents <= 0 && feeCents <= 0 && taxCents <= 0) return;
+
+  try {
+    const lineItems = await stripeAdmin.tax.transactions.listLineItems(order.tax_transaction_id, { limit: 100 });
+    const produceLine = lineItems.data.find((item) => item.reference === produceReference(order.tax_line_index!));
+    const feeLine = lineItems.data.find((item) => item.reference === feeReference(order.tax_line_index!));
+    if (!produceLine) throw new Error(`Tax transaction ${order.tax_transaction_id} has no line for this order.`);
+
+    // Share the refunded tax between the produce and the fee in proportion to
+    // the tax each one carried, never taking more from a line than it has.
+    const lineTaxTotal = produceLine.amount_tax + (feeLine?.amount_tax || 0);
+    const feeTaxCents = feeLine && lineTaxTotal > 0
+      ? Math.min(feeLine.amount_tax, Math.round((taxCents * feeLine.amount_tax) / lineTaxTotal))
+      : 0;
+    const produceTaxCents = Math.min(produceLine.amount_tax, taxCents - feeTaxCents);
+
+    // Reversal amounts are negative.
+    const reversalLines = [
+      { line: produceLine, amount: Math.min(produceCents, produceLine.amount), tax: produceTaxCents, name: 'produce' },
+      { line: feeLine, amount: feeLine ? Math.min(feeCents, feeLine.amount) : 0, tax: feeTaxCents, name: 'fee' },
+    ]
+      .filter((entry) => entry.line && (entry.amount > 0 || entry.tax > 0))
+      .map((entry) => ({
+        original_line_item: entry.line!.id,
+        reference: `${order.id}-${reason}-${entry.name}`,
+        amount: -entry.amount,
+        amount_tax: -entry.tax,
+      }));
+
+    if (reversalLines.length === 0) return;
+
+    await stripeAdmin.tax.transactions.createReversal(
+      {
+        mode: 'partial',
+        original_transaction: order.tax_transaction_id,
+        reference: `${order.id}-${reason}`,
+        line_items: reversalLines,
+      },
+      { idempotencyKey: `tax-reversal-${order.id}-${reason}` }
+    );
+  } catch (err) {
+    console.error('Refund issued but its tax could not be reversed in Stripe:', order.id, err);
+    await alertAdmin('refund issued but the tax record in Stripe was not updated', err, {
+      order: order.id,
+      'tax transaction': order.tax_transaction_id,
+      'tax to reverse': `$${(taxCents / 100).toFixed(2)}`,
+    });
   }
 }

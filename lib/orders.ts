@@ -5,6 +5,7 @@ import { sendEmail, escapeHtml } from '@/lib/email';
 import { calculateFarmerPayoutCents } from '@/lib/pricing';
 import { buyerGuidanceEmailHtml } from '@/lib/buyerGuidance';
 import { alertAdmin } from '@/lib/alerts';
+import { recordCartTax } from '@/lib/tax';
 
 // One item of a checkout, as saved on the payment by /api/checkout.
 type CheckoutLine = {
@@ -13,6 +14,9 @@ type CheckoutLine = {
   subtotalCents: number;
   feeCents: number;
   taxCents: number;
+  // Set only when this item's tax has to be recorded with Stripe by us (a
+  // cart picked up in several zip codes).
+  taxCalculationId: string | null;
 };
 
 // True for payments created by our checkout (and not, say, something made by
@@ -29,7 +33,9 @@ function checkoutLines(paymentIntent: Stripe.PaymentIntent): CheckoutLine[] {
   if (count > 0) {
     const lines: CheckoutLine[] = [];
     for (let i = 0; i < count; i++) {
-      const [listingId, quantity, subtotalCents, feeCents, taxCents] = String(metadata[`item_${i}`] || '').split(':');
+      const [listingId, quantity, subtotalCents, feeCents, taxCents, taxCalculationId] = String(
+        metadata[`item_${i}`] || ''
+      ).split(':');
       if (!listingId) throw new Error(`Payment ${paymentIntent.id} is missing the details of item ${i + 1}.`);
       lines.push({
         listingId,
@@ -37,6 +43,7 @@ function checkoutLines(paymentIntent: Stripe.PaymentIntent): CheckoutLine[] {
         subtotalCents: Number(subtotalCents) || 0,
         feeCents: Number(feeCents) || 0,
         taxCents: Number(taxCents) || 0,
+        taxCalculationId: taxCalculationId || null,
       });
     }
     return lines;
@@ -53,6 +60,7 @@ function checkoutLines(paymentIntent: Stripe.PaymentIntent): CheckoutLine[] {
       subtotalCents,
       feeCents: Math.max(0, paymentIntent.amount - subtotalCents - taxCents),
       taxCents,
+      taxCalculationId: null,
     },
   ];
 }
@@ -234,9 +242,12 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
   const { data: inserted, error: orderError } = await supabaseAdmin
     .from('orders')
     .insert(
-      lines.map((line) => {
+      lines.map((line, lineIndex) => {
         const totalPaid = (line.subtotalCents + line.feeCents + line.taxCents) / 100;
         return {
+          // Where this item sits in its tax calculation, for reversing its
+          // tax on a refund. Only needed when we record the tax ourselves.
+          ...(line.taxCalculationId ? { tax_line_index: lineIndex } : {}),
           buyer_id: buyerId,
           buyer_email: buyerEmail,
           checkout_id: checkoutId,
@@ -286,6 +297,34 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     .filter((order): order is NonNullable<typeof order> => Boolean(order));
 
   const result = await finish(orders);
+
+  // A cart picked up in several zip codes: tell Stripe the tax was collected,
+  // and note on each order which tax record it belongs to. A failure here
+  // doesn't undo the sale — the tax was charged correctly either way — but
+  // Stripe's tax report would be missing it, so an admin is told.
+  const taxCalculationIds = lines.map((line) => line.taxCalculationId).filter((id): id is string => Boolean(id));
+  if (taxCalculationIds.length > 0) {
+    try {
+      const transactionIdByCalculation = await recordCartTax(paymentIntent.id, taxCalculationIds);
+
+      for (const line of lines) {
+        const order = orders.find((o) => o.listing_id === line.listingId);
+        const transactionId = line.taxCalculationId && transactionIdByCalculation.get(line.taxCalculationId);
+        if (!order || !transactionId) continue;
+
+        const { error: taxUpdateError } = await supabaseAdmin
+          .from('orders')
+          .update({ tax_transaction_id: transactionId })
+          .eq('id', order.id);
+        if (taxUpdateError) throw taxUpdateError;
+      }
+    } catch (taxError) {
+      console.error('Sale recorded but its sales tax was not recorded with Stripe:', paymentIntent.id, taxError);
+      await alertAdmin('sale recorded but its sales tax was not recorded with Stripe', taxError, {
+        payment: paymentIntent.id,
+      });
+    }
+  }
 
   // Decrement each listing's available quantity now that payment succeeded.
   for (const line of lines) {
