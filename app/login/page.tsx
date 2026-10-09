@@ -4,7 +4,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Sprout, Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
-import { safeNextPath, AFTER_LOGIN_KEY } from '@/lib/safeRedirect';
+import { safeNextPath, AFTER_LOGIN_KEY, AFTER_SIGN_IN_PATH } from '@/lib/safeRedirect';
 
 type Mode = 'signin' | 'signup' | 'forgot';
 
@@ -19,9 +19,9 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // With nowhere particular to go, land on Browse rather than the seller
-  // dashboard: most people signing in are buyers.
-  const redirectTarget = safeNextPath(searchParams.get('redirect') || searchParams.get('next'), '/browse');
+  // With nowhere particular to go, sellers whose payouts are set up land on
+  // their dashboard and everyone else on Browse; the /signed-in page decides.
+  const redirectTarget = safeNextPath(searchParams.get('redirect') || searchParams.get('next'), AFTER_SIGN_IN_PATH);
 
   const initialMode = searchParams.get('mode');
   const [mode, setMode] = useState<Mode>(
