@@ -7,6 +7,7 @@ import {
   readyBy,
   autoCancelAt,
   formatDeadline,
+  mapLink,
   REMINDER_HOURS_BEFORE,
   AUTO_CANCEL_DAYS,
 } from '@/lib/pickupRules';
@@ -274,7 +275,7 @@ export async function GET(request: Request) {
                 <strong>${escapeHtml(listing?.title || 'Your order')}</strong> is ready, and needs to be picked up by
                 <strong>${formatDeadline(order.pickup_by)}</strong>.
               </p>
-              ${order.pickup_address ? `<p>Pickup address: <strong>${escapeHtml(order.pickup_address)}</strong></p>` : ''}
+              ${order.pickup_address ? `<p>Pickup address: <strong>${escapeHtml(order.pickup_address)}</strong><br /><a href="${mapLink(order.pickup_address)}">Get directions</a></p>` : ''}
               ${order.pickup_details ? `<p style="white-space: pre-wrap;">${escapeHtml(String(order.pickup_details))}</p>` : ''}
               <p>
                 If you can't make it, please cancel from your order page. An order that isn't collected can be

@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { calculateCartTotals } from '@/lib/pricing';
 import { calculateCartTax } from '@/lib/tax';
 import { isAllowedCategory } from '@/lib/categories';
+import { describeUsualPickup } from '@/lib/pickupRules';
 
 // SERVER-ONLY. Prices a buyer's cart. Used both to show the checkout page its
 // totals and to create the charge, so the two always agree — and so nothing
@@ -21,6 +22,9 @@ export type PricedLine = {
   farmerId: string | null;
   farmName: string;
   locationName: string;
+  // When the farm is usually available for pickup, in words; empty if the
+  // farm hasn't said.
+  usualPickup: string;
   subtotalCents: number;
   feeCents: number;
   taxCents: number;
@@ -83,7 +87,7 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
   const { data: sellers } = farmerIds.length
     ? await supabaseAdmin
         .from('seller_profiles')
-        .select('id, farm_name, stripe_account_id, stripe_onboarding_complete')
+        .select('id, farm_name, stripe_account_id, stripe_onboarding_complete, pickup_days, pickup_times')
         .in('id', farmerIds)
     : { data: [] as any[] };
   const sellerById = new Map((sellers || []).map((s: any) => [s.id as string, s]));
@@ -119,6 +123,7 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
       farmerId: listing?.farmer_id || null,
       farmName: seller?.farm_name || 'Local Farm',
       locationName: listing?.location_name || '',
+      usualPickup: describeUsualPickup(seller?.pickup_days, seller?.pickup_times) || '',
       subtotalCents: 0,
       feeCents: 0,
       taxCents: 0,
