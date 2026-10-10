@@ -560,6 +560,18 @@ export default function SellerDashboardPage() {
         alsoOrderIds: ids.slice(1),
       });
       const data = await res.json();
+
+      // The code belongs to another order this buyer has with the farm: move
+      // to that order, with the code filled in, instead of just refusing it.
+      const otherOrder = data.otherOrderId ? incomingOrders.find((o) => o.id === data.otherOrderId) : null;
+      if (!res.ok && otherOrder) {
+        openComplete(otherOrder);
+        setCompleteCode(code.trim().toUpperCase());
+        setScanNote(
+          `That code is for this buyer's other order, ${data.otherOrderRef}, so we've switched to it. Check the items below, then tap Confirm Pickup.`
+        );
+        return;
+      }
       if (!res.ok) throw new Error(data.error || 'Could not complete order.');
 
       const itemCount = Number(data.completedCount) || 1;
@@ -580,10 +592,10 @@ export default function SellerDashboardPage() {
     }
   };
 
-  // The buyer's QR code holds their pickup code. If this is the only item the
-  // code covers, scanning it completes the order straight away. If the buyer
-  // has other items with this farm, the farmer still has to say which ones are
-  // being handed over, so the code is filled in and they confirm.
+  // The buyer's QR code holds their pickup code. Scanning it completes the
+  // order straight away: every item that is ticked, which to begin with is
+  // everything marked ready. A farmer handing over only part of an order
+  // unticks the rest before scanning.
   const handleCodeScanned = (order: any, text: string) => {
     setScanningCode(false);
 
@@ -594,12 +606,8 @@ export default function SellerDashboardPage() {
     }
 
     setCompleteCode(scanned.toUpperCase());
-    if (sameCheckoutOrders(order).length > 0) {
-      setScanNote('Code scanned. Tick the items you are handing over, then confirm.');
-    } else {
-      setScanNote(null);
-      handleMarkCompleted(order.id, scanned);
-    }
+    setScanNote(null);
+    handleMarkCompleted(order.id, scanned);
   };
 
   const openReadyDraft = (order: any) => {
@@ -2304,6 +2312,36 @@ export default function SellerDashboardPage() {
 
                       {completing && ((order: any) => (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+                          {several && (
+                            <fieldset className="space-y-2">
+                              <legend className="text-xs font-semibold text-emerald-900">
+                                Tick what you are handing over now. Scanning the code completes the ticked items straight away:
+                              </legend>
+                              {items.map((other) => (
+                                <label key={other.id} className="flex items-start gap-2 text-xs text-emerald-950">
+                                  <input
+                                    type="checkbox"
+                                    className="mt-0.5 w-4 h-4 shrink-0"
+                                    checked={completeIds.includes(other.id)}
+                                    onChange={(e) =>
+                                      setCompleteIds((current) =>
+                                        e.target.checked ? [...current, other.id] : current.filter((id) => id !== other.id)
+                                      )
+                                    }
+                                  />
+                                  <span>
+                                    {other.reserved_quantity} {other.listing_unit_type} of{' '}
+                                    <span className="font-semibold">{other.listing_title}</span>
+                                    {other.status !== 'ready_for_pickup' && ' (not marked ready yet)'}
+                                  </span>
+                                </label>
+                              ))}
+                              <p className="text-xs text-emerald-900">
+                                Anything left unticked stays open, and the buyer is emailed a new code for it. A
+                                code only works once.
+                              </p>
+                            </fieldset>
+                          )}
                           {scanningCode ? (
                             <QrScanner
                               onResult={(text) => handleCodeScanned(order, text)}
@@ -2327,6 +2365,11 @@ export default function SellerDashboardPage() {
                               {scanNote}
                             </p>
                           )}
+                          <p className="text-xs text-emerald-950">
+                            You're completing order{' '}
+                            <span className="font-mono font-bold">{orderRef(order)}</span>. If the buyer has more than
+                            one order with you, ask them to open the one with this number.
+                          </p>
                           <label htmlFor="dash-enter-the-buyer-s-pickup-code" className="block text-xs font-semibold text-emerald-900">
                             Or type the buyer's pickup code
                           </label>
@@ -2339,39 +2382,9 @@ export default function SellerDashboardPage() {
                           />
                           <p className="text-xs text-emerald-900">
                             Ask the buyer to show the QR code or read you the code from their order when they
-                            collect their produce. Scanning or entering it completes the order and releases your
-                            payout.
+                            collect their produce. Scanning it completes the order and releases your payout straight
+                            away. A typed code needs Confirm Pickup.
                           </p>
-                          {several && (
-                            <fieldset className="space-y-2">
-                              <legend className="text-xs font-semibold text-emerald-900">
-                                This buyer's code covers all of these. Tick the ones you are handing over now:
-                              </legend>
-                              {items.map((other) => (
-                                <label key={other.id} className="flex items-start gap-2 text-xs text-emerald-950">
-                                  <input
-                                    type="checkbox"
-                                    className="mt-0.5 w-4 h-4 shrink-0"
-                                    checked={completeIds.includes(other.id)}
-                                    onChange={(e) =>
-                                      setCompleteIds((current) =>
-                                        e.target.checked ? [...current, other.id] : current.filter((id) => id !== other.id)
-                                      )
-                                    }
-                                  />
-                                  <span>
-                                    {other.reserved_quantity} {other.listing_unit_type} of{' '}
-                                    <span className="font-semibold">{other.listing_title}</span>
-                                    {other.status !== 'ready_for_pickup' && ' (not marked ready yet)'}
-                                  </span>
-                                </label>
-                              ))}
-                              <p className="text-xs text-emerald-900">
-                                Anything left unticked stays open. This code stops working once it is used: the
-                                buyer is emailed a new code for whatever they still have to collect.
-                              </p>
-                            </fieldset>
-                          )}
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleMarkCompleted(order.id)}

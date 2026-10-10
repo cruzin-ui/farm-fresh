@@ -17,6 +17,38 @@ export const dynamic = 'force-dynamic';
 
 const isOpen = (order: any) => order.status === 'pending_pickup' || order.status === 'ready_for_pickup';
 
+// Looks for another open order this buyer has with this farmer whose pickup
+// code is the one just entered. Only the same buyer's orders are checked, so
+// this can't be used to try a code against every order a farmer has.
+async function findBuyersOtherOrder(order: any, farmerId: string, excludeIds: string[], enteredCode: string) {
+  if (!order.buyer_id && !order.buyer_email) return null;
+
+  let query = supabaseAdmin
+    .from('orders')
+    .select('id, checkout_id, listing_id')
+    .in('status', ['pending_pickup', 'ready_for_pickup'])
+    .limit(50);
+  query = order.buyer_id
+    ? query.eq('buyer_id', order.buyer_id)
+    : query.is('buyer_id', null).ilike('buyer_email', String(order.buyer_email).replace(/[\\%_]/g, (c: string) => `\\${c}`));
+
+  const { data: theirs } = await query;
+  const candidates = (theirs || []).filter((o) => !excludeIds.includes(o.id));
+  if (candidates.length === 0) return null;
+
+  const { data: listings } = await supabaseAdmin
+    .from('produce_listings')
+    .select('id, farmer_id')
+    .in('id', [...new Set(candidates.map((o) => o.listing_id))]);
+  const mine = new Set((listings || []).filter((l) => l.farmer_id === farmerId).map((l) => l.id));
+
+  for (const candidate of candidates.filter((o) => mine.has(o.listing_id))) {
+    const record = await getPickupCodeRecord(candidate.id);
+    if (record?.code && normalizePickupCode(record.code) === enteredCode) return candidate;
+  }
+  return null;
+}
+
 // Marks an order completed once the farmer enters the buyer's pickup code,
 // which releases the farmer's payout for it.
 //
@@ -108,6 +140,24 @@ export async function POST(request: Request) {
       const enteredCode = typeof body.code === 'string' ? normalizePickupCode(body.code) : '';
 
       if (!enteredCode || enteredCode !== normalizePickupCode(expectedCode)) {
+        // A buyer with two separate orders from this farm has a code for
+        // each, and it's easy to show the wrong one. If the code is the right
+        // one for another of this same buyer's open orders here, say which,
+        // and don't count it as a wrong guess.
+        if (enteredCode) {
+          const other = await findBuyersOtherOrder(order, user.id, covered.map((o) => o.id), enteredCode);
+          if (other) {
+            return NextResponse.json(
+              {
+                error: `That code is for a different order from the same buyer: order ${orderRef(other)}. Open that order and use the code there.`,
+                otherOrderId: other.id,
+                otherOrderRef: orderRef(other),
+              },
+              { status: 409 }
+            );
+          }
+        }
+
         if (codeRecord && enteredCode) {
           await recordFailedPickupCodeAttempt(
             covered.map((o) => o.id),
