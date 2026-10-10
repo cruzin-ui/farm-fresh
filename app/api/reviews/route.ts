@@ -4,6 +4,8 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { alertAdmin } from '@/lib/alerts';
+import { sendEmail, escapeHtml } from '@/lib/email';
+import { orderRef } from '@/lib/pickupGroups';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +44,7 @@ export async function POST(request: Request) {
 
     const { data: order } = await supabaseAdmin
       .from('orders')
-      .select('id, buyer_id, listing_id, status, guest_access_token')
+      .select('id, checkout_id, buyer_id, listing_id, status, guest_access_token')
       .eq('id', orderId)
       .maybeSingle();
 
@@ -72,7 +74,7 @@ export async function POST(request: Request) {
 
     const { data: listing } = await supabaseAdmin
       .from('produce_listings')
-      .select('farmer_id')
+      .select('farmer_id, title')
       .eq('id', order.listing_id)
       .maybeSingle();
 
@@ -96,6 +98,46 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "You've already reviewed this order." }, { status: 409 });
       }
       return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    // Let the farmer know. The review is saved either way, so a problem here
+    // is only logged. The buyer isn't named: reviews on the site aren't either.
+    try {
+      const { data: sellerUser } = await supabaseAdmin.auth.admin.getUserById(listing.farmer_id);
+      const sellerEmail = sellerUser?.user?.email;
+      if (sellerEmail) {
+        const origin = new URL(request.url).origin;
+        const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+        await sendEmail({
+          to: sellerEmail,
+          subject: `You have a new ${rating}-star review`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 480px;">
+              <h2 style="color: #059669;">A buyer reviewed your farm</h2>
+              <p>
+                For order <strong style="font-family: monospace;">${orderRef(order)}</strong>:
+                <strong>${escapeHtml(listing.title || 'your produce')}</strong>
+              </p>
+              <p style="font-size: 24px; color: #d97706; margin: 8px 0;" aria-label="${rating} out of 5 stars">${stars}</p>
+              ${
+                comment
+                  ? `<p style="white-space: pre-wrap; border-left: 3px solid #a7f3d0; padding: 4px 0 4px 12px; color: #374151;">${escapeHtml(comment)}</p>`
+                  : '<p style="color: #6b7280;">They left a rating without a comment.</p>'
+              }
+              <p>It now shows on your farm page, where shoppers see it before they buy.</p>
+              <p>
+                <a href="${origin}/sellers/${listing.farmer_id}" style="display: inline-block; background: #047857; color: #ffffff; text-decoration: none; font-weight: bold; padding: 10px 18px; border-radius: 8px;">View My Farm Page</a>
+              </p>
+              <p style="font-size: 12px; color: #6b7280;">
+                Reviews can only be left by buyers who picked up an order. If you think this one breaks our rules,
+                <a href="${origin}/contact">contact us</a> and we'll take a look.
+              </p>
+            </div>
+          `,
+        });
+      }
+    } catch (emailErr) {
+      console.error('Failed to email the farmer about a new review:', emailErr);
     }
 
     return NextResponse.json({ success: true });
