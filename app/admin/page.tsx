@@ -841,7 +841,7 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                <p className="text-[11px] text-gray-400">
+                <p className="text-xs text-gray-400">
                   A seller is flagged for: 3 or more no-shows making up 30% of their pickups; cancelling or failing
                   to ready 3 or more orders making up 30% of their orders; 2 or more orders completed within 30
                   minutes of purchase; 2 or more problems reported by buyers; any payment dispute; or any listing
@@ -1035,7 +1035,7 @@ export default function AdminPage() {
                     </div>
                   )}
 
-                  <p className="text-[11px] text-gray-400">
+                  <p className="text-xs text-gray-400">
                     The three amounts add up to what buyers paid, before tax. Paid to farmers includes no-show
                     restocking fees. Stripe's share is an estimate, not read from your Stripe account: card fees
                     (2.9% + 30¢ per payment) plus Stripe's $2 monthly fee per active farmer. It leaves out
@@ -1094,7 +1094,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <p className="text-[11px] text-gray-400">
+              <p className="text-xs text-gray-400">
                 The orders report lists every order placed in the month, one per row, with the buyer's payment,
                 refunds, the farmer's payout, your fees and the pickup city and zip. Open it in Excel or Google
                 Sheets, or send it to your accountant.
@@ -1252,7 +1252,7 @@ export default function AdminPage() {
                             )}
                           </p>
                           {order.stripe_payment_intent_id && (
-                            <p className="font-mono text-[10px] text-gray-400">{order.stripe_payment_intent_id}</p>
+                            <p className="font-mono text-xs text-gray-400">{order.stripe_payment_intent_id}</p>
                           )}
                           {order.buyer_problem_at && order.buyer_problem_note && (
                             <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg text-red-950">

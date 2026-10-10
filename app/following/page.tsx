@@ -7,6 +7,8 @@ import { Heart, MapPin, Clock, ArrowLeft, Sprout, User } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import AddToCartButton from '@/components/AddToCartButton';
+import Photo from '@/components/Photo';
+import { CardListSkeleton } from '@/components/Skeletons';
 
 type FollowedFarm = {
   id: string;
@@ -80,7 +82,7 @@ export default function FollowedFarmsPage() {
   };
 
   if (loading) {
-    return <div className="max-w-4xl mx-auto my-20 p-8 text-center text-gray-500 text-sm">Loading your farms...</div>;
+    return <CardListSkeleton label="Loading your farms..." />;
   }
 
   return (
@@ -131,9 +133,10 @@ export default function FollowedFarmsPage() {
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <Link href={`/sellers/${farm.id}`} className="flex items-center gap-3 min-w-0 group">
                 {farm.avatar_url ? (
-                  <img
+                  <Photo
                     src={farm.avatar_url}
                     alt=""
+                    sizes="48px"
                     className="w-12 h-12 rounded-xl object-cover border border-emerald-200 shrink-0"
                   />
                 ) : (
@@ -175,7 +178,7 @@ export default function FollowedFarmsPage() {
                   <li key={listing.id} className="border border-gray-200 rounded-xl p-3 flex gap-3">
                     <Link href={`/listings/${listing.id}`} className="shrink-0">
                       {listing.image_url ? (
-                        <img src={listing.image_url} alt="" className="w-16 h-16 rounded-lg object-cover" />
+                        <Photo src={listing.image_url} alt="" sizes="64px" className="w-16 h-16 rounded-lg object-cover" />
                       ) : (
                         <div className="w-16 h-16 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
                           <Sprout className="w-7 h-7" aria-hidden="true" />

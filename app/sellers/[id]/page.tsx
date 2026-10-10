@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { Sprout, MapPin, Star, Calendar, ShoppingBag, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import AddToCartButton from '@/components/AddToCartButton';
+import Photo from '@/components/Photo';
+import { FarmPageSkeleton } from '@/components/Skeletons';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import { describeUsualPickup } from '@/lib/pickupRules';
 import FollowFarmButton from '@/components/FollowFarmButton';
@@ -69,11 +71,7 @@ export default function PublicSellerProfilePage() {
   };
 
   if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto my-20 p-8 text-center text-gray-500">
-        Loading farm profile...
-      </div>
-    );
+    return <FarmPageSkeleton />;
   }
 
   return (
@@ -82,9 +80,11 @@ export default function PublicSellerProfilePage() {
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm mb-8">
         <div className="h-48 bg-emerald-700 relative flex items-center justify-center text-white">
           {profile?.cover_image_url ? (
-            <img
+            <Photo
               src={profile.cover_image_url}
               alt={`${profile.farm_name || 'Farm'} banner`}
+              sizes="(max-width: 895px) 100vw, 896px"
+              eager
               className="w-full h-full object-cover"
             />
           ) : (
@@ -99,9 +99,10 @@ export default function PublicSellerProfilePage() {
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-gray-100">
             <div>
               {profile?.avatar_url && (
-                <img
+                <Photo
                   src={profile.avatar_url}
                   alt={profile.farm_name || 'Farm'}
+                  sizes="80px"
                   className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md -mt-16 mb-3 relative bg-white"
                 />
               )}
@@ -153,9 +154,10 @@ export default function PublicSellerProfilePage() {
               <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Farm & Harvest Photos</h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {profile.gallery_urls.map((url: string, index: number) => (
-                  <img
+                  <Photo
                     key={index}
                     src={url}
+                    sizes="(max-width: 639px) 50vw, 220px"
                     alt={`Farm photo ${index + 1}`}
                     className="h-28 w-full object-cover rounded-xl border border-gray-200"
                   />
@@ -182,7 +184,7 @@ export default function PublicSellerProfilePage() {
               <div key={item.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col justify-between">
                 <Link href={`/listings/${item.id}`}>
                   {item.image_url ? (
-                    <img src={item.image_url} alt={item.title} className="h-40 w-full object-cover" />
+                    <Photo src={item.image_url} alt={item.title} sizes="(max-width: 639px) 100vw, 440px" className="h-40 w-full object-cover" />
                   ) : (
                     <div className="h-40 w-full bg-green-50 flex items-center justify-center text-green-700">
                       <Sprout className="w-10 h-10 opacity-50" />

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Sprout, Pause, Play } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { LISTING_CATEGORIES } from '@/lib/categories';
+import Photo from '@/components/Photo';
 
 const MAX_LISTINGS = 12;
 // How fast the strip drifts on its own, in pixels per second.
@@ -190,7 +191,7 @@ export default function FreshListingsWheel() {
     >
       <div className="h-36 bg-emerald-50 flex items-center justify-center overflow-hidden">
         {item.image_url ? (
-          <img src={item.image_url} alt="" loading="lazy" draggable={false} className="w-full h-full object-cover" />
+          <Photo src={item.image_url} alt="" sizes="240px" draggable={false} className="w-full h-full object-cover" />
         ) : (
           <Sprout className="w-10 h-10 text-emerald-700/40" aria-hidden="true" />
         )}

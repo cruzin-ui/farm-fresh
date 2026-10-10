@@ -252,7 +252,7 @@ function LoginContent() {
               />
             </div>
             {mode === 'signup' && (
-              <p className="text-[11px] text-gray-500 mt-1">At least {MIN_PASSWORD_LENGTH} characters.</p>
+              <p className="text-xs text-gray-500 mt-1">At least {MIN_PASSWORD_LENGTH} characters.</p>
             )}
           </div>
           )}
@@ -292,7 +292,7 @@ function LoginContent() {
         </p>
 
         {mode === 'signup' && (
-          <p className="mt-3 text-center text-[11px] text-gray-500">
+          <p className="mt-3 text-center text-xs text-gray-500">
             By creating an account you agree to our{' '}
             <a href="/terms" target="_blank" className="underline">
               Terms of Use

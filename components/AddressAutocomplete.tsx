@@ -197,7 +197,7 @@ export default function AddressAutocomplete({
       )}
 
       {/* Announced to screen readers as it changes. */}
-      <p id={hintId} role="status" className="text-[10px] mt-1 text-gray-500">
+      <p id={hintId} role="status" className="text-xs mt-1 text-gray-500">
         {verified ? (
           <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
             <CheckCircle2 className="w-3 h-3" aria-hidden="true" /> Matched to a known address
