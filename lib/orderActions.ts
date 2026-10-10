@@ -1,7 +1,12 @@
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendEmail, escapeHtml } from '@/lib/email';
-import { calculateFarmerPayoutCents, calculateCancellationSplit, RESTOCKING_RATE } from '@/lib/pricing';
+import {
+  calculateFarmerPayoutCents,
+  calculateCancellationSplit,
+  RESTOCKING_RATE,
+  FREE_CANCELLATION_HOURS,
+} from '@/lib/pricing';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { alertAdmin, notifyAdmins } from '@/lib/alerts';
 import { reverseOrderTax } from '@/lib/tax';
@@ -761,7 +766,7 @@ export async function resolveNoShow(params: {
             payment method. It usually takes 5–10 business days to appear. The service fee is not refunded on
             orders you cancel${
               restockingFee > 0
-                ? `, and a ${restockingRate * 100}% restocking fee ($${restockingFee.toFixed(2)}) went to the farmer because the order was cancelled more than 48 hours after it was placed`
+                ? `, and a ${restockingRate * 100}% restocking fee ($${restockingFee.toFixed(2)}) went to the farmer because the order was cancelled more than ${FREE_CANCELLATION_HOURS} hours after it was placed`
                 : ''
             }.
           </p>

@@ -5,7 +5,7 @@ import { getRequestUser } from '@/lib/apiAuth';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { resolveNoShow, refundOrderQuantity, OrderActionError } from '@/lib/orderActions';
 import { isSellerLate } from '@/lib/pickupRules';
-import { isWithinFreeCancellation, RESTOCKING_RATE } from '@/lib/pricing';
+import { isWithinFreeCancellation, RESTOCKING_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { alertAdmin } from '@/lib/alerts';
 
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
                   ? "The buyer was able to cancel for a full refund because the order wasn't marked ready by its deadline."
                   : restockingFee > 0
                     ? `Because it was cancelled late, you've been paid a restocking fee of <strong>$${restockingFee.toFixed(2)}</strong>.`
-                    : 'It was cancelled within 48 hours of being placed, so there is no restocking fee.'
+                    : `It was cancelled within ${FREE_CANCELLATION_HOURS} hours of being placed, so there is no restocking fee.`
               }
             </p>
           </div>

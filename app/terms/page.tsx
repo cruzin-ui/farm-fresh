@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BUYER_FEE_LABEL } from '@/lib/pricing';
+import { BUYER_FEE_LABEL, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { LEGAL_LAST_UPDATED, OPERATOR_DESCRIPTION } from '@/lib/legal';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
 
@@ -106,7 +106,7 @@ export default function TermsPage() {
             <li>
               <strong>If you cancel your order,</strong> which you can do from your order page any time before
               pickup, you are refunded what you paid for the produce. The service fee is not refunded. If you
-              cancel more than 48 hours after ordering, or after the seller has reported the order as not
+              cancel more than {FREE_CANCELLATION_HOURS} hours after ordering, or after the seller has reported the order as not
               collected, the seller also keeps a {NO_SHOW_FEE} restocking fee.
             </li>
             <li>

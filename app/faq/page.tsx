@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { HelpCircle } from 'lucide-react';
-import { BUYER_FEE_LABEL, SELLER_FEE_RATE } from '@/lib/pricing';
+import { BUYER_FEE_LABEL, SELLER_FEE_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
 
@@ -110,8 +110,8 @@ const BUYER_FAQS: Faq[] = [
       <>
         Cancel the order as early as you can: open the order (in My Orders, or the link in your confirmation
         email), tap <strong>More options</strong> and choose <strong>Cancel</strong>. You're refunded what you paid for
-        the produce; the service fee isn't refunded. Cancel within 48 hours of ordering and that's all. After
-        48 hours the farmer also keeps a {NO_SHOW_FEE} restocking fee. If you can't cancel it yourself,{' '}
+        the produce; the service fee isn't refunded. Cancel within {FREE_CANCELLATION_HOURS} hours of ordering and that's all. After
+        {FREE_CANCELLATION_HOURS} hours the farmer also keeps a {NO_SHOW_FEE} restocking fee. If you can't cancel it yourself,{' '}
         <Link href="/contact" className="font-semibold text-emerald-800 underline">
           contact us
         </Link>
@@ -262,7 +262,7 @@ const SELLER_FAQS: Faq[] = [
   },
   {
     question: 'What happens if a buyer cancels?',
-    answer: `Buyers can cancel an order themselves any time before pickup. We email you straight away so you don't prepare it, and the quantity goes back on your listing. If they cancel within 48 hours of ordering, there's no payment to you. If they cancel later than that, you're paid a ${NO_SHOW_FEE} restocking fee.`,
+    answer: `Buyers can cancel an order themselves any time before pickup. We email you straight away so you don't prepare it, and the quantity goes back on your listing. If they cancel within ${FREE_CANCELLATION_HOURS} hours of ordering, there's no payment to you. If they cancel later than that, you're paid a ${NO_SHOW_FEE} restocking fee.`,
   },
   {
     question: "What if a buyer doesn't show up?",

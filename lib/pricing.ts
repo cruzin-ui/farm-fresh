@@ -59,7 +59,7 @@ export const RESTOCKING_RATE = 0.1;
 // restocking fee; after that there is. Either way the service fee is kept,
 // because the card processor charges us for the payment whether or not it is
 // later refunded.
-export const FREE_CANCELLATION_HOURS = 48;
+export const FREE_CANCELLATION_HOURS = 24;
 
 export function isWithinFreeCancellation(orderedAt: string | Date, now: number = Date.now()) {
   return now - new Date(orderedAt).getTime() <= FREE_CANCELLATION_HOURS * 60 * 60 * 1000;
