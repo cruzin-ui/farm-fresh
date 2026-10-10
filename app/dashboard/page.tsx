@@ -1609,17 +1609,23 @@ export default function SellerDashboardPage() {
                       )}
                     </div>
                     <div>
-                      <label htmlFor="dash-variety-optional" className="block text-xs font-semibold text-gray-700 mb-1">
-                        Variety (Optional)
+                      <label htmlFor="dash-variety" className="block text-xs font-semibold text-gray-700 mb-1">
+                        Variety or Type *
                       </label>
-                      <input id="dash-variety-optional"
+                      <input id="dash-variety"
                         type="text"
+                        required
+                        maxLength={60}
                         placeholder="e.g., Yukon Gold"
                         value={variety}
                         onChange={(e) => setVariety(e.target.value)}
                         disabled={identityLocked}
                         className="w-full px-4 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500"
                       />
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Buyers nearly always ask. If you don't know the variety, describe it: "Large brown",
+                        "Wildflower", "Mixed".
+                      </p>
                     </div>
                     <div>
                       <label htmlFor="dash-category" className="block text-xs font-semibold text-gray-700 mb-1">
