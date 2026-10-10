@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { SELLER_FEE_RATE } from '@/lib/pricing';
+import { SELLER_FEE_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { OPERATOR_DESCRIPTION } from '@/lib/legal';
 import { LISTING_CATEGORIES } from '@/lib/categories';
@@ -104,7 +104,7 @@ export default function SellerTermsPage() {
             report an order as not collected only after that time has passed. If you cannot fulfill an order in
             full, reduce or cancel it through your Seller Dashboard so
             the buyer is refunded. If a buyer does not collect an order, we may close it and pay you a restocking
-            fee. A buyer may cancel an order before pickup: if they cancel within 48 hours of ordering you are
+            fee. A buyer may cancel an order before pickup: if they cancel within {FREE_CANCELLATION_HOURS} hours of ordering you are
             not paid for it, and if they cancel later you are paid a restocking fee.
           </p>
           <p className="mt-2">
