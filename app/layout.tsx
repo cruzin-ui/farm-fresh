@@ -61,17 +61,17 @@ export default function RootLayout({
         {/* SHARED TOP NAVIGATION */}
         <header className="bg-white/90 backdrop-blur-md border-b border-emerald-100 sticky top-0 z-50 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-            <Link href="/" className="font-heading flex items-center gap-2.5 font-black text-xl text-emerald-900">
+            <Link href="/" className="font-heading flex items-center gap-2.5 font-black text-lg sm:text-xl text-emerald-900 whitespace-nowrap">
               <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-sm">
                 <Sprout className="w-5 h-5" />
               </div>
               <span>Farm Fresh <span className="text-emerald-600 font-medium">Direct</span></span>
             </Link>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 md:gap-3">
             {/* Browse is the one link kept beside the account menu; My Orders
-                and the Seller Dashboard are inside that menu. On phones the
-                bottom tab bar is used instead. */}
+                and the Seller Dashboard are inside that menu. On phones it is
+                all in the menu button, with the bottom tab bar as a shortcut. */}
             <nav className="hidden md:flex items-center gap-3">
               <Link
                 href="/browse"
