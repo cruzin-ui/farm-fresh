@@ -148,6 +148,15 @@ export async function POST(request: Request) {
     // Guests reach their order through a secret link. (Older guest orders kept the token on the order row.)
     const guestToken = codeRecord?.guestToken || order.guest_access_token;
 
+    const origin = new URL(request.url).origin;
+    // Signed-in buyers see their orders on the site; guests reach theirs
+    // through the secret link.
+    const ordersLink = guestToken
+      ? `${origin}/orders/confirmation?orderId=${order.id}&token=${guestToken}`
+      : `${origin}/orders`;
+    // The same QR code the order page shows, as a picture (see /api/qr).
+    const showQr = /^FFD-?\d{6}$/i.test(String(pickupCode || ''));
+
     if (order.buyer_email) {
       await sendEmail({
         to: order.buyer_email,
@@ -179,14 +188,18 @@ export async function POST(request: Request) {
               from today; an order that isn't collected in that time can be closed as not picked up, with a
               restocking fee.
             </p>
-            <p>Your pickup code: <strong>${pickupCode}</strong></p>
-            <p>Give this code to the farmer only when you collect your produce — it releases their payment.</p>
-            ${buyerGuidanceEmailHtml(new URL(request.url).origin)}
+            <p>Your pickup code: <strong style="font-family: monospace; font-size: 18px;">${pickupCode}</strong></p>
             ${
-              guestToken
-                ? `<p><a href="${new URL(request.url).origin}/orders/confirmation?orderId=${order.id}&token=${guestToken}">View your order</a></p>`
+              showQr
+                ? `<p><img src="${origin}/api/qr?code=${encodeURIComponent(String(pickupCode))}" width="180" height="180" alt="QR code for your pickup code" style="display: block; border: 1px solid #e5e7eb; border-radius: 8px;" /></p>
+            <p style="font-size: 12px; color: #6b7280;">The farmer can scan this QR code, or you can read them the code above. If the picture doesn't show, your email app may be blocking images; the code works just the same.</p>`
                 : ''
             }
+            <p>Show or give this code to the farmer only when you collect your produce — it releases their payment.</p>
+            <p>
+              <a href="${ordersLink}" style="display: inline-block; background: #047857; color: #ffffff; text-decoration: none; font-weight: bold; padding: 10px 18px; border-radius: 8px;">${guestToken ? 'View My Order' : 'View My Orders'}</a>
+            </p>
+            ${buyerGuidanceEmailHtml(origin)}
           </div>
         `,
       });
