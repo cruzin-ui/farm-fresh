@@ -60,7 +60,9 @@ export default function PublicSellerProfilePage() {
       .order('created_at', { ascending: false });
 
     setProfile(profileData);
-    setListings(listingsData || []);
+    // Nothing is shown for sale until the farmer has finished payout setup,
+    // since nobody can buy it before then.
+    setListings(profileData?.stripe_onboarding_complete ? listingsData || [] : []);
     setReviews(reviewsData || []);
     setLoading(false);
   };

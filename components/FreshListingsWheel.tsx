@@ -62,14 +62,20 @@ export default function FreshListingsWheel() {
         .order('created_at', { ascending: false })
         .limit(60);
 
-      const chosen = takeTurns(listingsData || []);
-      const farmerIds = [...new Set(chosen.map((l) => l.farmer_id).filter(Boolean))];
+      const farmerIds = [...new Set((listingsData || []).map((l) => l.farmer_id).filter(Boolean))];
 
       const { data: sellers } = farmerIds.length
-        ? await supabase.from('seller_profiles').select('id, farm_name').in('id', farmerIds)
+        ? await supabase
+            .from('seller_profiles')
+            .select('id, farm_name, stripe_onboarding_complete')
+            .in('id', farmerIds)
         : { data: [] as any[] };
 
       const farmNameById = new Map((sellers || []).map((s) => [s.id, s.farm_name]));
+      // Listings stay hidden until their farmer has finished payout setup,
+      // since nobody can buy them before then.
+      const payoutsReady = new Set((sellers || []).filter((s) => s.stripe_onboarding_complete).map((s) => s.id));
+      const chosen = takeTurns((listingsData || []).filter((l) => payoutsReady.has(l.farmer_id)));
 
       setListings(chosen.map((l) => ({ ...l, farm_name: farmNameById.get(l.farmer_id) || 'Local Farm' })));
       setLoaded(true);

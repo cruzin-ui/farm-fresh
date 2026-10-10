@@ -1271,7 +1271,7 @@ export default function SellerDashboardPage() {
                         done: payoutsDone,
                         title: 'Connect your payouts',
                         detail:
-                          "Add your bank details through Stripe so you can be paid. Buyers can't purchase from you until this is done.",
+                          "Add your bank details through Stripe so you can be paid. Your listings stay hidden from buyers until this is done.",
                         action: 'Open Payouts & Settings',
                         onClick: () => setActiveTab('settings'),
                       },
@@ -1357,6 +1357,26 @@ export default function SellerDashboardPage() {
                 </div>
               )}
 
+              {activeTab === 'listings' && !stripeOnboardingComplete && myListings.length > 0 && (
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-xs text-amber-900">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                  <div>
+                    <p className="font-bold text-sm">Your listings aren't visible to buyers yet</p>
+                    <p className="mt-0.5">
+                      They'll appear on the site as soon as you finish connecting your payouts. You can keep
+                      adding and editing listings in the meantime.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('settings')}
+                      className="mt-2 font-bold underline underline-offset-2"
+                    >
+                      Connect payouts
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'listings' && visibleListings.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {visibleListings.map((item) => {
@@ -1391,6 +1411,9 @@ export default function SellerDashboardPage() {
                           >
                             {qty <= 0 ? 'Sold out or taken down — edit the quantity to restock' : `${qty} ${item.unit_type} left`}
                           </p>
+                          {!stripeOnboardingComplete && qty > 0 && (
+                            <p className="text-xs font-bold text-amber-700">Not visible to buyers yet</p>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <button
@@ -2832,8 +2855,8 @@ export default function SellerDashboardPage() {
                     </p>
                     <p className="mt-0.5">
                       {stripeAccountId
-                        ? "Finish the remaining steps with Stripe to start receiving direct payouts. Buyers can't purchase from you until this is done."
-                        : "Set up a Stripe payout account to receive your earnings by direct deposit. Buyers can't purchase from you until this is done."}
+                        ? "Finish the remaining steps with Stripe to start receiving direct payouts. Your listings stay hidden from buyers until this is done."
+                        : "Set up a Stripe payout account to receive your earnings by direct deposit. Your listings stay hidden from buyers until this is done."}
                     </p>
                   </div>
                 </div>

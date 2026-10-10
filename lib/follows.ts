@@ -46,7 +46,7 @@ export async function listFollowedFarms(userId: string) {
 
   const { data: farms } = await supabaseAdmin
     .from('seller_profiles')
-    .select('id, farm_name, avatar_url, location, pickup_days, pickup_times')
+    .select('id, farm_name, avatar_url, location, pickup_days, pickup_times, stripe_onboarding_complete')
     .in('id', farmerIds);
   const farmById = new Map((farms || []).map((farm) => [farm.id as string, farm]));
 
@@ -63,7 +63,10 @@ export async function listFollowedFarms(userId: string) {
       const farm = farmById.get(follow.farmer_id as string);
       if (!farm) return null;
 
-      const forSale = (listings || []).filter((listing) => listing.farmer_id === farm.id);
+      // Nothing counts as for sale until the farmer has finished payout setup.
+      const forSale = farm.stripe_onboarding_complete
+        ? (listings || []).filter((listing) => listing.farmer_id === farm.id)
+        : [];
       return {
         id: farm.id as string,
         farm_name: (farm.farm_name as string) || 'Local Farm',

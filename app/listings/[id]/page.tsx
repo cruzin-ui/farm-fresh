@@ -39,7 +39,7 @@ export default function ListingDetailPage() {
       if (listingData?.farmer_id) {
         const { data: sellerData } = await supabase
           .from('seller_profiles')
-          .select('id, farm_name, avatar_url, location, bio, growing_practices, pickup_days, pickup_times')
+          .select('id, farm_name, avatar_url, location, bio, growing_practices, pickup_days, pickup_times, stripe_onboarding_complete')
           .eq('id', listingData.farmer_id)
           .maybeSingle();
 
@@ -201,6 +201,10 @@ export default function ListingDetailPage() {
               <span className="w-full inline-flex items-center justify-center bg-gray-200 text-gray-500 font-bold py-3 rounded-xl text-sm">
                 Sold Out
               </span>
+            ) : !seller?.stripe_onboarding_complete ? (
+              <p className="w-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold p-3 rounded-xl text-center">
+                Not available to buy yet. This farmer is still setting up payouts.
+              </p>
             ) : (
               <>
                 <div className="flex items-stretch gap-2">
