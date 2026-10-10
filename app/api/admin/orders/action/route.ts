@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
 import { alertAdmin } from '@/lib/alerts';
+import { sendGuestOrderLinks, looksLikeEmail } from '@/lib/orderLinks';
 import {
   completeOrderAndReleasePayout,
   refundOrderQuantity,
@@ -22,6 +23,8 @@ export const dynamic = 'force-dynamic';
 //   hold_no_show   — keep a reported no-show from being closed automatically
 //   reset_attempts — unlock an order after too many wrong pickup codes
 //   resolve_problem — mark a problem the buyer reported as dealt with
+//   resend_guest_link — email a guest their order links again, first
+//                    correcting the address on the order if a new one is given
 export async function POST(request: Request) {
   try {
     const admin = await getRequestAdmin(request);
@@ -82,6 +85,44 @@ export async function POST(request: Request) {
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ success: true, message: "Marked as resolved. Nothing else about the order was changed." });
+    }
+
+    if (action === 'resend_guest_link') {
+      if (order.buyer_id) {
+        return NextResponse.json(
+          { error: 'This buyer has an account. They can sign in and see the order under My Orders.' },
+          { status: 400 }
+        );
+      }
+
+      const newEmail = typeof body.newEmail === 'string' ? body.newEmail.trim() : '';
+      const email = newEmail || order.buyer_email || '';
+      if (!looksLikeEmail(email)) {
+        return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
+      }
+
+      // A corrected address goes on every item from the same checkout, so the
+      // rest of the order's emails reach the buyer too.
+      const changed = email.toLowerCase() !== String(order.buyer_email || '').toLowerCase();
+      if (changed) {
+        const update = supabaseAdmin.from('orders').update({ buyer_email: email }).is('buyer_id', null);
+        const { error } = order.checkout_id
+          ? await update.eq('checkout_id', order.checkout_id)
+          : await update.eq('id', order.id);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        console.log(`Admin override: ${admin.email} changed the buyer email on order ${order.id}`);
+      }
+
+      const sent = await sendGuestOrderLinks(email, new URL(request.url).origin);
+      if (sent === 0) {
+        return NextResponse.json({ error: "Couldn't find an order link to send for that address." }, { status: 409 });
+      }
+      return NextResponse.json({
+        success: true,
+        message: changed
+          ? `Email changed to ${email} and the order links sent there.`
+          : `Order links sent to ${email}.`,
+      });
     }
 
     if (action === 'reset_attempts') {
