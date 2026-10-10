@@ -53,6 +53,7 @@ const shortDate = (date: string | Date) =>
   new Date(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 import {
   Sprout,
+  ChevronDown,
   MapPin,
   AlertCircle,
   CheckCircle2,
@@ -117,6 +118,11 @@ const MAX_LISTING_TAGS = 3;
 export default function SellerDashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<DashboardTab>('listings');
+  // On phones the section menu is a drop-down; this is whether it is open.
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => {
+    setNavOpen(false);
+  }, [activeTab]);
   const [loading, setLoading] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -1158,15 +1164,51 @@ export default function SellerDashboardPage() {
             </div>
           </div>
 
-          {/* A horizontal, swipeable tab strip on phones; a vertical menu on desktop. */}
-          <nav className="flex gap-2 overflow-x-auto pb-1 md:block md:space-y-1 md:overflow-visible md:pb-0">
+          {/* On phones, a drop-down showing the current section; on desktop the
+              menu below is always open. */}
+          <button
+            type="button"
+            onClick={() => setNavOpen((current) => !current)}
+            aria-expanded={navOpen}
+            aria-controls="dash-sections"
+            className="md:hidden w-full flex items-center justify-between gap-2 px-3.5 py-3 rounded-xl border border-gray-300 bg-white text-sm font-bold text-gray-900"
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-500">Section:</span>
+              {
+                {
+                  listings: 'Your Listings',
+                  new: 'Your Listings',
+                  orders: 'Orders',
+                  picklist: 'Pick List',
+                  history: 'Sales History',
+                  profile: 'Farm Profile & Photo',
+                  settings: 'Payouts & Settings',
+                  help: 'Help',
+                }[activeTab]
+              }
+            </span>
+            <span className="flex items-center gap-2">
+              {!navOpen && activeTab !== 'orders' && incomingOrders.length > 0 && (
+                <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
+                  {incomingOrders.length} open order{incomingOrders.length === 1 ? '' : 's'}
+                </span>
+              )}
+              <ChevronDown
+                className={`w-4 h-4 text-gray-500 transition-transform ${navOpen ? 'rotate-180' : ''}`}
+                aria-hidden="true"
+              />
+            </span>
+          </button>
+
+          <nav id="dash-sections" onClick={() => setNavOpen(false)} className={`${navOpen ? 'block mt-2' : 'hidden'} space-y-1 md:block md:mt-0`}>
             <button
               onClick={() => {
                 setActiveTab('listings');
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
-              className={`shrink-0 whitespace-nowrap md:w-full flex items-center justify-between gap-2 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`w-full flex items-center justify-between gap-2 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'listings' || activeTab === 'new'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -1186,7 +1228,7 @@ export default function SellerDashboardPage() {
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
-              className={`shrink-0 whitespace-nowrap md:w-full flex items-center justify-between gap-2 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`w-full flex items-center justify-between gap-2 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'orders'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -1208,7 +1250,7 @@ export default function SellerDashboardPage() {
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
-              className={`shrink-0 whitespace-nowrap md:w-full flex items-center justify-between gap-2 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`w-full flex items-center justify-between gap-2 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'picklist'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -1230,7 +1272,7 @@ export default function SellerDashboardPage() {
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
-              className={`shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'history'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -1245,7 +1287,7 @@ export default function SellerDashboardPage() {
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
-              className={`shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'profile'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -1260,7 +1302,7 @@ export default function SellerDashboardPage() {
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
-              className={`shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'settings'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -1275,7 +1317,7 @@ export default function SellerDashboardPage() {
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
-              className={`shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 activeTab === 'help' ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
