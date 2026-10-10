@@ -10,6 +10,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
 import PickList from '@/components/PickList';
+import SellerEarnings from '@/components/SellerEarnings';
 import { orderRef } from '@/lib/pickupGroups';
 import { announceAccountChange } from '@/lib/accountEvents';
 import { LISTING_CATEGORIES, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
@@ -2808,7 +2809,7 @@ export default function SellerDashboardPage() {
               <div className="pb-4 border-b border-gray-100">
                 <h1 className="text-2xl font-bold text-gray-900">Payouts & Settings</h1>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Connect a payout account so your earnings can be deposited directly to your bank.
+                  Your payout account, and how your sales are going.
                 </p>
               </div>
 
@@ -2831,8 +2832,8 @@ export default function SellerDashboardPage() {
                     </p>
                     <p className="mt-0.5">
                       {stripeAccountId
-                        ? 'Finish the remaining steps with Stripe to start receiving direct payouts.'
-                        : 'Set up a Stripe payout account to receive your earnings by direct deposit.'}
+                        ? "Finish the remaining steps with Stripe to start receiving direct payouts. Buyers can't purchase from you until this is done."
+                        : "Set up a Stripe payout account to receive your earnings by direct deposit. Buyers can't purchase from you until this is done."}
                     </p>
                   </div>
                 </div>
@@ -2862,13 +2863,7 @@ export default function SellerDashboardPage() {
                 </div>
               )}
 
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
-                Buyers pay in full online when they reserve your produce — there's no cash or
-                Venmo collected at pickup. Your earnings for an order are released to your
-                connected payout account when you enter the buyer's pickup code at pickup, less a{' '}
-                {SELLER_FEE_RATE * 100}% seller fee on your produce sales. Buyers can't
-                purchase your listings until payout setup is complete.
-              </div>
+              <SellerEarnings history={salesHistory} openOrders={incomingOrders} />
             </div>
           )}
         </main>
