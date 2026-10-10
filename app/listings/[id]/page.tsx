@@ -181,8 +181,12 @@ export default function ListingDetailPage() {
               <Calendar className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <dt className="sr-only">When</dt>
-                <dd className="text-base font-bold text-gray-900">{availability.label}</dd>
-                <dd className="text-xs text-gray-500 mt-0.5">
+                <dd>
+                  <span className={`inline-block text-base font-bold px-2.5 py-0.5 rounded-lg ${availability.tagClass}`}>
+                    {availability.label}
+                  </span>
+                </dd>
+                <dd className="text-xs text-gray-500 mt-1.5">
                   {availability.availableNow
                     ? `The farmer has up to ${SELLER_READY_DAYS} days after you order to get it ready, and emails you when it is.`
                     : `Harvest date: ${friendlyDate(listing.harvest_ready_date)}. You can order now, and the farmer emails you when it is ready.`}

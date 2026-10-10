@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
-import { checkListingAllowed, saveListingPickupAddress, MAX_LISTING_TAGS } from '@/lib/listingRules';
+import { checkListingAllowed, saveListingPickupAddress } from '@/lib/listingRules';
+import { cleanListingTags } from '@/lib/listingTags';
 import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { geocodeZip } from '@/lib/geo';
 import { alertAdmin } from '@/lib/alerts';
@@ -139,7 +140,7 @@ export async function POST(request: Request) {
     if (fields.harvest_end_date !== undefined) update.harvest_end_date = fields.harvest_end_date || null;
     if (typeof fields.image_url === 'string' && fields.image_url) update.image_url = fields.image_url;
     if (Array.isArray(fields.tags)) {
-      update.tags = fields.tags.filter((t: unknown) => typeof t === 'string').slice(0, MAX_LISTING_TAGS);
+      update.tags = cleanListingTags(fields.tags);
     }
 
     // Stored separately from the listing row; applies to orders placed from now on.

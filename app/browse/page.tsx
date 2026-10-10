@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { pickupAvailability } from '@/lib/dates';
+import { CARD_LISTING_TAGS } from '@/lib/listingTags';
 import { supabase } from '@/lib/supabaseClient';
 import { Search, MapPin, Calendar, ShoppingBag, Sprout, User } from 'lucide-react';
 import Link from 'next/link';
@@ -528,7 +529,7 @@ export default function BrowsePage() {
 
                     {Array.isArray(item.tags) && item.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        {item.tags.slice(0, 3).map((tag: string) => (
+                        {item.tags.slice(0, CARD_LISTING_TAGS).map((tag: string) => (
                           <span
                             key={tag}
                             className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full"
@@ -552,9 +553,11 @@ export default function BrowsePage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                    <div className="flex items-center gap-2 text-xs mt-1.5">
                       <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                      <span>
+                      <span
+                        className={`font-bold px-2 py-0.5 rounded-md ${pickupAvailability(item.harvest_ready_date).tagClass}`}
+                      >
                         {pickupAvailability(item.harvest_ready_date).label}
                       </span>
                     </div>

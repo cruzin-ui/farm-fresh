@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
-import { checkListingAllowed, saveListingPickupAddress, MAX_LISTING_TAGS } from '@/lib/listingRules';
+import { checkListingAllowed, saveListingPickupAddress } from '@/lib/listingRules';
+import { cleanListingTags } from '@/lib/listingTags';
 import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { geocodeZip } from '@/lib/geo';
@@ -123,9 +124,7 @@ export async function POST(request: Request) {
           latitude: coordinates?.latitude ?? null,
           longitude: coordinates?.longitude ?? null,
           pickup_instructions: typeof fields.pickup_instructions === 'string' ? fields.pickup_instructions : '',
-          tags: Array.isArray(fields.tags)
-            ? fields.tags.filter((t: unknown) => typeof t === 'string').slice(0, MAX_LISTING_TAGS)
-            : [],
+          tags: cleanListingTags(fields.tags),
           image_url: typeof fields.image_url === 'string' && fields.image_url ? fields.image_url : null,
           status: 'active',
         },
