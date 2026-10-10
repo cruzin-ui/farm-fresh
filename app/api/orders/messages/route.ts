@@ -151,6 +151,16 @@ export async function POST(request: Request) {
       }
     }
 
+    // Opening the conversation counts as reading it: the other side's messages
+    // stop counting toward the unread badge.
+    const { error: readError } = await supabaseAdmin
+      .from('order_messages')
+      .update({ read_at: new Date().toISOString() })
+      .in('order_id', threadOrderIds)
+      .neq('sender', role)
+      .is('read_at', null);
+    if (readError) console.error('Could not mark messages as read:', readError);
+
     const { data: messages, error: listError } = await supabaseAdmin
       .from('order_messages')
       .select('id, sender, body, created_at')

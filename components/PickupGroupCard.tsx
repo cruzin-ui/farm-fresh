@@ -282,7 +282,16 @@ function ItemFeedback({ item, token }: { item: BuyerOrder; token?: string | null
 // Everything a buyer bought from one farm in one checkout: the pickup code
 // that covers it, what the code is for, and where each item stands. `token` is
 // the secret from a guest's order link; signed-in buyers don't need one.
-export default function PickupGroupCard({ group, token }: { group: PickupGroup; token?: string | null }) {
+// `unreadOrderIds` lists orders with a message the buyer hasn't opened.
+export default function PickupGroupCard({
+  group,
+  token,
+  unreadOrderIds = [],
+}: {
+  group: PickupGroup;
+  token?: string | null;
+  unreadOrderIds?: string[];
+}) {
   const openItems = group.items.filter((item) => isOpenStatus(item.status));
   const open = openItems.length > 0;
   const completedItems = group.items.filter((item) => item.status === 'completed');
@@ -454,7 +463,13 @@ export default function PickupGroupCard({ group, token }: { group: PickupGroup; 
       )}
 
       <div className="flex items-start gap-2 flex-wrap">
-        <OrderMessages orderId={(openItems[0] || first).id} role="buyer" token={token} />
+        <OrderMessages
+          key={`messages-${group.key}-${unreadOrderIds.join(',')}`}
+          orderId={(openItems[0] || first).id}
+          role="buyer"
+          token={token}
+          hasUnread={group.items.some((item) => unreadOrderIds.includes(item.id))}
+        />
         {group.farmerId && <FollowFarmButton farmerId={group.farmerId} farmName={group.farmName} />}
       </div>
 

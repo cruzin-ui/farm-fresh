@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ShoppingBag, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { postWithAuth } from '@/lib/authedFetch';
 import PickupGroupCard from '@/components/PickupGroupCard';
 import { describeBuyerOrders } from '@/lib/buyerOrders';
 import { groupOrdersForPickup, type PickupGroup } from '@/lib/pickupGroups';
@@ -14,6 +15,8 @@ export default function MyOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [groups, setGroups] = useState<PickupGroup[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  // Orders with a message from the farmer that hasn't been opened.
+  const [unreadOrderIds, setUnreadOrderIds] = useState<string[]>([]);
 
   useEffect(() => {
     async function fetchOrders() {
@@ -41,6 +44,12 @@ export default function MyOrdersPage() {
       // One card per pickup: everything bought from a farm in one checkout
       // shares a pickup code.
       setGroups(groupOrdersForPickup(await describeBuyerOrders(myOrders || [])));
+
+      try {
+        const summaryRes = await postWithAuth('/api/account/summary');
+        if (summaryRes.ok) setUnreadOrderIds((await summaryRes.json()).unreadOrderIds || []);
+      } catch {}
+
       setLoading(false);
     }
 
@@ -95,7 +104,7 @@ export default function MyOrdersPage() {
 
       <div className="space-y-4">
         {groups.map((group) => (
-          <PickupGroupCard key={group.key} group={group} />
+          <PickupGroupCard key={group.key} group={group} unreadOrderIds={unreadOrderIds} />
         ))}
       </div>
     </div>
