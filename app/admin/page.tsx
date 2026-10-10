@@ -20,6 +20,7 @@ import {
   Users,
   Ban,
   History,
+  ChevronDown,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
@@ -223,6 +224,8 @@ export default function AdminPage() {
   const [notAuthorized, setNotAuthorized] = useState(false);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [section, setSection] = useState<AdminSection>('overview');
+  // On phones the section menu is a drop-down; this is whether it is open.
+  const [navOpen, setNavOpen] = useState(false);
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>([]);
   const [summaryMonth, setSummaryMonth] = useState<string>('');
   const [messages, setMessages] = useState<ContactMessage[]>([]);
@@ -786,9 +789,41 @@ export default function AdminPage() {
       )}
 
       <div className="lg:flex lg:items-start lg:gap-6">
+        {/* On phones, a drop-down showing the current section; on wide
+            screens the menu is always open down the side. */}
+        <button
+          type="button"
+          onClick={() => setNavOpen((current) => !current)}
+          aria-expanded={navOpen}
+          aria-controls="admin-sections"
+          className="lg:hidden w-full flex items-center justify-between gap-2 px-3.5 py-3 mb-2 rounded-xl border border-gray-300 bg-white text-sm font-bold text-gray-900"
+        >
+          <span className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-500">Section:</span>
+            {navItems.find((item) => item.id === section)?.label}
+          </span>
+          <span className="flex items-center gap-2">
+            {!navOpen &&
+              navItems.some((item) => item.urgent && item.id !== section && (item.count || 0) > 0) && (
+                <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                  {navItems
+                    .filter((item) => item.urgent && item.id !== section)
+                    .reduce((sum, item) => sum + (item.count || 0), 0)}{' '}
+                  waiting
+                </span>
+              )}
+            <ChevronDown
+              className={`w-4 h-4 text-gray-500 transition-transform ${navOpen ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
+          </span>
+        </button>
+
         <nav
+          id="admin-sections"
           aria-label="Admin sections"
-          className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0 mb-4 lg:mb-0 lg:w-56 lg:shrink-0 lg:sticky lg:top-6"
+          onClick={() => setNavOpen(false)}
+          className={`${navOpen ? 'flex' : 'hidden'} lg:flex flex-col gap-2 mb-4 lg:mb-0 lg:w-56 lg:shrink-0 lg:sticky lg:top-6`}
         >
           {navItems.map(({ id, label, icon: Icon, count, urgent }) => {
             const active = section === id;
@@ -802,7 +837,7 @@ export default function AdminPage() {
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span className="lg:flex-1 whitespace-nowrap">{label}</span>
+                <span className="flex-1 whitespace-nowrap">{label}</span>
                 {count !== undefined && count > 0 && (
                   <span
                     className={`text-xs font-bold px-2 py-0.5 rounded-full ${
