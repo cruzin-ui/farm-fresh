@@ -27,7 +27,12 @@ import { BUYER_FEE_LABEL, MIN_CHARGE_CENTS } from '@/lib/pricing';
 import { useCart, addToCart, setCartQuantity, removeFromCart, clearCart, type CartItem } from '@/lib/cart';
 
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
+// With test keys Stripe adds a floating helper button to the corner of the
+// screen, which covers the bottom tab bar on phones. It is switched off here;
+// it never appears with live keys.
+const stripePromise = stripePublishableKey
+  ? loadStripe(stripePublishableKey, { developerTools: { assistant: { enabled: false } } })
+  : null;
 
 // The guest email box sits in its own card above the payment form, and is tied
 // back to the form by this id so the browser still insists on it before paying.
