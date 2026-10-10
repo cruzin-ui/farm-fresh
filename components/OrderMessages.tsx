@@ -3,22 +3,28 @@
 import { useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { postWithAuth } from '@/lib/authedFetch';
+import { announceAccountChange } from '@/lib/accountEvents';
 
 type Message = { id: string; sender: 'buyer' | 'seller'; body: string; created_at: string };
 
 // The conversation between a buyer and a farmer about an order, opened from a
 // button. Messages are relayed by the site — neither side sees the other's
 // email address. `role` is who is looking; `token` is the secret from a
-// guest's order link.
+// guest's order link. `hasUnread` marks the button when the other side has
+// sent something this person hasn't opened.
 export default function OrderMessages({
   orderId,
   role,
   token,
+  hasUnread = false,
 }: {
   orderId: string;
   role: 'buyer' | 'seller';
   token?: string | null;
+  hasUnread?: boolean;
 }) {
+  // Cleared as soon as the thread is opened, without waiting for a reload.
+  const [unread, setUnread] = useState(hasUnread);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -40,6 +46,9 @@ export default function OrderMessages({
     if (!res.ok) throw new Error(data.error || 'Messages are not available right now.');
     setMessages(data.messages);
     setCanSend(data.canSend);
+    // Loading the thread marked it read on the server; let the badge catch up.
+    setUnread(false);
+    announceAccountChange();
   };
 
   const toggle = async () => {
@@ -84,6 +93,9 @@ export default function OrderMessages({
       >
         <MessageCircle className="w-4 h-4" aria-hidden="true" />
         {open ? 'Hide Messages' : role === 'buyer' ? 'Message the Farmer' : 'Message Buyer'}
+        {unread && !open && (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-600 text-white">New</span>
+        )}
       </button>
 
       {open && (

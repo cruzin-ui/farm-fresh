@@ -3,25 +3,46 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { CircleUser, ChevronDown, Receipt, LayoutDashboard, LogOut, LogIn, Mail, Sprout, Heart } from 'lucide-react';
+import { CircleUser, ChevronDown, Receipt, LayoutDashboard, LogOut, LogIn, Mail, Sprout, Heart, UserCog } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { safeNextPath, AFTER_LOGIN_KEY } from '@/lib/safeRedirect';
+import { postWithAuth } from '@/lib/authedFetch';
+import { onAccountChange, PROFILE_PHOTO_KEY } from '@/lib/accountEvents';
+
+// How often the badge checks for new orders and messages while a page is open.
+const SUMMARY_REFRESH_MS = 2 * 60 * 1000;
+
+type AccountSummary = {
+  isSeller: boolean;
+  farmPhotoUrl: string | null;
+  ordersToReview: number;
+  // Unopened messages: from buyers (to this user as a seller) and from
+  // farmers (to this user as a buyer).
+  unreadFromBuyers: number;
+  unreadFromSellers: number;
+};
 
 // The account control in the top header, shown on every screen size. Signed
 // out, it's a "Sign In" button; signed in, a "My Account" menu with links to
-// the buyer and seller dashboards and a sign-out button.
+// the buyer and seller dashboards and a sign-out button. The button shows the
+// user's profile picture, with a small numbered badge when something is
+// waiting: for a seller, orders to mark ready and unopened messages from
+// buyers; for a buyer, unopened messages from farmers.
 export default function AccountMenu() {
   const router = useRouter();
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
 
   const [email, setEmail] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [summary, setSummary] = useState<AccountSummary | null>(null);
   const [checked, setChecked] = useState(false);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setEmail(session?.user.email ?? null);
+      setPhotoUrl((session?.user.user_metadata?.[PROFILE_PHOTO_KEY] as string) || null);
       setChecked(true);
     });
 
@@ -30,6 +51,8 @@ export default function AccountMenu() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setEmail(session?.user.email ?? null);
+      // Also fires when the picture is changed on the My Account page.
+      setPhotoUrl((session?.user.user_metadata?.[PROFILE_PHOTO_KEY] as string) || null);
       setChecked(true);
 
       // A Google sign-in normally returns through /auth/callback, which sends
@@ -52,6 +75,35 @@ export default function AccountMenu() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // What a seller has waiting. Looked up when they sign in, on each page they
+  // open, every couple of minutes, and whenever another part of the page says
+  // it has changed (a message thread opened, an order marked ready).
+  useEffect(() => {
+    if (!email) {
+      setSummary(null);
+      return;
+    }
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await postWithAuth('/api/account/summary');
+        const data = await res.json();
+        if (!cancelled && res.ok) setSummary(data);
+      } catch {}
+    };
+
+    load();
+    const timer = setInterval(load, SUMMARY_REFRESH_MS);
+    const stopListening = onAccountChange(load);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      stopListening();
+    };
+  }, [email, pathname]);
 
   // Close the menu when navigating, clicking elsewhere, or pressing Escape.
   useEffect(() => {
@@ -116,16 +168,53 @@ export default function AccountMenu() {
     );
   }
 
+  // The user's own picture if they set one; otherwise, for a seller, their farm's.
+  const picture = photoUrl || summary?.farmPhotoUrl || null;
+  const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+  // Waiting for this user as a seller…
+  const ordersToReview = summary?.ordersToReview || 0;
+  const unreadFromBuyers = summary?.unreadFromBuyers || 0;
+  const sellerWaiting = ordersToReview + unreadFromBuyers;
+  const sellerWaitingText = [
+    ordersToReview > 0 ? `${plural(ordersToReview, 'order')} to mark ready` : '',
+    unreadFromBuyers > 0 ? `${plural(unreadFromBuyers, 'new message')} from buyers` : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  // …and as a buyer.
+  const buyerWaiting = summary?.unreadFromSellers || 0;
+  const buyerWaitingText = buyerWaiting > 0 ? `${plural(buyerWaiting, 'new message')} from farmers` : '';
+
+  const waiting = sellerWaiting + buyerWaiting;
+  const waitingText = [buyerWaitingText, sellerWaitingText].filter(Boolean).join(', ');
+
   return (
     <div ref={menuRef} className="relative">
       <button
         onClick={() => setOpen((current) => !current)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-1.5 px-3 h-10 rounded-xl text-xs font-bold text-gray-700 border border-gray-200 hover:bg-gray-50 transition-colors"
+        className="flex items-center gap-1.5 px-2.5 h-10 rounded-xl text-xs font-bold text-gray-700 border border-gray-200 hover:bg-gray-50 transition-colors"
       >
-        <CircleUser className="w-5 h-5 text-emerald-600" />
+        <span className="relative shrink-0">
+          {picture ? (
+            <img src={picture} alt="" className="w-7 h-7 rounded-full object-cover border border-emerald-200" />
+          ) : (
+            <CircleUser className="w-6 h-6 text-emerald-600" aria-hidden="true" />
+          )}
+          {waiting > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none flex items-center justify-center border-2 border-white"
+            >
+              {waiting > 99 ? '99+' : waiting}
+            </span>
+          )}
+        </span>
         <span className="sr-only sm:not-sr-only">My Account</span>
+        {waiting > 0 && <span className="sr-only">, {waitingText}</span>}
         <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
@@ -142,8 +231,15 @@ export default function AccountMenu() {
             role="menuitem"
             className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
           >
-            <Receipt className="w-4 h-4" /> My Orders
+            <Receipt className="w-4 h-4" />
+            <span className="flex-1">My Orders</span>
+            {buyerWaiting > 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800" title={buyerWaitingText}>
+                {buyerWaiting}
+              </span>
+            )}
           </Link>
+          {buyerWaiting > 0 && <p className="px-3 pb-1 -mt-1 text-[11px] text-gray-500">{buyerWaitingText}</p>}
           <Link
             href="/following"
             role="menuitem"
@@ -156,7 +252,21 @@ export default function AccountMenu() {
             role="menuitem"
             className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
           >
-            <LayoutDashboard className="w-4 h-4" /> Seller Dashboard
+            <LayoutDashboard className="w-4 h-4" />
+            <span className="flex-1">Seller Dashboard</span>
+            {sellerWaiting > 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800" title={sellerWaitingText}>
+                {sellerWaiting}
+              </span>
+            )}
+          </Link>
+          {sellerWaiting > 0 && <p className="px-3 pb-1 -mt-1 text-[11px] text-gray-500">{sellerWaitingText}</p>}
+          <Link
+            href="/account"
+            role="menuitem"
+            className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
+          >
+            <UserCog className="w-4 h-4" /> Profile Picture
           </Link>
           <Link
             href="/contact"

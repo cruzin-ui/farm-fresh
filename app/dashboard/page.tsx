@@ -8,6 +8,7 @@ import { SELLER_FEE_RATE } from '@/lib/pricing';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
+import { announceAccountChange } from '@/lib/accountEvents';
 import { LISTING_CATEGORIES, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import {
   isSellerLate,
@@ -192,6 +193,8 @@ export default function SellerDashboardPage() {
   const [usualDays, setUsualDays] = useState<string[]>([]);
   const [usualTimes, setUsualTimes] = useState<string[]>([]);
   const [markingAllReady, setMarkingAllReady] = useState(false);
+  // Open orders with a buyer message the seller hasn't opened yet.
+  const [unreadOrderIds, setUnreadOrderIds] = useState<string[]>([]);
   const [sendingReady, setSendingReady] = useState(false);
 
   // Complete flow — the farmer enters the pickup code the buyer gives them
@@ -342,6 +345,14 @@ export default function SellerDashboardPage() {
       setIncomingOrders([]);
       setSalesHistory([]);
     }
+
+    // Which orders have unread buyer messages, and a nudge to the badge in
+    // the header, since whatever just changed here may have changed its count.
+    try {
+      const summaryRes = await postWithAuth('/api/account/summary');
+      if (summaryRes.ok) setUnreadOrderIds((await summaryRes.json()).unreadOrderIds || []);
+    } catch {}
+    announceAccountChange();
 
     setAuthChecking(false);
   };
@@ -1976,7 +1987,12 @@ export default function SellerDashboardPage() {
                         </div>
                       </div>
 
-                      <OrderMessages orderId={order.id} role="seller" />
+                      <OrderMessages
+                        key={`messages-${order.id}-${unreadOrderIds.join(',')}`}
+                        orderId={order.id}
+                        role="seller"
+                        hasUnread={[order, ...sameCheckoutOrders(order)].some((o) => unreadOrderIds.includes(o.id))}
+                      />
 
                       {order.no_show_reported_at && (
                         <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3">
