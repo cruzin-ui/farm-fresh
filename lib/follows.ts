@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { suspendedSellerIds } from '@/lib/accountBlocks';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import { describeUsualPickup } from '@/lib/pickupRules';
 
@@ -49,6 +50,7 @@ export async function listFollowedFarms(userId: string) {
     .select('id, farm_name, avatar_url, location, pickup_days, pickup_times, stripe_onboarding_complete')
     .in('id', farmerIds);
   const farmById = new Map((farms || []).map((farm) => [farm.id as string, farm]));
+  const suspended = await suspendedSellerIds(farmerIds);
 
   const { data: listings } = await supabaseAdmin
     .from('produce_listings')
@@ -64,7 +66,7 @@ export async function listFollowedFarms(userId: string) {
       if (!farm) return null;
 
       // Nothing counts as for sale until the farmer has finished payout setup.
-      const forSale = farm.stripe_onboarding_complete
+      const forSale = farm.stripe_onboarding_complete && !suspended.has(farm.id as string)
         ? (listings || []).filter((listing) => listing.farmer_id === farm.id)
         : [];
       return {

@@ -316,6 +316,125 @@ export async function completeOrderAndReleasePayout(
   return { payoutAmount };
 }
 
+// Refunds part of what a buyer paid for an order without changing what they
+// bought — for when the produce was poor, or short by weight. An admin tool.
+//
+// The refund is treated as a share of the whole purchase, the same as if that
+// share of the order had been cancelled: the buyer gets it back, and the
+// farmer's payout, our fees and the sales tax all shrink by the same share. If
+// the farmer has already been paid (a picked-up order), their share of it is
+// taken back from their connected account.
+export async function refundOrderAmount(params: { order: any; listing: { title?: string | null }; amount: number; note?: string }) {
+  const { order, listing, note = '' } = params;
+
+  if (order.status === 'cancelled') {
+    throw new OrderActionError(409, 'This order is cancelled; there is nothing left to refund.');
+  }
+  if (!order.stripe_payment_intent_id) {
+    throw new OrderActionError(409, 'This order was not paid through Stripe and has to be refunded manually.');
+  }
+
+  const refundCents = Math.round(Number(params.amount) * 100);
+  const paidCents = Math.round(Number(order.total_price ?? 0) * 100);
+  if (!Number.isFinite(refundCents) || refundCents < 1) {
+    throw new OrderActionError(400, 'Enter the amount to refund, in dollars.');
+  }
+  if (refundCents >= paidCents) {
+    throw new OrderActionError(
+      400,
+      `A partial refund has to be less than the $${(paidCents / 100).toFixed(2)} paid. To give it all back, use Cancel & Refund.`
+    );
+  }
+
+  const share = refundCents / paidCents;
+  const subtotalCents = Math.round(Number(order.subtotal_amount ?? 0) * 100);
+  const taxCents = Math.round(Number(order.tax_amount ?? 0) * 100);
+  const payoutCents = Math.round(Number(order.farmer_payout_amount ?? 0) * 100);
+
+  const produceRefundCents = Math.round(subtotalCents * share);
+  const taxRefundCents = Math.round(taxCents * share);
+  const payoutCutCents = Math.round(payoutCents * share);
+  const refundAmount = refundCents / 100;
+
+  const paymentIntent = await stripeAdmin.paymentIntents.retrieve(order.stripe_payment_intent_id);
+  // Older orders paid the farmer at checkout (destination charges), so their
+  // refunds also pull back the transfer and the platform fee.
+  const paidFarmerAtCheckout = Boolean(paymentIntent.transfer_data?.destination);
+
+  // The amount paid so far is part of the key, so a retry of this refund
+  // returns the same one, while a second, later refund of the same size is new.
+  await stripeAdmin.refunds.create(
+    {
+      payment_intent: paymentIntent.id,
+      amount: refundCents,
+      ...(paidFarmerAtCheckout ? { reverse_transfer: true, refund_application_fee: true } : {}),
+    },
+    { idempotencyKey: `order-partial-${order.id}-${paidCents}-${refundCents}` }
+  );
+
+  // A picked-up order has already paid the farmer: take their share back.
+  let takenBackCents = 0;
+  if (order.status === 'completed' && order.stripe_transfer_id && payoutCutCents > 0) {
+    await stripeAdmin.transfers.createReversal(
+      order.stripe_transfer_id,
+      { amount: payoutCutCents },
+      { idempotencyKey: `order-partial-reversal-${order.id}-${paidCents}-${refundCents}` }
+    );
+    takenBackCents = payoutCutCents;
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('orders')
+    .update({
+      total_price: (paidCents - refundCents) / 100,
+      deposit_amount: (paidCents - refundCents) / 100,
+      authorized_amount: (paidCents - refundCents) / 100,
+      tax_amount: (taxCents - taxRefundCents) / 100,
+      ...(subtotalCents ? { subtotal_amount: (subtotalCents - produceRefundCents) / 100 } : {}),
+      ...(order.farmer_payout_amount != null ? { farmer_payout_amount: (payoutCents - payoutCutCents) / 100 } : {}),
+      refunded_amount: Number(order.refunded_amount ?? 0) + refundAmount,
+    })
+    .eq('id', order.id);
+
+  if (updateError) {
+    console.error('Partial refund issued but order update failed:', order.id, updateError);
+    await alertAdmin('partial refund issued but the order could not be updated', updateError, { order: order.id });
+    throw new OrderActionError(
+      500,
+      `The $${refundAmount.toFixed(2)} refund was issued, but the order could not be updated: ${updateError.message}`
+    );
+  }
+
+  await reverseOrderTax({
+    order,
+    produceCents: produceRefundCents,
+    feeCents: Math.max(0, refundCents - produceRefundCents - taxRefundCents),
+    taxCents: taxRefundCents,
+    reason: `partial-${paidCents}-${refundCents}`,
+  });
+
+  if (order.buyer_email) {
+    await sendEmail({
+      to: order.buyer_email,
+      subject: 'A partial refund is on its way',
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px;">
+          <h2 style="color: #059669;">We've refunded part of your order</h2>
+          <p>
+            <strong>$${refundAmount.toFixed(2)}</strong> of what you paid for
+            <strong>${escapeHtml(listing.title || 'your order')}</strong> has been refunded to your original payment
+            method. It can take 5 to 10 business days to appear.
+          </p>
+          ${note ? `<p style="white-space: pre-wrap;">${escapeHtml(note)}</p>` : ''}
+          <p style="font-size: 12px; color: #6b7280;">This refund was made by Farm Fresh Direct support.</p>
+        </div>
+      `,
+    });
+  }
+
+  return { refundAmount, payoutCut: payoutCutCents / 100, takenBack: takenBackCents / 100 };
+}
+
 // Reduces an order's quantity (newQuantity 0 cancels it) and refunds the buyer
 // the difference. Open orders haven't paid the farmer yet, so the refund comes
 // out of the payment the platform is holding. With `allowCompleted`, a

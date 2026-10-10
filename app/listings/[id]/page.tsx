@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { friendlyDate, pickupAvailability } from '@/lib/dates';
 import { SELLER_READY_DAYS } from '@/lib/pickupRules';
 import { supabase } from '@/lib/supabaseClient';
+import { fetchSuspendedSellerIds } from '@/lib/suspendedSellers';
 import { Sprout, MapPin, Calendar, Clock, ShoppingBag, ShoppingCart, CheckCircle2, ArrowLeft, User, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -64,10 +65,13 @@ export default function ListingDetailPage() {
           .eq('seller_id', listingData.farmer_id)
           .is('removed_at', null);
 
+        const suspended = await fetchSuspendedSellerIds(supabase, [listingData.farmer_id]);
+
         const ratings = (reviews || []).map((r) => Number(r.rating));
         setSeller(
           sellerData && {
             ...sellerData,
+            suspended: suspended.has(listingData.farmer_id),
             review_count: ratings.length,
             average_rating: ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : null,
           }
@@ -123,7 +127,7 @@ export default function ListingDetailPage() {
     }
   };
 
-  const canBuy = !soldOut && Boolean(seller?.stripe_onboarding_complete);
+  const canBuy = !soldOut && Boolean(seller?.stripe_onboarding_complete) && !seller?.suspended;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -275,6 +279,10 @@ export default function ListingDetailPage() {
               <span className="w-full inline-flex items-center justify-center bg-gray-200 text-gray-500 font-bold py-3 rounded-xl text-sm">
                 Sold Out
               </span>
+            ) : seller?.suspended ? (
+              <p className="w-full bg-gray-100 border border-gray-200 text-gray-700 text-xs font-semibold p-3 rounded-xl text-center">
+                This farm isn't taking orders right now.
+              </p>
             ) : !seller?.stripe_onboarding_complete ? (
               <p className="w-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold p-3 rounded-xl text-center">
                 Not available to buy yet. This farmer is still setting up payouts.

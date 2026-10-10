@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { checkListingAllowed, saveListingPickupAddress } from '@/lib/listingRules';
 import { cleanListingTags } from '@/lib/listingTags';
+import { isSellerSuspended } from '@/lib/accountBlocks';
 import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { geocodeZip } from '@/lib/geo';
@@ -62,6 +63,13 @@ export async function POST(request: Request) {
     }
     if (!isAllowedCategory(fields.category)) {
       return NextResponse.json({ error: `Choose one of the listed categories. ${PRODUCE_ONLY_NOTICE}` }, { status: 400 });
+    }
+
+    if (await isSellerSuspended(user.id)) {
+      return NextResponse.json(
+        { error: "Your seller account is suspended, so you can't post new listings. Contact us if you'd like to talk about it." },
+        { status: 403 }
+      );
     }
 
     const notAllowed = await checkListingAllowed({

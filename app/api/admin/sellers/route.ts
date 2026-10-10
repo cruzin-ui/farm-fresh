@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
 import { FAST_COMPLETION_MINUTES, hasOpenDispute } from '@/lib/orderActions';
 import { alertAdmin } from '@/lib/alerts';
+import { listBlocks } from '@/lib/accountBlocks';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,9 @@ export async function POST(request: Request) {
       farmer_id: string;
       farm_name: string;
       payouts_set_up: boolean;
+      // Set when an admin has suspended this seller.
+      suspension_id: string | null;
+      suspension_reason: string | null;
       listings: number;
       listings_removed: number;
       orders: number;
@@ -54,12 +58,18 @@ export async function POST(request: Request) {
       flags: string[];
     };
 
+    const suspensions = new Map(
+      (await listBlocks().catch(() => [])).filter((b) => b.scope === 'seller' && b.user_id).map((b) => [b.user_id as string, b])
+    );
+
     const rows = new Map<string, Row>();
     for (const profile of profiles || []) {
       rows.set(profile.id, {
         farmer_id: profile.id,
         farm_name: profile.farm_name || 'Unnamed farm',
         payouts_set_up: Boolean(profile.stripe_onboarding_complete),
+        suspension_id: suspensions.get(profile.id)?.id || null,
+        suspension_reason: suspensions.get(profile.id)?.reason || null,
         listings: 0,
         listings_removed: 0,
         orders: 0,

@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
 import { noShowAutoApproveAt } from '@/lib/noShow';
 import { alertAdmin } from '@/lib/alerts';
+import { orderRef } from '@/lib/pickupGroups';
+import { listBlocks } from '@/lib/accountBlocks';
 import { FAST_COMPLETION_MINUTES, hasOpenDispute } from '@/lib/orderActions';
 
 export const dynamic = 'force-dynamic';
@@ -16,11 +18,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Not authorized.' }, { status: 403 });
     }
 
-    const { data: orders, error: ordersError } = await supabaseAdmin
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(200);
+    // With a search, every order is looked through, not only recent ones:
+    // by order number (the six characters buyers and farmers are shown) or
+    // by part of the buyer's email address.
+    const body = await request.json().catch(() => ({}));
+    const search = typeof body.search === 'string' ? body.search.trim().replace(/^#/, '') : '';
+
+    let query = supabaseAdmin.from('orders').select('*').order('created_at', { ascending: false }).limit(200);
+    if (/^[0-9a-f]{6}$/i.test(search)) {
+      // An order number is the start of the checkout's id (or the order's own,
+      // for orders from before carts), so it is found as a range of ids.
+      const low = `${search.toLowerCase()}00-0000-0000-0000-000000000000`;
+      const high = `${search.toLowerCase()}ff-ffff-ffff-ffff-ffffffffffff`;
+      query = query.or(
+        `and(checkout_id.gte.${low},checkout_id.lte.${high}),and(checkout_id.is.null,id.gte.${low},id.lte.${high})`
+      );
+    } else if (search) {
+      const term = search.replace(/[\\%_,()]/g, '');
+      if (!term) return NextResponse.json({ orders: [] });
+      query = query.ilike('buyer_email', `%${term}%`);
+    }
+
+    const { data: orders, error: ordersError } = await query;
 
     if (ordersError) {
       return NextResponse.json({ error: ordersError.message }, { status: 500 });
@@ -53,12 +72,24 @@ export async function POST(request: Request) {
     const farmNameById = new Map((farmers || []).map((f) => [f.id, f.farm_name]));
     const codeByOrderId = new Map((codes || []).map((c) => [c.order_id, c]));
 
+    // Buyers an admin has blocked, by account or by email address.
+    const buyerBlocks = (await listBlocks().catch(() => [])).filter((b) => b.scope === 'buyer');
+    const blockFor = (o: any) =>
+      buyerBlocks.find(
+        (b) =>
+          (o.buyer_id && b.user_id === o.buyer_id) ||
+          (o.buyer_email && (b.email || '').toLowerCase() === String(o.buyer_email).toLowerCase())
+      );
+
     const result = (orders || []).map((o) => {
       const listing = listingById.get(o.listing_id);
       const code = codeByOrderId.get(o.id);
 
       return {
         id: o.id,
+        // The number buyers and farmers see and quote.
+        order_ref: orderRef(o),
+        buyer_block_id: blockFor(o)?.id || null,
         created_at: o.created_at,
         status: o.status,
         buyer_email: o.buyer_email,

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Sprout, Pause, Play } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { fetchSuspendedSellerIds } from '@/lib/suspendedSellers';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import Photo from '@/components/Photo';
 
@@ -75,7 +76,10 @@ export default function FreshListingsWheel() {
       const farmNameById = new Map((sellers || []).map((s) => [s.id, s.farm_name]));
       // Listings stay hidden until their farmer has finished payout setup,
       // since nobody can buy them before then.
-      const payoutsReady = new Set((sellers || []).filter((s) => s.stripe_onboarding_complete).map((s) => s.id));
+      const suspended = await fetchSuspendedSellerIds(supabase, farmerIds);
+      const payoutsReady = new Set(
+        (sellers || []).filter((s) => s.stripe_onboarding_complete && !suspended.has(s.id)).map((s) => s.id)
+      );
       const chosen = takeTurns((listingsData || []).filter((l) => payoutsReady.has(l.farmer_id)));
 
       setListings(chosen.map((l) => ({ ...l, farm_name: farmNameById.get(l.farmer_id) || 'Local Farm' })));

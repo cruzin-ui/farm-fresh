@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { pickupAvailability } from '@/lib/dates';
 import { supabase } from '@/lib/supabaseClient';
+import { fetchSuspendedSellerIds } from '@/lib/suspendedSellers';
 import { Sprout, MapPin, Star, Calendar, ShoppingBag, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import AddToCartButton from '@/components/AddToCartButton';
@@ -65,7 +66,8 @@ export default function PublicSellerProfilePage() {
     setProfile(profileData);
     // Nothing is shown for sale until the farmer has finished payout setup,
     // since nobody can buy it before then.
-    setListings(profileData?.stripe_onboarding_complete ? listingsData || [] : []);
+    const suspended = await fetchSuspendedSellerIds(supabase, [sellerId]);
+    setListings(profileData?.stripe_onboarding_complete && !suspended.has(sellerId) ? listingsData || [] : []);
     setReviews(reviewsData || []);
     setLoading(false);
   };

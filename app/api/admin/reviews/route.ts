@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
 import { alertAdmin } from '@/lib/alerts';
+import { logAdminAction } from '@/lib/adminLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
         .eq('id', body.id);
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      await logAdminAction(admin.email || 'admin', 'Removed a review', String(body.id));
       return NextResponse.json({ success: true });
     }
 
