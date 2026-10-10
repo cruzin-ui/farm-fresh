@@ -13,7 +13,7 @@ import {
 import { MapPin, Store } from 'lucide-react';
 import ReviewForm from '@/components/ReviewForm';
 import OrderMessages from '@/components/OrderMessages';
-import { describeItems, isOpenStatus, type BuyerOrder, type PickupGroup } from '@/lib/pickupGroups';
+import { describeItems, isOpenStatus, orderRef, type BuyerOrder, type PickupGroup } from '@/lib/pickupGroups';
 import { isSellerLate, mapLink } from '@/lib/pickupRules';
 import FollowFarmButton from '@/components/FollowFarmButton';
 
@@ -318,7 +318,10 @@ export default function PickupGroupCard({
             group.farmName
           )}
         </p>
-        <span className="text-xs text-gray-500">Ordered {new Date(first.created_at).toLocaleDateString()}</span>
+        <span className="text-xs text-gray-500">
+          Order <span className="font-mono font-bold text-gray-700">{orderRef(first)}</span> · Ordered{' '}
+          {new Date(first.created_at).toLocaleDateString()}
+        </span>
       </div>
 
       {code && (

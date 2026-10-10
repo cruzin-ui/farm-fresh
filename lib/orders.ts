@@ -7,6 +7,7 @@ import { buyerGuidanceEmailHtml } from '@/lib/buyerGuidance';
 import { alertAdmin } from '@/lib/alerts';
 import { recordCartTax } from '@/lib/tax';
 import { readyDeadline, formatDeadline, SELLER_READY_DAYS, BUYER_PICKUP_DAYS } from '@/lib/pickupRules';
+import { orderRef } from '@/lib/pickupGroups';
 
 // One item of a checkout, as saved on the payment by /api/checkout.
 type CheckoutLine = {
@@ -75,8 +76,9 @@ async function sendSellerNotification(params: {
   sellerEmail: string;
   items: { quantity: number; unitType: string; title: string; subtotalCents: number; readyBy: string }[];
   buyerEmail: string | null;
+  orderNumber: string;
 }) {
-  const { sellerEmail, items, buyerEmail } = params;
+  const { sellerEmail, items, orderNumber } = params;
   const produceTotal = items.reduce((sum, item) => sum + item.subtotalCents, 0) / 100;
 
   await sendEmail({
@@ -88,6 +90,7 @@ async function sendSellerNotification(params: {
     html: `
       <div style="font-family: sans-serif; max-width: 480px;">
         <h2 style="color: #059669;">You've got a new reservation!</h2>
+        <p>Order number: <strong style="font-family: monospace; font-size: 16px;">${orderNumber}</strong> (the buyer has the same number, so you can match them to their bag at pickup)</p>
         <ul>${items.map((item) => `<li><strong>${itemText(item)}</strong> — mark it ready by <strong>${item.readyBy}</strong></li>`).join('')}</ul>
         <p>Need to reach the buyer? Use <strong>Message Buyer</strong> on the order in your Seller Dashboard.</p>
         <p>Produce total: $${produceTotal.toFixed(2)}</p>
@@ -118,6 +121,7 @@ async function sendSellerNotification(params: {
 async function sendBuyerConfirmation(params: {
   buyerEmail: string;
   totalPaid: number;
+  orderNumber: string;
   farms: {
     farmName: string;
     code: string;
@@ -127,7 +131,7 @@ async function sendBuyerConfirmation(params: {
   orderLink: string | null;
   siteUrl?: string;
 }) {
-  const { buyerEmail, totalPaid, farms, orderLink, siteUrl } = params;
+  const { buyerEmail, totalPaid, orderNumber, farms, orderLink, siteUrl } = params;
   const allItems = farms.flatMap((farm) => farm.items);
 
   const farmSections = farms
@@ -152,6 +156,7 @@ async function sendBuyerConfirmation(params: {
       <div style="font-family: sans-serif; max-width: 520px;">
         <h2 style="color: #059669;">Your order is confirmed!</h2>
         <p>Total paid: $${totalPaid.toFixed(2)}</p>
+        <p>Your order number: <strong style="font-family: monospace; font-size: 16px;">${orderNumber}</strong><br /><span style="font-size: 12px; color: #6b7280;">Tell the farmer this number at pickup so they can find your order. It is not your pickup code.</span></p>
         ${farmSections}
         <p>
           ${farms.length > 1 ? 'Each farm has its own pickup code. ' : ''}Give a code to the farmer
@@ -381,6 +386,9 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     : { data: [] as any[] };
   const farmNameById = new Map((profiles || []).map((p: any) => [p.id as string, p.farm_name as string]));
 
+  // The short number both the buyer and each seller see for this checkout.
+  const orderNumber = orderRef({ id: result.orderId, checkout_id: checkoutId });
+
   // The cart's items, grouped by farm in the order they were bought.
   const farms: {
     farmerId: string;
@@ -417,6 +425,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
 
   if (buyerEmail) {
     await sendBuyerConfirmation({
+      orderNumber,
       buyerEmail,
       totalPaid: paymentIntent.amount / 100,
       farms,
@@ -436,7 +445,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     if (sellerLookupError) {
       console.error('Failed to look up seller email:', sellerLookupError);
     } else if (sellerUser?.user?.email) {
-      await sendSellerNotification({ sellerEmail: sellerUser.user.email, items: farm.items, buyerEmail });
+      await sendSellerNotification({ sellerEmail: sellerUser.user.email, items: farm.items, buyerEmail, orderNumber });
     }
   }
 

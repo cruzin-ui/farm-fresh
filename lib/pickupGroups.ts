@@ -80,3 +80,11 @@ export function describeItems(items: { listing_title: string }[]) {
   if (titles.length <= 1) return titles[0] || 'your order';
   return `${titles.slice(0, -1).join(', ')} and ${titles[titles.length - 1]}`;
 }
+
+// The short order number shown to both the buyer and the seller: the same for
+// everything a buyer bought in one checkout. It isn't secret — the pickup code
+// is what proves a handover — it just lets a seller find the right bag and the
+// right order when a buyer turns up.
+export function orderRef(order: { id: string; checkout_id?: string | null }) {
+  return (order.checkout_id || order.id).replace(/-/g, '').slice(0, 6).toUpperCase();
+}

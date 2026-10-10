@@ -11,6 +11,7 @@ import {
   MAX_PICKUP_CODE_ATTEMPTS,
 } from '@/lib/pickupCodes';
 import { sendEmail, escapeHtml } from '@/lib/email';
+import { orderRef } from '@/lib/pickupGroups';
 
 export const dynamic = 'force-dynamic';
 
@@ -164,6 +165,7 @@ export async function POST(request: Request) {
                 </p>
                 <ul>${itemList}</ul>
                 <p>Your new pickup code: <strong style="font-size: 20px;">${newCode}</strong></p>
+                <p>Your order number is still <strong style="font-family: monospace;">${orderRef(order)}</strong>.</p>
                 <p>
                   Give it to the farmer only when you collect these items. If you did not collect anything,
                   <a href="${siteUrl}/contact">contact us</a> straight away.

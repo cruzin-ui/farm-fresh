@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { resolveNoShow, refundOrderQuantity } from '@/lib/orderActions';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
+import { orderRef } from '@/lib/pickupGroups';
 import { clearOldCheckoutAttempts } from '@/lib/checkoutGuard';
 import {
   readyBy,
@@ -275,6 +276,7 @@ export async function GET(request: Request) {
                 <strong>${escapeHtml(listing?.title || 'Your order')}</strong> is ready, and needs to be picked up by
                 <strong>${formatDeadline(order.pickup_by)}</strong>.
               </p>
+              <p>Your order number: <strong style="font-family: monospace; font-size: 16px;">${orderRef(order)}</strong><br /><span style="font-size: 12px; color: #6b7280;">Tell the farmer this number at pickup so they can find your order. It is not your pickup code.</span></p>
               ${order.pickup_address ? `<p>Pickup address: <strong>${escapeHtml(order.pickup_address)}</strong><br /><a href="${mapLink(order.pickup_address)}">Get directions</a></p>` : ''}
               ${order.pickup_details ? `<p style="white-space: pre-wrap;">${escapeHtml(String(order.pickup_details))}</p>` : ''}
               <p>
