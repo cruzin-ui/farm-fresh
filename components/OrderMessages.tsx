@@ -156,7 +156,7 @@ export default function OrderMessages({
               />
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <p className="text-[11px] text-gray-500">
-                  We email {other} your message. Keep payment on Farm Fresh Direct — never pay or accept cash.
+                  We email {other} your message.
                 </p>
                 <button
                   type="submit"

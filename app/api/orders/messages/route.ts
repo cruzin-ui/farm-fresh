@@ -143,7 +143,7 @@ export async function POST(request: Request) {
               </p>
               <p style="font-size: 12px; color: #6b7280;">
                 Please reply on the site rather than to this email; replies to this address aren't delivered to
-                the other person. Keep payment on Farm Fresh Direct: never pay or accept cash for an order.
+                the other person.
               </p>
             </div>
           `,
