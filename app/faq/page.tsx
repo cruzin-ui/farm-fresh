@@ -66,7 +66,7 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'How do I contact the farmer?',
     answer:
-      "Use Message the Farmer on your order page. We email them your message and they reply the same way, so neither of you has to share an email address or phone number. It's for things like running late or finding the right gate; if something has gone wrong, use Report a problem instead, which comes to us.",
+      "Use Message the Farmer on your order page. We email them your message and they reply the same way, so neither of you has to share an email address or phone number. It's for things like running late or finding the right gate; if something has gone wrong, use Report a problem (under More options on the order) instead, which comes to us.",
   },
   {
     question: 'The farmer marked my order as picked up, but I never got it. What do I do?',
@@ -103,8 +103,8 @@ const BUYER_FAQS: Faq[] = [
     question: "What if I can't make the pickup?",
     answer: (
       <>
-        Cancel the order as early as you can, using the <strong>Cancel this item</strong> button on your
-        order page (in My Orders, or the link in your confirmation email). You're refunded what you paid for
+        Cancel the order as early as you can: open the order (in My Orders, or the link in your confirmation
+        email), tap <strong>More options</strong> and choose <strong>Cancel</strong>. You're refunded what you paid for
         the produce; the service fee isn't refunded. Cancel within 48 hours of ordering and that's all. After
         48 hours the farmer also keeps a {NO_SHOW_FEE} restocking fee. If you can't cancel it yourself,{' '}
         <Link href="/contact" className="font-semibold text-emerald-800 underline">
@@ -122,7 +122,8 @@ const BUYER_FAQS: Faq[] = [
     answer: (
       <>
         If there's a problem at pickup, don't hand over your pickup code — that's what releases your payment.
-        Then use <strong>Report a problem</strong> on that item in your order page and tell us what happened.
+        Then open <strong>More options</strong> on the order, choose <strong>Report a problem</strong> and tell
+        us what happened.
         It comes to us, not to the farmer. You can also{' '}
         <Link href="/contact" className="font-semibold text-emerald-800 underline">
           contact us

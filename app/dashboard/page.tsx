@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import { resizeImage } from '@/lib/resizeImage';
-import { SELLER_FEE_RATE } from '@/lib/pricing';
+import { SELLER_FEE_RATE, RESTOCKING_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
+import { NO_SHOW_REVIEW_HOURS } from '@/lib/noShow';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
@@ -2377,6 +2378,130 @@ export default function SellerDashboardPage() {
                       lb). To sell smaller amounts, list in a smaller unit such as oz.
                     </li>
                   </ul>
+                </div>
+
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900 mb-2">Common situations</h2>
+                  <div className="space-y-2">
+                  <details className="bg-white border border-gray-200 rounded-xl">
+                    <summary className="cursor-pointer select-none px-4 py-3 text-sm font-bold text-gray-900">
+                      I didn't harvest enough to fill an order
+                    </summary>
+                    <div className="px-4 pb-4 text-xs text-gray-700 space-y-2">
+                      <p>Reduce the order to what you actually have. The buyer is refunded for the rest automatically.</p>
+                      <ol className="list-decimal pl-5 space-y-1.5">
+                        <li>
+                          Open <strong>Orders</strong> and find the order.
+                        </li>
+                        <li>
+                          Tap <strong>More options</strong>, then <strong>Cancel or Reduce This Order</strong>.
+                        </li>
+                        <li>
+                          Enter the quantity you can supply. It shows what the buyer will be refunded before you
+                          confirm.
+                        </li>
+                        <li>
+                          Add a short message if you like, such as "the frost cut this week's harvest short". The
+                          buyer sees it in their email.
+                        </li>
+                        <li>
+                          Tap <strong>Reduce Order & Refund</strong>.
+                        </li>
+                      </ol>
+                      <p>
+                        Your payout shrinks to match the new quantity. Do this as soon as you know, so the buyer
+                        isn't surprised at pickup. If you have none at all, enter 0, which cancels the order.
+                      </p>
+                      <p>
+                        If the shortage affects several orders, also lower the quantity on the listing itself (under
+                        Your Listings) so no more is sold.
+                      </p>
+                    </div>
+                  </details>
+
+                  <details className="bg-white border border-gray-200 rounded-xl">
+                    <summary className="cursor-pointer select-none px-4 py-3 text-sm font-bold text-gray-900">
+                      How to cancel an order, and what happens
+                    </summary>
+                    <div className="px-4 pb-4 text-xs text-gray-700 space-y-2">
+                      <p>
+                        <strong>To cancel:</strong> open <strong>Orders</strong>, tap <strong>More options</strong> on
+                        the order, choose <strong>Cancel or Reduce This Order</strong>, enter <strong>0</strong>, and
+                        tap <strong>Cancel Order & Refund</strong>.
+                      </p>
+                      <p>
+                        <strong>What happens when you cancel:</strong>
+                      </p>
+                      <ul className="list-disc pl-5 space-y-1.5">
+                        <li>The buyer is refunded in full for that item, including their service fee.</li>
+                        <li>They're emailed straight away, with your message if you wrote one.</li>
+                        <li>You aren't paid for it, and there's no charge to you.</li>
+                        <li>
+                          Tick "Put the removed quantity back on the listing" if you still have it to sell to someone
+                          else. Leave it unticked if the produce is gone.
+                        </li>
+                      </ul>
+                      <p>
+                        Cancelling now and then is fine; harvests are unpredictable. Sellers who cancel a large share
+                        of their orders are flagged for us to look at.
+                      </p>
+                      <p>
+                        <strong>If the buyer cancels:</strong> we email you so you don't prepare it, and the quantity
+                        goes back on your listing. If they cancel within {FREE_CANCELLATION_HOURS} hours of
+                        ordering, you aren't paid. If they cancel later, you're paid a {RESTOCKING_RATE * 100}%
+                        restocking fee.
+                      </p>
+                      <p>
+                        <strong>If you miss your ready-by date:</strong> you have {SELLER_READY_DAYS} days to mark an
+                        order ready. After that the buyer can cancel for a full refund, and an order still not marked
+                        ready after {AUTO_CANCEL_DAYS} days is cancelled and refunded automatically.
+                      </p>
+                    </div>
+                  </details>
+
+                  <details className="bg-white border border-gray-200 rounded-xl">
+                    <summary className="cursor-pointer select-none px-4 py-3 text-sm font-bold text-gray-900">
+                      The buyer didn't show up
+                    </summary>
+                    <div className="px-4 pb-4 text-xs text-gray-700 space-y-2">
+                      <p>
+                        A buyer has {BUYER_PICKUP_DAYS} days to collect an order after you mark it ready. Each ready
+                        order shows the date. You can't report a no-show before then.
+                      </p>
+                      <ol className="list-decimal pl-5 space-y-1.5">
+                        <li>
+                          <strong>Try messaging them first.</strong> Use <strong>Message Buyer</strong> on the order.
+                          Often they've just lost track of the day.
+                        </li>
+                        <li>
+                          <strong>Report it.</strong> Once their {BUYER_PICKUP_DAYS} days are up, open{' '}
+                          <strong>More options</strong> on the order and tap <strong>Buyer Did Not Show</strong>.
+                          This doesn't move any money yet.
+                        </li>
+                        <li>
+                          <strong>The buyer gets {NO_SHOW_REVIEW_HOURS} hours to answer.</strong> We email them with a
+                          button to tell us if they disagree.
+                        </li>
+                        <li>
+                          <strong>If they don't answer,</strong> the order is closed automatically. You're paid a{' '}
+                          {RESTOCKING_RATE * 100}% restocking fee, the buyer is refunded the rest of the produce price,
+                          and the quantity goes back on your listing.
+                        </li>
+                        <li>
+                          <strong>If they do answer,</strong> we look at both sides and decide. We may contact you.
+                        </li>
+                      </ol>
+                      <p>
+                        If the buyer turns up while a report is open, hand over the produce and scan their code as
+                        usual. Completing the order ends the report and pays you in full.
+                      </p>
+                      <p>
+                        Only report a no-show when you were available at the times you gave and the buyer didn't
+                        come. Sellers with a lot of no-show reports are flagged for us to look at.
+                      </p>
+                    </div>
+                  </details>
+                  </div>
                 </div>
 
                 <p className="text-xs text-gray-700">

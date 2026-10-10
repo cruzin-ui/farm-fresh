@@ -13,7 +13,7 @@ import {
 import { MapPin, Store } from 'lucide-react';
 import ReviewForm from '@/components/ReviewForm';
 import OrderMessages from '@/components/OrderMessages';
-import { describeItems, isOpenStatus, orderRef, type BuyerOrder, type PickupGroup } from '@/lib/pickupGroups';
+import { isOpenStatus, orderRef, type BuyerOrder, type PickupGroup } from '@/lib/pickupGroups';
 import { isSellerLate, mapLink } from '@/lib/pickupRules';
 import FollowFarmButton from '@/components/FollowFarmButton';
 
@@ -33,7 +33,7 @@ const STATUS_STYLES: Record<string, { label: string; className: string }> = {
 // fee once the free-cancellation window has passed. The service fee is kept
 // either way. The server works the amounts out again itself; this is only the
 // preview.
-function CancelItem({ item, token }: { item: BuyerOrder; token?: string | null }) {
+function CancelItem({ item, token, label }: { item: BuyerOrder; token?: string | null; label: string }) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +75,7 @@ function CancelItem({ item, token }: { item: BuyerOrder; token?: string | null }
         onClick={() => setConfirming(true)}
         className="text-xs font-semibold text-red-600 hover:underline py-1 print:hidden"
       >
-        Cancel this item
+        {label}
       </button>
     );
   }
@@ -143,17 +143,29 @@ function CancelItem({ item, token }: { item: BuyerOrder; token?: string | null }
   );
 }
 
-// The buyer's side of a pickup. Once the farmer marks an item picked up, the
-// buyer is asked whether they actually received it — a "no" goes to the
-// admins, because the two accounts don't match. Any item, picked up or not,
-// can also have a problem reported against it.
-function ItemFeedback({ item, token }: { item: BuyerOrder; token?: string | null }) {
+// The buyer's side of a pickup, in two parts so the card can keep the main
+// one in view and tuck the other away:
+//   'prompt' — once the farmer marks an item picked up, asks the buyer whether
+//              they actually received it. A "no" goes to the admins, because
+//              the two accounts don't match.
+//   'report' — a link to report any other problem with an item, picked up or not.
+function ItemFeedback({
+  item,
+  token,
+  part,
+  label = 'Report a problem',
+}: {
+  item: BuyerOrder;
+  token?: string | null;
+  part: 'prompt' | 'report';
+  label?: string;
+}) {
   const [mode, setMode] = useState<'idle' | 'not-received' | 'problem'>('idle');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [received, setReceived] = useState(item.buyer_received);
-  const [reportedAt, setReportedAt] = useState(item.buyer_problem_at);
+  const reportedAt = item.buyer_problem_at;
 
   const send = async (payload: { received?: boolean; note?: string }) => {
     setBusy(true);
@@ -163,16 +175,22 @@ function ItemFeedback({ item, token }: { item: BuyerOrder; token?: string | null
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not send that.');
 
-      if (payload.received === true) setReceived(true);
-      else setReportedAt(new Date().toISOString());
-      setMode('idle');
-      setNote('');
+      if (payload.received === true) {
+        setReceived(true);
+        setMode('idle');
+        return;
+      }
+      // Reload so every part of the card shows the report.
+      window.location.reload();
     } catch (err: any) {
       setError(err.message || 'Could not send that.');
     } finally {
       setBusy(false);
     }
   };
+
+  // Already reported, or nothing left to report on: the link has no job.
+  if (part === 'report' && (reportedAt || item.status === 'cancelled')) return null;
 
   if (reportedAt) {
     return (
@@ -230,6 +248,18 @@ function ItemFeedback({ item, token }: { item: BuyerOrder; token?: string | null
     );
   }
 
+  if (part === 'report') {
+    return (
+      <button
+        type="button"
+        onClick={() => setMode('problem')}
+        className="text-left text-xs font-semibold text-gray-700 hover:underline py-1 print:hidden"
+      >
+        {label}
+      </button>
+    );
+  }
+
   if (item.status === 'completed' && !received) {
     return (
       <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-950 space-y-2 print:hidden">
@@ -261,22 +291,11 @@ function ItemFeedback({ item, token }: { item: BuyerOrder; token?: string | null
     );
   }
 
-  return (
-    <div className="flex items-center gap-3 flex-wrap print:hidden">
-      {item.status === 'completed' && received && (
-        <span className="text-xs font-semibold text-emerald-800">You confirmed you received this.</span>
-      )}
-      {item.status !== 'cancelled' && (
-        <button
-          type="button"
-          onClick={() => setMode('problem')}
-          className="text-xs font-semibold text-gray-600 hover:underline py-1"
-        >
-          Report a problem
-        </button>
-      )}
-    </div>
-  );
+  if (item.status === 'completed' && received) {
+    return <p className="text-xs font-semibold text-emerald-800 print:hidden">You confirmed you received this.</p>;
+  }
+
+  return null;
 }
 
 // Everything a buyer bought from one farm in one checkout: the pickup code
@@ -295,15 +314,56 @@ export default function PickupGroupCard({
   const openItems = group.items.filter((item) => isOpenStatus(item.status));
   const open = openItems.length > 0;
   const completedItems = group.items.filter((item) => item.status === 'completed');
-  // The code is for whatever is still to be collected; once nothing is, it is
-  // shown as a record of everything it covered.
-  const codeItems = open ? openItems : group.items;
   // After a partial pickup the items still to collect carry a new code, so
   // theirs is the one to show.
   const code = (open ? openItems[0].pickup_code : null) || group.code;
 
   const addresses = [...new Set(openItems.map((item) => item.pickup_address).filter(Boolean))];
   const first = group.items[0];
+
+  const readyItems = openItems.filter((item) => item.status === 'ready_for_pickup');
+  const preparingItems = openItems.filter((item) => item.status === 'pending_pickup');
+  const lateItems = preparingItems.filter((item) => isSellerLate(item));
+  const earliest = (dates: (string | null)[]) => dates.filter(Boolean).sort()[0] as string | undefined;
+
+  // Where this order stands and what happens next, in one sentence. The rest
+  // of the card only shows what matters at that stage.
+  let stage: { text: string; tone: 'ready' | 'waiting' | 'late' | 'done' };
+  if (readyItems.length > 0) {
+    const pickupBy = earliest(readyItems.map((item) => item.pickup_by));
+    const some = readyItems.length < openItems.length;
+    stage = {
+      text: `${some ? 'Part of your order is' : 'Your order is'} ready for pickup${pickupBy ? `. Please collect it by ${shortDate(pickupBy)}` : ''}.`,
+      tone: 'ready',
+    };
+  } else if (lateItems.length > 0) {
+    stage = {
+      text: `The farmer was due to have this ready by ${shortDate(earliest(lateItems.map((item) => item.ready_by))!)}. You can wait, or cancel it for a full refund under More options.`,
+      tone: 'late',
+    };
+  } else if (open) {
+    const readyBy = earliest(preparingItems.map((item) => item.ready_by));
+    stage = {
+      text: `The farmer is getting your order ready${readyBy ? `, and should have it ready by ${shortDate(readyBy)}` : ''}. We'll email you when it's time to pick up.`,
+      tone: 'waiting',
+    };
+  } else if (completedItems.length > 0) {
+    stage = { text: 'Picked up. Thank you for buying local!', tone: 'done' };
+  } else {
+    stage = { text: 'This order was cancelled.', tone: 'done' };
+  }
+
+  const stageStyle = {
+    ready: 'bg-blue-50 border-blue-200 text-blue-950',
+    waiting: 'bg-amber-50 border-amber-200 text-amber-950',
+    late: 'bg-red-50 border-red-200 text-red-900',
+    done: 'bg-gray-50 border-gray-200 text-gray-700',
+  }[stage.tone];
+
+  // A status tag per item is only worth showing when the items differ.
+  const mixedStatuses = new Set(group.items.map((item) => item.status)).size > 1;
+  const itemName = (item: BuyerOrder) => `${item.quantity} ${item.listing_unit_type} of ${item.listing_title}`;
+  const several = group.items.length > 1;
 
   return (
     <div className="p-5 bg-white border border-gray-200 rounded-2xl shadow-sm space-y-4">
@@ -319,68 +379,28 @@ export default function PickupGroupCard({
           )}
         </p>
         <span className="text-xs text-gray-500">
-          Order <span className="font-mono font-bold text-gray-700">{orderRef(first)}</span> · Ordered{' '}
+          Order <span className="font-mono font-bold text-gray-700">{orderRef(first)}</span> ·{' '}
           {new Date(first.created_at).toLocaleDateString()}
         </span>
       </div>
 
-      {code && (
-        <div
-          className={`rounded-xl p-4 text-center border-2 ${
-            open ? 'border-emerald-500 bg-emerald-50' : 'border-dashed border-gray-300 bg-gray-50'
-          }`}
-        >
-          <p className={`text-xs font-bold uppercase tracking-widest ${open ? 'text-emerald-800' : 'text-gray-500'}`}>
-            {open
-              ? 'Your Pickup Code'
-              : completedItems.length > 0
-                ? 'Pickup Code (used at pickup)'
-                : 'Pickup Code (order cancelled)'}
-          </p>
-          <p className={`text-4xl font-black tracking-wider font-mono ${open ? 'text-emerald-900' : 'text-gray-500'}`}>
-            {code}
-          </p>
-          <p className={`text-sm font-semibold mt-1 ${open ? 'text-emerald-950' : 'text-gray-600'}`}>
-            For: {describeItems(codeItems)} from {group.farmName}
-          </p>
-          {open && (
-            // The same code as above, for the farmer to scan instead of typing.
-            <div className="mt-3 inline-block bg-white p-3 rounded-xl border border-emerald-200">
-              <QRCodeSVG
-                value={code}
-                size={160}
-                marginSize={2}
-                role="img"
-                title={`QR code for pickup code ${code}`}
-              />
-            </div>
-          )}
-          {open && (
-            <p className="text-xs text-gray-600 mt-1">
-              Show this QR code to the farmer to scan, or read them the code, only when you collect your
-              produce — it releases their payment.
-              {openItems.length > 1 &&
-                " If you collect only some of these items, this code is used up and we'll email you a new one for the rest."}
-            </p>
-          )}
-        </div>
-      )}
+      <p className={`text-sm font-semibold border rounded-xl px-3 py-2.5 ${stageStyle}`}>{stage.text}</p>
 
       <ul className="divide-y divide-gray-100">
         {group.items.map((item) => {
           const status = STATUS_STYLES[item.status] || { label: item.status, className: 'bg-gray-100 text-gray-600' };
 
           return (
-            <li key={item.id} className="py-3 first:pt-0 last:pb-0 space-y-2">
+            <li key={item.id} className="py-2.5 first:pt-0 last:pb-0 space-y-2">
               <div className="flex justify-between items-start gap-4">
-                <div className="space-y-1 min-w-0">
-                  <p className="text-sm font-bold text-gray-900 break-words">
-                    {item.quantity} {item.listing_unit_type} of {item.listing_title}
-                  </p>
-                  <span className={`inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${status.className}`}>
-                    {status.label}
-                  </span>
-                </div>
+                <p className="text-sm font-bold text-gray-900 break-words min-w-0">
+                  {itemName(item)}
+                  {mixedStatuses && (
+                    <span className={`ml-2 align-middle inline-block text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${status.className}`}>
+                      {status.label}
+                    </span>
+                  )}
+                </p>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-black text-emerald-800">${item.total_price.toFixed(2)}</p>
                   {item.refunded_amount > 0 && (
@@ -389,11 +409,17 @@ export default function PickupGroupCard({
                 </div>
               </div>
 
-              {addresses.length > 1 && isOpenStatus(item.status) && item.pickup_address && (
+              {item.status === 'ready_for_pickup' && item.pickup_details && (
+                <p className="text-xs text-blue-950 bg-blue-50 border border-blue-200 rounded-lg p-2.5 whitespace-pre-wrap">
+                  {item.pickup_details}
+                </p>
+              )}
+
+              {addresses.length > 1 && item.status === 'ready_for_pickup' && item.pickup_address && (
                 <p className="text-xs text-gray-700 flex items-start gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
                   <span>
-                    Pickup address: <span className="font-semibold">{item.pickup_address}</span>{' '}
+                    <span className="font-semibold">{item.pickup_address}</span>{' '}
                     <a
                       href={mapLink(item.pickup_address)}
                       target="_blank"
@@ -406,38 +432,7 @@ export default function PickupGroupCard({
                 </p>
               )}
 
-              {item.status === 'ready_for_pickup' && item.pickup_details && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900">
-                  <p className="font-bold mb-1">Pickup details from the farmer</p>
-                  <p className="whitespace-pre-wrap">{item.pickup_details}</p>
-                </div>
-              )}
-
-              {item.status === 'pending_pickup' && item.ready_by && (
-                <p className={`text-xs ${isSellerLate(item) ? 'font-semibold text-red-700' : 'text-gray-600'}`}>
-                  {isSellerLate(item)
-                    ? `The farmer was due to have this ready by ${shortDate(item.ready_by)}. You can wait, or cancel it for a full refund.`
-                    : `The farmer should have this ready by ${shortDate(item.ready_by)}. We'll email you when it is.`}
-                </p>
-              )}
-
-              {item.status === 'pending_pickup' && !item.pickup_address && (
-                <p className="text-xs text-gray-600 flex items-start gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
-                  <span>
-                    Pickup{item.pickup_area ? ` in ${item.pickup_area}` : ''}. You'll get the exact address when the
-                    farmer marks this ready.
-                  </span>
-                </p>
-              )}
-
-              {item.status === 'ready_for_pickup' && item.pickup_by && (
-                <p className="text-xs font-semibold text-blue-900">Please pick up by {shortDate(item.pickup_by)}.</p>
-              )}
-
-              {isOpenStatus(item.status) && <CancelItem item={item} token={token} />}
-
-              <ItemFeedback item={item} token={token} />
+              <ItemFeedback item={item} token={token} part="prompt" />
             </li>
           );
         })}
@@ -447,7 +442,7 @@ export default function PickupGroupCard({
         <p className="text-sm text-gray-700 flex items-start gap-1.5">
           <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
           <span>
-            Pickup address: <span className="font-semibold">{addresses[0]}</span>{' '}
+            <span className="font-semibold">{addresses[0]}</span>{' '}
             <a
               href={mapLink(addresses[0]!)}
               target="_blank"
@@ -456,33 +451,89 @@ export default function PickupGroupCard({
             >
               Get directions
             </a>
-            {openItems.some((item) => item.status !== 'ready_for_pickup') && (
-              <span className="block text-xs text-gray-500 mt-0.5">
-                Please wait until the farmer marks an item ready before heading over for it.
-              </span>
-            )}
           </span>
         </p>
       )}
 
-      <div className="flex items-start gap-2 flex-wrap">
-        <OrderMessages
-          key={`messages-${group.key}-${unreadOrderIds.join(',')}`}
-          orderId={(openItems[0] || first).id}
-          role="buyer"
-          token={token}
-          hasUnread={group.items.some((item) => unreadOrderIds.includes(item.id))}
-        />
-        {group.farmerId && <FollowFarmButton farmerId={group.farmerId} farmName={group.farmName} />}
-      </div>
+      {open && addresses.length === 0 && (
+        <p className="text-xs text-gray-600 flex items-start gap-1.5">
+          <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+          <span>
+            Pickup{first.pickup_area ? ` in ${first.pickup_area}` : ''}. You'll get the exact address when it's ready.
+          </span>
+        </p>
+      )}
 
-      {completedItems.length > 0 && (
+      {/* The code is shown large, with its QR code, once there is something to
+          collect. Before that it is one line; after pickup it is gone. */}
+      {open && code && readyItems.length > 0 && (
+        <div className="rounded-xl p-4 text-center border-2 border-emerald-500 bg-emerald-50">
+          <p className="text-xs font-bold uppercase tracking-widest text-emerald-800">Your Pickup Code</p>
+          <p className="text-4xl font-black tracking-wider font-mono text-emerald-900">{code}</p>
+          <div className="mt-3 inline-block bg-white p-3 rounded-xl border border-emerald-200">
+            <QRCodeSVG value={code} size={160} marginSize={2} role="img" title={`QR code for pickup code ${code}`} />
+          </div>
+          <p className="text-xs text-gray-700 mt-2">
+            Show this to the farmer <strong>only once you have your produce</strong>. It releases their payment.
+          </p>
+        </div>
+      )}
+
+      {open && code && readyItems.length === 0 && (
+        <p className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
+          Your pickup code: <span className="font-mono font-black text-gray-900">{code}</span>
+          <span className="block text-xs text-gray-500 mt-0.5">
+            You'll show it to the farmer at pickup. It appears here as a QR code when your order is ready.
+          </span>
+        </p>
+      )}
+
+      {completedItems.length > 0 && !open && (
         <ReviewForm
           orderId={completedItems[0].id}
           token={token}
           alreadyReviewed={completedItems.some((item) => item.reviewed)}
         />
       )}
+
+      <div className="flex items-start gap-3 flex-wrap">
+        {open && (
+          <OrderMessages
+            key={`messages-${group.key}-${unreadOrderIds.join(',')}`}
+            orderId={openItems[0].id}
+            role="buyer"
+            token={token}
+            hasUnread={group.items.some((item) => unreadOrderIds.includes(item.id))}
+          />
+        )}
+
+        {/* Everything else, out of the way until it's needed. */}
+        <details className="flex-1 min-w-[12rem] print:hidden">
+          <summary className="cursor-pointer select-none text-xs font-semibold text-gray-600 hover:text-gray-900 py-2.5">
+            More options
+          </summary>
+          <div className="mt-1 flex flex-col items-start gap-1.5">
+            {openItems.map((item) => (
+              <CancelItem
+                key={`cancel-${item.id}`}
+                item={item}
+                token={token}
+                label={several ? `Cancel ${itemName(item)}` : 'Cancel this order'}
+              />
+            ))}
+            {group.items.map((item) => (
+              <ItemFeedback
+                key={`report-${item.id}`}
+                item={item}
+                token={token}
+                part="report"
+                label={several ? `Report a problem with ${item.listing_title}` : 'Report a problem'}
+              />
+            ))}
+            {group.farmerId && <FollowFarmButton farmerId={group.farmerId} farmName={group.farmName} />}
+          </div>
+        </details>
+      </div>
     </div>
   );
 }
