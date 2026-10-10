@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { sendEmail, escapeHtml } from '@/lib/email';
+import { timingSafeEqual } from 'crypto';
 import { alertAdmin } from '@/lib/alerts';
+import { getPickupCodeRecord } from '@/lib/pickupCodes';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +86,46 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Could not send your message. Please try again.' }, { status: 500 });
     }
 
+    // Sent from an order's "Trouble with this order?" button: flag the order
+    // on the admin page too, but only if the sender really is its buyer (their
+    // account, or a guest's secret order link). Otherwise the message is still
+    // delivered and the order is left alone.
+    let flaggedOrder = false;
+    const orderId = typeof body.orderId === 'string' ? body.orderId : '';
+    if (/^[0-9a-f-]{36}$/i.test(orderId)) {
+      try {
+        const { data: order } = await supabaseAdmin
+          .from('orders')
+          .select('id, buyer_id, guest_access_token')
+          .eq('id', orderId)
+          .maybeSingle();
+
+        let isBuyer = Boolean(order && user && order.buyer_id && order.buyer_id === user.id);
+        const orderToken = typeof body.orderToken === 'string' ? body.orderToken : '';
+        if (order && !isBuyer && !order.buyer_id && orderToken) {
+          const expected = (await getPickupCodeRecord(order.id))?.guestToken || order.guest_access_token || '';
+          const a = Buffer.from(expected);
+          const b = Buffer.from(orderToken);
+          isBuyer = a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
+        }
+
+        if (order && isBuyer) {
+          const { error: flagError } = await supabaseAdmin
+            .from('orders')
+            .update({
+              buyer_problem_at: new Date().toISOString(),
+              buyer_problem_note: message.slice(0, 1000),
+              buyer_problem_resolved_at: null,
+            })
+            .eq('id', order.id);
+          if (flagError) throw flagError;
+          flaggedOrder = true;
+        }
+      } catch (flagErr) {
+        console.error('Could not flag the order a contact message was about:', flagErr);
+      }
+    }
+
     const recipients = contactRecipients();
     if (recipients.length > 0) {
       await sendEmail({
@@ -96,6 +138,7 @@ export async function POST(request: Request) {
             <p><strong>From:</strong> ${escapeHtml(email)}${user ? ' (signed-in user)' : ''}</p>
             <p><strong>Subject:</strong> ${escapeHtml(subject)}</p>
             <p style="white-space: pre-wrap;">${escapeHtml(message)}</p>
+            ${flaggedOrder ? '<p><strong>This came from the buyer\'s order page, and the order is now flagged under Needs attention on the admin page.</strong></p>' : ''}
             <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">
               Reply to this email to answer them directly. The message is also on the admin page.
             </p>

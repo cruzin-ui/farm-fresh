@@ -20,6 +20,8 @@ export type BuyerOrder = {
   // The buyer's own account of the order: confirmed received, or a problem
   // they reported (and when).
   buyer_received: boolean;
+  // When the farmer marked it picked up.
+  completed_at?: string | null;
   buyer_problem_at: string | null;
   // True once the farmer has reported the order as not collected.
   no_show_reported: boolean;

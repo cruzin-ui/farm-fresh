@@ -71,7 +71,7 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'The farmer marked my order as picked up, but I never got it. What do I do?',
     answer:
-      "Your order page asks you to confirm each picked-up item. Choose No, I Didn't Get It and tell us what happened. That comes straight to us, and we'll look into it with you and the farmer.",
+      "Open the order (in My Orders, or the link in your confirmation email) and tap Trouble with this order? at the bottom. It opens Contact Us with your order's details already filled in. Tell us what happened; it comes straight to us, and we'll look into it with you and the farmer.",
   },
   {
     question: 'How long do I have to pick up?',
@@ -129,7 +129,8 @@ const BUYER_FAQS: Faq[] = [
         If there's a problem at pickup, don't hand over your pickup code — that's what releases your payment.
         Then open <strong>More options</strong> on the order, choose <strong>Report a problem</strong> and tell
         us what happened.
-        It comes to us, not to the farmer. You can also{' '}
+        It comes to us, not to the farmer. If you've already picked up, tap{' '}
+        <strong>Trouble with this order?</strong> at the bottom of the order instead. You can also{' '}
         <Link href="/contact" className="font-semibold text-emerald-800 underline">
           contact us
         </Link>

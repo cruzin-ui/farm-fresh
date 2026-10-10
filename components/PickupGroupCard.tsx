@@ -145,9 +145,7 @@ function CancelItem({ item, token, label }: { item: BuyerOrder; token?: string |
 
 // The buyer's side of a pickup, in two parts so the card can keep the main
 // one in view and tuck the other away:
-//   'prompt' — once the farmer marks an item picked up, asks the buyer whether
-//              they actually received it. A "no" goes to the admins, because
-//              the two accounts don't match.
+//   'prompt' — a note on an item the buyer has already reported a problem with.
 //   'report' — a link to report any other problem with an item, picked up or not.
 function ItemFeedback({
   item,
@@ -164,7 +162,6 @@ function ItemFeedback({
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [received, setReceived] = useState(item.buyer_received);
   const reportedAt = item.buyer_problem_at;
 
   const send = async (payload: { received?: boolean; note?: string }) => {
@@ -175,11 +172,6 @@ function ItemFeedback({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not send that.');
 
-      if (payload.received === true) {
-        setReceived(true);
-        setMode('idle');
-        return;
-      }
       // Reload so every part of the card shows the report.
       window.location.reload();
     } catch (err: any) {
@@ -260,41 +252,6 @@ function ItemFeedback({
     );
   }
 
-  if (item.status === 'completed' && !received) {
-    return (
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-950 space-y-2 print:hidden">
-        <p className="font-bold text-sm">The farmer marked this as picked up. Did you receive it?</p>
-        {error && (
-          <p role="alert" className="font-semibold text-red-700">
-            {error}
-          </p>
-        )}
-        <div className="flex gap-2 flex-wrap">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => send({ received: true })}
-            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-bold px-3.5 py-2 rounded-xl"
-          >
-            {busy ? 'Saving...' : 'Yes, I Got It'}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setMode('not-received')}
-            className="bg-white border border-red-200 text-red-700 font-bold px-3.5 py-2 rounded-xl hover:bg-red-50"
-          >
-            No, I Didn't Get It
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (item.status === 'completed' && received) {
-    return <p className="text-xs font-semibold text-emerald-800 print:hidden">You confirmed you received this.</p>;
-  }
-
   return null;
 }
 
@@ -364,6 +321,26 @@ export default function PickupGroupCard({
   const mixedStatuses = new Set(group.items.map((item) => item.status)).size > 1;
   const itemName = (item: BuyerOrder) => `${item.quantity} ${item.listing_unit_type} of ${item.listing_title}`;
   const several = group.items.length > 1;
+
+  // Opens Contact Us with what we'd otherwise have to ask for already written.
+  const pickedUpOn = completedItems
+    .map((item) => item.completed_at)
+    .filter(Boolean)
+    .sort()
+    .pop();
+  const troubleLink = `/contact?${new URLSearchParams({
+    ...(completedItems[0] ? { order: completedItems[0].id } : {}),
+    ...(token ? { token } : {}),
+    subject: `Trouble with order ${orderRef(first)}`,
+    message: [
+      `Order number: ${orderRef(first)}`,
+      `Farm: ${group.farmName}`,
+      `Items: ${group.items.map(itemName).join('; ')}`,
+      ...(pickedUpOn ? [`Picked up: ${shortDate(pickedUpOn)}`] : []),
+      '',
+      'What went wrong: ',
+    ].join('\n'),
+  }).toString()}`;
 
   return (
     <div className="p-5 bg-white border border-gray-200 rounded-2xl shadow-sm space-y-4">
@@ -521,7 +498,7 @@ export default function PickupGroupCard({
                 label={several ? `Cancel ${itemName(item)}` : 'Cancel this order'}
               />
             ))}
-            {group.items.map((item) => (
+            {open && group.items.map((item) => (
               <ItemFeedback
                 key={`report-${item.id}`}
                 item={item}
@@ -534,6 +511,18 @@ export default function PickupGroupCard({
           </div>
         </details>
       </div>
+
+      {/* After pickup: one way to get help, with the order's details filled in. */}
+      {!open && completedItems.length > 0 && (
+        <div className="pt-3 border-t border-gray-100 print:hidden">
+          <Link
+            href={troubleLink}
+            className="inline-flex items-center justify-center bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+          >
+            Trouble with this order?
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
