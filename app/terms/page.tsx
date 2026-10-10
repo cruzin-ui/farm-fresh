@@ -41,8 +41,9 @@ export default function TermsPage() {
           <p>
             Farm Fresh Direct is a marketplace for locally grown produce. It connects buyers with local
             gardeners and small farms and processes payment between them. Listings for anything other than
-            local produce and the few farm foods in our categories are not allowed and will be removed. The seller, not Farm Fresh Direct, is the seller of every product
-            listed. We do not grow, handle, store, inspect, test, certify or approve any product.
+            local produce and the few farm foods in our categories are not allowed and will be removed. The
+            seller, not Farm Fresh Direct, is the seller of every product listed. We do not grow, handle,
+            store, inspect, test, certify or approve any product.
           </p>
         </section>
 
@@ -58,21 +59,35 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-bold text-gray-900 mb-1">3. Orders and payment</h2>
           <p>
-            You pay in full online when you place an order. In addition to the price of the produce, you pay a
-            service fee of {BUYER_FEE_LABEL}, and any sales tax that applies, both shown at checkout before you pay. Payments are processed by
-            Stripe. We hold your payment and release it to the seller when the order is picked up.
+            You pay in full online, by card, when you place an order. One checkout can include items from
+            more than one seller; each item is then a separate order with that seller. In addition to the
+            price of the produce, you pay a service fee of {BUYER_FEE_LABEL}, charged once per checkout
+            however many items it includes, and any sales tax that applies. Both are shown at checkout before
+            you pay. Payments are processed by Stripe. We hold your payment and release each seller&apos;s share
+            to them when their item is picked up.
           </p>
         </section>
 
         <section>
           <h2 className="text-lg font-bold text-gray-900 mb-1">4. Pickup and your pickup code</h2>
           <p>
-            Orders are collected in person from the seller at the pickup address shown on your order, once the
-            seller tells you it is ready. The seller has {SELLER_READY_DAYS} days to do that, counted from your
-            order or from the listing&apos;s harvest date if that is later. You then have {BUYER_PICKUP_DAYS} days
-            to collect it, on the days and at the times the seller gives you. You receive a pickup code with your order. Give it to the seller only
-            when you have received your produce: giving the code confirms that you have collected your order
-            and releases your payment to the seller. Do not pay the seller anything further at pickup.
+            Orders are collected in person from the seller, once the seller tells you it is ready. Before
+            then you are shown only the seller&apos;s city and zip code; the full pickup address is given to you
+            when the order is marked ready. The seller has {SELLER_READY_DAYS} days to do that, counted from
+            your order or from the listing&apos;s harvest date if that is later. You then have{' '}
+            {BUYER_PICKUP_DAYS} days to collect it, on the days and at the times the seller gives you.
+          </p>
+          <p className="mt-2">
+            You receive one pickup code for each seller you buy from, covering everything you bought from
+            that seller in that checkout. It is shown on your order page as a code and as a QR code. Give it
+            to the seller, or let them scan it, only when you have received your produce: doing so confirms
+            that you have collected the items the seller marks as handed over, and releases your payment for
+            them to the seller. A code works for one visit. If you collect only some of your items, we send
+            you a new code for the rest. Do not pay the seller anything further at pickup.
+          </p>
+          <p className="mt-2">
+            After a pickup, your order page asks you to confirm that you received each item. If an item has
+            been marked as picked up and you did not receive it, tell us there straight away.
           </p>
         </section>
 
@@ -103,8 +118,13 @@ export default function TermsPage() {
             </li>
             <li>
               <strong>If there is a problem with your order at pickup,</strong> do not give the seller your
-              pickup code, and contact us. Once the code has been given, the seller has been paid, and any
-              refund is at our discretion.
+              pickup code, and tell us using Report a problem on your order page or the Contact Us page. Once
+              the code has been given, the seller has been paid, and any refund is at our discretion.
+            </li>
+            <li>
+              <strong>If you believe a charge is wrong,</strong> contact us first so we can put it right. If
+              you dispute a charge with your bank instead, we will give the bank our record of the order,
+              including when your pickup code was used.
             </li>
           </ul>
           <p className="mt-2">Refunds are returned to your original payment method and can take several business days.</p>
@@ -125,7 +145,8 @@ export default function TermsPage() {
           <p>
             Pickups are arranged between you and the seller, and you attend them at your own risk. Meet only at
             the pickup address on your order, and use the same judgment you would when meeting anyone you do
-            not know.
+            not know. You and the seller can message each other about an order through the site. Messages are
+            for arranging the pickup; we may read them when looking into a problem or a report.
           </p>
         </section>
 
@@ -133,8 +154,9 @@ export default function TermsPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">8. Using the site fairly</h2>
           <p>
             Do not use the site to break the law, to mislead or harass others, to interfere with how the site
-            works, or to collect other users&apos; information. We may cancel orders or close accounts that
-            break these terms.
+            works, or to collect other users&apos; information. Do not pay for, or arrange to pay for, an order
+            made through the site in any way other than through the site, and do not buy from your own
+            listings. We may cancel orders or close accounts that break these terms.
           </p>
         </section>
 
