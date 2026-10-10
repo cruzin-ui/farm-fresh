@@ -7,9 +7,9 @@ const HOW_IT_WORKS = [
     heading: 'If you want to buy',
     steps: [
       ["Browse what's growing nearby", 'See fresh listings from gardens and small farms in your area.'],
-      ['Reserve and pay online', 'No account needed. We hold your payment until you have your produce.'],
+      ['Fill your cart and pay online', 'No account needed. Buy from one farm or several in one checkout; we hold your payment until you have your produce.'],
       ['Wait for the "ready" email', 'The farmer tells you when and where to pick up.'],
-      ['Pick up and share your code', 'Hand over your pickup code once the produce is in your hands.'],
+      ['Pick up and share your code', 'Show your QR code or give your pickup code once the produce is in your hands.'],
     ],
   },
   {
@@ -17,8 +17,8 @@ const HOW_IT_WORKS = [
     steps: [
       ['Set up your farm profile', 'Add your farm name and photo, and connect a payout account.'],
       ['Post your harvest', 'List the crop, price, quantity and pickup address. Posting is free.'],
-      ['Mark orders ready', 'When the produce is ready, send the buyer your pickup hours.'],
-      ['Enter the pickup code to get paid', 'The buyer gives you a code at pickup. Entering it releases your payment.'],
+      ['Mark orders ready', 'When the produce is ready, tick the days and times the buyer can come.'],
+      ['Scan the pickup code to get paid', "Scan the buyer's QR code at pickup, or type their code. That releases your payment."],
     ],
   },
 ];

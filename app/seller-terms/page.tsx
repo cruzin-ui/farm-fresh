@@ -78,9 +78,17 @@ export default function SellerTermsPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">4. Fees and payment</h2>
           <p>
             Posting is free. Farm Fresh Direct keeps a seller fee of {SELLER_FEE} of the produce price on each
-            completed sale. Buyers pay online, and we hold the payment until pickup. Your payout is released when
-            you enter the buyer&apos;s pickup code, and is paid to your connected payout account. Do not collect
-            cash or any additional payment at pickup.
+            completed sale. Buyers pay online, and we hold the payment until pickup. Your payout for an item is
+            released when you scan or enter the buyer&apos;s pickup code and mark that item as handed over, and
+            is paid to your connected payout account. Only mark an item as handed over if the buyer has
+            received it. Do not collect cash or any additional payment at pickup, and do not arrange for an
+            order made through the site to be paid for in any other way. You may not buy from your own
+            listings.
+          </p>
+          <p className="mt-2">
+            If a buyer tells us they did not receive an item you marked as handed over, or a buyer&apos;s bank
+            disputes a payment, we may hold the payout for that order, or recover a payout already made, while
+            we look into it and if we find the item was not supplied as described.
           </p>
         </section>
 
@@ -96,7 +104,14 @@ export default function SellerTermsPage() {
             report an order as not collected only after that time has passed. If you cannot fulfill an order in
             full, reduce or cancel it through your Seller Dashboard so
             the buyer is refunded. If a buyer does not collect an order, we may close it and pay you a restocking
-            fee.
+            fee. A buyer may cancel an order before pickup: if they cancel within 48 hours of ordering you are
+            not paid for it, and if they cancel later you are paid a restocking fee.
+          </p>
+          <p className="mt-2">
+            <strong>Contacting buyers.</strong> Use the messaging on each order to arrange a pickup. A
+            buyer&apos;s email address is shown to you once their order is picked up or closed. Use buyers&apos;
+            contact details only for the orders they placed with you, and not for marketing unless they have
+            agreed to it.
           </p>
         </section>
 

@@ -1242,8 +1242,9 @@ export default function SellerDashboardPage() {
                       already paid online — we hold the money until pickup.
                     </li>
                     <li>
-                      When the produce is ready, click <strong>Mark Ready for Pickup</strong> and send the buyer
-                      your pickup hours and any instructions.
+                      When the produce is ready, click <strong>Mark Ready for Pickup</strong>, tick the days and
+                      times the buyer can come, and add any instructions. That is also when the buyer is sent your
+                      pickup address. Need to reach them? Use <strong>Message Buyer</strong> on the order.
                     </li>
                     <li>
                       At pickup, hand over the produce and <strong>ask the buyer for their pickup code</strong>.

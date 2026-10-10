@@ -22,7 +22,7 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'How do I pay?',
     answer:
-      'By card, online, when you reserve. Payments are processed by Stripe. Every order is paid in full up front, so you never need to bring cash to a pickup.',
+      'Online at checkout, by card, Apple Pay or Google Pay. Payments are processed by Stripe. Every order is paid in full up front, so you never need to bring cash to a pickup.',
   },
   {
     question: 'Can I order part of a unit, like half a pound?',
@@ -121,11 +121,13 @@ const BUYER_FAQS: Faq[] = [
     question: "Something was wrong with my order. What do I do?",
     answer: (
       <>
-        If there's a problem at pickup, don't hand over your pickup code — that's what releases your payment.{' '}
+        If there's a problem at pickup, don't hand over your pickup code — that's what releases your payment.
+        Then use <strong>Report a problem</strong> on that item in your order page and tell us what happened.
+        It comes to us, not to the farmer. You can also{' '}
         <Link href="/contact" className="font-semibold text-emerald-800 underline">
-          Contact us
-        </Link>{' '}
-        with your order details and we'll help sort it out.
+          contact us
+        </Link>
+        .
       </>
     ),
   },
@@ -225,12 +227,12 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'How and when do I get paid?',
     answer:
-      "At pickup, ask the buyer for their pickup code and enter it in your Seller Dashboard. That releases your payment to your Stripe account, and Stripe deposits it to your bank once a week, on Fridays. Each open order shows the exact amount you'll receive.",
+      "At pickup, click Mark Completed on the order in your Seller Dashboard, then scan the QR code on the buyer's phone or type their pickup code. If the buyer bought several items from you, tick the ones you're handing over. That releases your payment to your Stripe account, and Stripe deposits it to your bank once a week, on Fridays. Each open order shows the exact amount you'll receive.",
   },
   {
     question: 'Is my address public?',
     answer:
-      'No. Listings show only your city and zip code. Your pickup address is shared with a buyer only after they have paid for an order.',
+      "No. Listings show only your city and zip code, and that's all a buyer sees when they order. Your pickup address is sent to a buyer only when you mark their order ready for pickup.",
   },
   {
     question: "What if I end up with less produce than I listed?",
@@ -247,11 +249,21 @@ const SELLER_FAQS: Faq[] = [
       'Set your usual pickup days and times in Farm Profile. Shoppers see them on your listings and at checkout, before they buy, so they only order if the times work. The same days and times are ticked for you when you mark an order ready, and you can change them for that order. With them saved, you can also mark all your waiting orders ready in one go.',
   },
   {
+    question: 'How do I contact a buyer?',
+    answer:
+      "Use Message Buyer on the order in your Seller Dashboard. We email the buyer your message and they reply the same way. You won't see the buyer's email address while an order is open; it appears in your Sales History once the order is picked up or closed.",
+  },
+  {
+    question: 'What happens if a buyer cancels?',
+    answer: `Buyers can cancel an order themselves any time before pickup. We email you straight away so you don't prepare it, and the quantity goes back on your listing. If they cancel within 48 hours of ordering, there's no payment to you. If they cancel later than that, you're paid a ${NO_SHOW_FEE} restocking fee.`,
+  },
+  {
     question: "What if a buyer doesn't show up?",
     answer: (
       <>
-        Once you've marked an order ready, you can report a no-show with the Buyer Did Not Show button in your
-        Seller Dashboard. The buyer is emailed and has 48 hours to respond; if they don't, the order is closed automatically, and if
+        The buyer has {BUYER_PICKUP_DAYS} days to collect an order after you mark it ready. Once those days
+        have passed, a Buyer Did Not Show button appears on the order in your Seller Dashboard. The buyer is
+        emailed and has 48 hours to respond; if they don't, the order is closed automatically, and if
         they do, we review it. When an order is closed as a no-show you receive a{' '}
         {NO_SHOW_FEE} restocking fee, and the quantity goes back on your listing. You can also{' '}
         <Link href="/contact" className="font-semibold text-emerald-800 underline">
@@ -274,7 +286,7 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'Can buyers and I deal directly after we meet?',
     answer:
-      "Yes. Our mission is to connect you with local buyers, and if that turns into a lasting relationship, that's a good outcome. We hope you'll keep listing here when you have produce to share.",
+      "We're glad when a sale here turns into a lasting relationship with a buyer. Any order placed through the site needs to be paid for through the site, and we hope you'll keep listing here when you have produce to share.",
   },
 ];
 

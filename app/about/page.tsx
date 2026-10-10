@@ -53,8 +53,8 @@ export default function AboutPage() {
           </p>
           <p>
             Our mission isn't to make massive profits. It's to introduce you to a local grower you can go back
-            to again and again. If you build a relationship with them outside this platform, that's great! We
-            want you directly connected to your food, even if that means without us.
+            to again and again. We want you directly connected to the people who grow your food, and we're glad
+            to be where that starts.
           </p>
           <p>
             All we ask is that you think of us whenever you're looking for fresh, delicious, locally grown food.
