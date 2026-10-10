@@ -188,6 +188,9 @@ export default function AccountMenu() {
             <Link href="/dashboard" role="menuitem" className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800">
               <Sprout className="w-4 h-4" /> Sell
             </Link>
+            <Link href="/why" role="menuitem" className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800">
+              <Heart className="w-4 h-4" /> Why Use Us
+            </Link>
             <Link href="/faq" role="menuitem" className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800">
               <CircleHelp className="w-4 h-4" /> FAQ
             </Link>
