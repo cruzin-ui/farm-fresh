@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { friendlyDate } from '@/lib/dates';
+import { pickupAvailability } from '@/lib/dates';
 import { supabase } from '@/lib/supabaseClient';
 import { Search, MapPin, Calendar, ShoppingBag, Sprout, User } from 'lucide-react';
 import Link from 'next/link';
@@ -555,7 +555,7 @@ export default function BrowsePage() {
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                       <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                       <span>
-                        Harvest date: {friendlyDate(item.harvest_ready_date) || 'Available Now'}
+                        {pickupAvailability(item.harvest_ready_date).label}
                       </span>
                     </div>
                   </div>

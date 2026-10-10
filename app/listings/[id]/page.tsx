@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { friendlyDate } from '@/lib/dates';
+import { friendlyDate, pickupAvailability } from '@/lib/dates';
+import { SELLER_READY_DAYS } from '@/lib/pickupRules';
 import { supabase } from '@/lib/supabaseClient';
 import { Sprout, MapPin, Calendar, Clock, ShoppingBag, ShoppingCart, CheckCircle2, ArrowLeft, User, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
@@ -100,6 +101,9 @@ export default function ListingDetailPage() {
   const roomLeft = availableQty - inCart;
   const chosenQty = Math.min(Math.max(1, parseInt(addQuantity, 10) || 1), Math.max(1, roomLeft));
 
+  const availability = pickupAvailability(listing.harvest_ready_date);
+  const usualPickup = describeUsualPickup(seller?.pickup_days, seller?.pickup_times);
+
   const handleAddToCart = () => {
     if (roomLeft < 1) return;
     if (addToCart(listing.id, chosenQty)) {
@@ -138,7 +142,7 @@ export default function ListingDetailPage() {
             </span>
             <h1 className="text-3xl font-extrabold text-gray-900 mt-3">{listing.title}</h1>
             {listing.variety && (
-              <p className="text-sm font-semibold text-gray-500 mt-1">Variety: {listing.variety}</p>
+              <p className="text-lg font-semibold text-gray-700 mt-1">{listing.variety}</p>
             )}
             <p className="mt-2">
               <span className="text-3xl font-black text-gray-900">
@@ -146,7 +150,7 @@ export default function ListingDetailPage() {
               </span>
               <span className="text-sm text-gray-500 font-medium"> / {unitType}</span>
             </p>
-            <p className={`text-xs font-bold mt-1 ${soldOut ? 'text-red-600' : 'text-emerald-700'}`}>
+            <p className={`text-sm font-bold mt-1 ${soldOut ? 'text-red-600' : 'text-emerald-700'}`}>
               {soldOut ? 'Sold Out' : `${availableQty} ${unitType} available`}
             </p>
           </div>
@@ -171,24 +175,44 @@ export default function ListingDetailPage() {
             </div>
           )}
 
-          <div className="space-y-2 text-sm text-gray-600">
-            <p className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-              Pickup in {listing.location_name || seller?.location || 'the local area'}
-              {listing.zip_code ? ` (${listing.zip_code})` : ''}
-            </p>
-            <p className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-              Harvest date: {friendlyDate(listing.harvest_ready_date) || 'Available Now'}
-              {listing.harvest_end_date ? ` · Available until ${friendlyDate(listing.harvest_end_date)}` : ''}
-            </p>
-            {describeUsualPickup(seller?.pickup_days, seller?.pickup_times) && (
-              <p className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-gray-400 shrink-0" />
-                Usual pickup times: {describeUsualPickup(seller?.pickup_days, seller?.pickup_times)}
-              </p>
+          {/* The things a shopper needs to decide: when, where, and what times. */}
+          <dl className="bg-white border border-gray-200 rounded-2xl divide-y divide-gray-100">
+            <div className="flex items-start gap-3 p-4">
+              <Calendar className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <dt className="sr-only">When</dt>
+                <dd className="text-base font-bold text-gray-900">{availability.label}</dd>
+                <dd className="text-xs text-gray-500 mt-0.5">
+                  {availability.availableNow
+                    ? `The farmer has up to ${SELLER_READY_DAYS} days after you order to get it ready, and emails you when it is.`
+                    : `Harvest date: ${friendlyDate(listing.harvest_ready_date)}. You can order now, and the farmer emails you when it is ready.`}
+                  {listing.harvest_end_date ? ` On sale until ${friendlyDate(listing.harvest_end_date)}.` : ''}
+                </dd>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-4">
+              <MapPin className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <dt className="sr-only">Where</dt>
+                <dd className="text-base font-bold text-gray-900">
+                  Pickup in {listing.location_name || seller?.location || 'the local area'}
+                  {listing.zip_code ? ` (${listing.zip_code})` : ''}
+                </dd>
+                <dd className="text-xs text-gray-500 mt-0.5">
+                  You get the exact address when your order is ready.
+                </dd>
+              </div>
+            </div>
+            {usualPickup && (
+              <div className="flex items-start gap-3 p-4">
+                <Clock className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+                <div>
+                  <dt className="text-xs text-gray-500">Usual pickup times</dt>
+                  <dd className="text-base font-bold text-gray-900">{usualPickup}</dd>
+                </div>
+              </div>
             )}
-          </div>
+          </dl>
 
           {listing.category === 'Fresh Eggs' && (
             <p className="text-xs text-amber-950 bg-amber-50 border border-amber-300 rounded-xl p-3">

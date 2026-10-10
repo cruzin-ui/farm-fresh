@@ -36,6 +36,12 @@ export async function POST(request: Request) {
     if (!title) {
       return NextResponse.json({ error: 'Crop name is required.' }, { status: 400 });
     }
+    if (!variety) {
+      return NextResponse.json(
+        { error: 'Enter the variety or type, such as "Yukon Gold" or "Large brown". Buyers want to know.' },
+        { status: 400 }
+      );
+    }
     if (!Number.isFinite(price) || price < 0) {
       return NextResponse.json({ error: 'Enter a valid price.' }, { status: 400 });
     }
