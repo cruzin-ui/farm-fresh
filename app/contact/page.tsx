@@ -15,6 +15,21 @@ export default function ContactPage() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Set when the form was opened from an order's "Trouble with this order?"
+  // button, so the message can be flagged on that order for us.
+  const [aboutOrder, setAboutOrder] = useState<{ orderId: string; orderToken?: string } | null>(null);
+
+  // A link here can carry a subject and the start of a message, as the
+  // "Trouble with this order?" button does with the order's details.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const startSubject = (params.get('subject') || '').slice(0, 150);
+    const startMessage = (params.get('message') || '').slice(0, 2000);
+    if (startSubject) setSubject((current) => current || startSubject);
+    if (startMessage) setMessage((current) => current || startMessage);
+    const orderId = params.get('order');
+    if (orderId) setAboutOrder({ orderId, orderToken: params.get('token') || undefined });
+  }, []);
 
   // Save signed-in users from retyping their email.
   useEffect(() => {
@@ -29,7 +44,7 @@ export default function ContactPage() {
     setErrorMsg(null);
 
     try {
-      const res = await postWithAuth('/api/contact', { email, subject, message, website });
+      const res = await postWithAuth('/api/contact', { email, subject, message, website, ...(aboutOrder || {}) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not send your message.');
 

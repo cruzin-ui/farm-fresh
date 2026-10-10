@@ -96,6 +96,7 @@ export async function POST(request: Request) {
           ready_by: o.ready_by || null,
           pickup_by: o.pickup_by || null,
           buyer_received: Boolean(o.buyer_received_at),
+          completed_at: o.completed_at || null,
           buyer_problem_at: o.buyer_problem_at || null,
           no_show_reported: Boolean(o.no_show_reported_at),
           pickup_details: o.status === 'ready_for_pickup' ? o.pickup_details || null : null,

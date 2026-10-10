@@ -43,6 +43,7 @@ export async function describeBuyerOrders(rows: any[]): Promise<BuyerOrder[]> {
       ready_by: o.ready_by || null,
       pickup_by: o.pickup_by || null,
       buyer_received: Boolean(o.buyer_received_at),
+      completed_at: o.completed_at || null,
       buyer_problem_at: o.buyer_problem_at || null,
       no_show_reported: Boolean(o.no_show_reported_at),
       pickup_details: o.pickup_details || null,
