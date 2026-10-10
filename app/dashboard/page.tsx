@@ -10,6 +10,13 @@ import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
 import PickList from '@/components/PickList';
+import {
+  LISTING_TAG_OPTIONS,
+  MAX_LISTING_TAGS,
+  MAX_LISTING_TAG_LENGTH,
+  CARD_LISTING_TAGS,
+  cleanListingTag,
+} from '@/lib/listingTags';
 import SellerEarnings from '@/components/SellerEarnings';
 import { orderRef } from '@/lib/pickupGroups';
 import { announceAccountChange } from '@/lib/accountEvents';
@@ -97,23 +104,6 @@ const UNIT_TYPE_OPTIONS = [
   { value: 'packets', label: 'Packets' },
 ];
 
-// Short labels a farmer can attach to a listing; up to MAX_LISTING_TAGS show
-// on the Browse card.
-const LISTING_TAG_OPTIONS = [
-  'Pesticide Free',
-  'Organically Grown',
-  'Independent Grower',
-  'Family Farm',
-  'Non-GMO',
-  'Heirloom Variety',
-  'No Synthetic Fertilizers',
-  'Hand Harvested',
-  'Picked to Order',
-  'Regenerative',
-  'Hydroponic',
-  'Raw & Unfiltered',
-];
-const MAX_LISTING_TAGS = 3;
 
 export default function SellerDashboardPage() {
   const router = useRouter();
@@ -160,6 +150,9 @@ export default function SellerDashboardPage() {
   // already saved), rather than typed freehand.
   const [pickupAddressVerified, setPickupAddressVerified] = useState(false);
   const [listingTags, setListingTags] = useState<string[]>([]);
+  // A highlight the farmer is typing themselves, and why it can't be added.
+  const [customTag, setCustomTag] = useState('');
+  const [customTagError, setCustomTagError] = useState<string | null>(null);
   const [lookingUpZip, setLookingUpZip] = useState(false);
   const [zipNotFound, setZipNotFound] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -1088,6 +1081,28 @@ export default function SellerDashboardPage() {
     );
   };
 
+  // Adds a highlight the farmer wrote themselves.
+  const addCustomTag = () => {
+    const result = cleanListingTag(customTag);
+    if ('error' in result) {
+      setCustomTagError(result.error);
+      return;
+    }
+    if (listingTags.some((tag) => tag.toLowerCase() === result.tag.toLowerCase())) {
+      setCustomTagError('You already have that one.');
+      return;
+    }
+    if (listingTags.length >= MAX_LISTING_TAGS) {
+      setCustomTagError(`You can have up to ${MAX_LISTING_TAGS}. Remove one first.`);
+      return;
+    }
+    // Typing a ready-made one picks it rather than making a copy.
+    const readyMade = LISTING_TAG_OPTIONS.find((option) => option.toLowerCase() === result.tag.toLowerCase());
+    setListingTags((current) => [...current, readyMade || result.tag]);
+    setCustomTag('');
+    setCustomTagError(null);
+  };
+
   // Fills in the city and state from a 5-digit US zip code. The city field
   // stays editable in case the lookup is unavailable or picks the wrong name.
   const handleZipChange = async (value: string) => {
@@ -1710,9 +1725,73 @@ export default function SellerDashboardPage() {
                         );
                       })}
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-1">
-                      Pick up to {MAX_LISTING_TAGS} to show on your listing in Browse. Anything else can go in the
-                      description.
+                    {/* Highlights the farmer wrote themselves, each with a way to remove it. */}
+                    {listingTags.some((tag) => !LISTING_TAG_OPTIONS.includes(tag)) && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {listingTags
+                          .filter((tag) => !LISTING_TAG_OPTIONS.includes(tag))
+                          .map((tag) => (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => toggleListingTag(tag)}
+                              aria-label={`Remove ${tag}`}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border bg-emerald-600 text-white border-emerald-600"
+                            >
+                              {tag} <X className="w-3 h-3" aria-hidden="true" />
+                            </button>
+                          ))}
+                      </div>
+                    )}
+
+                    <div className="mt-3">
+                      <label htmlFor="dash-custom-highlight" className="block text-xs font-semibold text-gray-700 mb-1">
+                        Or write your own
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          id="dash-custom-highlight"
+                          type="text"
+                          maxLength={MAX_LISTING_TAG_LENGTH}
+                          placeholder="e.g., Grown From Seed"
+                          value={customTag}
+                          onChange={(e) => {
+                            setCustomTag(e.target.value);
+                            setCustomTagError(null);
+                          }}
+                          onKeyDown={(e) => {
+                            // Enter adds the highlight instead of submitting the whole listing.
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addCustomTag();
+                            }
+                          }}
+                          disabled={listingTags.length >= MAX_LISTING_TAGS}
+                          className="flex-1 min-w-0 px-4 py-2 border rounded-lg text-sm disabled:bg-gray-100"
+                        />
+                        <button
+                          type="button"
+                          onClick={addCustomTag}
+                          disabled={!customTag.trim() || listingTags.length >= MAX_LISTING_TAGS}
+                          className="shrink-0 px-4 py-2 rounded-lg text-xs font-bold bg-gray-900 text-white disabled:bg-gray-300"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        {customTag.length}/{MAX_LISTING_TAG_LENGTH} characters.
+                      </p>
+                      {customTagError && (
+                        <p role="alert" className="text-xs font-semibold text-red-700 mt-1">
+                          {customTagError}
+                        </p>
+                      )}
+                    </div>
+
+                    <p className="text-[10px] text-gray-400 mt-2">
+                      Pick or write up to {MAX_LISTING_TAGS}. All of them show on your listing's page, and the first{' '}
+                      {CARD_LISTING_TAGS} on its card in Browse. Only say what's true of this produce: for example,
+                      don't write "Certified Organic" unless you hold the certification.
                     </p>
                   </div>
 

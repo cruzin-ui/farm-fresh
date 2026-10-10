@@ -204,8 +204,13 @@ export default function PublicSellerProfilePage() {
                   <p className="text-sm font-bold text-gray-800 mt-1">
                     ${Number(item.price_per_unit || 0).toFixed(2)} / {item.unit_type}
                   </p>
-                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-2">
-                    <Calendar className="w-3.5 h-3.5" /> {pickupAvailability(item.harvest_ready_date).label}
+                  <p className="text-xs flex items-center gap-1.5 mt-2">
+                    <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                    <span
+                      className={`font-bold px-2 py-0.5 rounded-md ${pickupAvailability(item.harvest_ready_date).tagClass}`}
+                    >
+                      {pickupAvailability(item.harvest_ready_date).label}
+                    </span>
                   </p>
                 </div>
                 <div className="p-5 pt-0">

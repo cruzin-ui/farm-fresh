@@ -6,7 +6,6 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 // sold-out and taken-down listings don't count.
 
 export const MAX_ACTIVE_LISTINGS = 25;
-export const MAX_LISTING_TAGS = 3;
 
 // The full pickup address is kept out of the publicly readable listing row
 // (which only carries the city and zip) so a farmer's address isn't exposed

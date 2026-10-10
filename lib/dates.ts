@@ -30,16 +30,22 @@ export function pickupAvailability(harvestReadyDate: string | null | undefined):
   availableNow: boolean;
   // "Available now" or "Ready for pickup by Oct 18".
   label: string;
+  // Colors for showing the label as a tag: green for now, yellow for later.
+  tagClass: string;
 } {
   const harvest = parseDay(harvestReadyDate);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   if (!harvest || harvest.getTime() <= today.getTime()) {
-    return { availableNow: true, label: 'Available now' };
+    return { availableNow: true, label: 'Available now', tagClass: 'bg-emerald-100 text-emerald-900' };
   }
 
   const readyBy = new Date(harvest);
   readyBy.setDate(readyBy.getDate() + SELLER_READY_DAYS);
-  return { availableNow: false, label: `Ready for pickup by ${formatDay(readyBy)}` };
+  return {
+    availableNow: false,
+    label: `Ready for pickup by ${formatDay(readyBy)}`,
+    tagClass: 'bg-yellow-100 text-yellow-900',
+  };
 }
