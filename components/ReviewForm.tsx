@@ -111,7 +111,7 @@ export default function ReviewForm({
       >
         {submitting ? 'Posting...' : 'Post Review'}
       </button>
-      <p className="text-[11px] text-gray-500">
+      <p className="text-xs text-gray-500">
         Reviews are public and shown on the farm&apos;s page without your name or email.
       </p>
     </form>

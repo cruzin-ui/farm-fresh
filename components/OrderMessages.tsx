@@ -117,7 +117,7 @@ export default function OrderMessages({
                         mine ? 'bg-emerald-700 text-white' : 'bg-white border border-gray-200 text-gray-900'
                       }`}
                     >
-                      <p className={`text-[11px] font-bold ${mine ? 'text-emerald-100' : 'text-gray-500'}`}>
+                      <p className={`text-xs font-bold ${mine ? 'text-emerald-100' : 'text-gray-500'}`}>
                         {mine ? 'You' : role === 'buyer' ? 'Farmer' : 'Buyer'} ·{' '}
                         {new Date(message.created_at).toLocaleString(undefined, {
                           month: 'short',
@@ -155,7 +155,7 @@ export default function OrderMessages({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
               />
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <p className="text-[11px] text-gray-500">
+                <p className="text-xs text-gray-500">
                   We email {other} your message.
                 </p>
                 <button

@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { Search, MapPin, Calendar, ShoppingBag, Sprout, User } from 'lucide-react';
 import Link from 'next/link';
 import AddToCartButton from '@/components/AddToCartButton';
+import Photo from '@/components/Photo';
+import { ListingGridSkeleton } from '@/components/Skeletons';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import { geocodeZip, milesBetween, type Coordinates } from '@/lib/geo';
 
@@ -449,9 +451,7 @@ export default function BrowsePage() {
 
       {/* LISTINGS GRID */}
       {loading ? (
-        <div className="text-center py-16 text-gray-400 text-sm">
-          Loading harvest listings...
-        </div>
+        <ListingGridSkeleton />
       ) : filteredListings.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
           <Sprout className="mx-auto h-12 w-12 text-emerald-400 mb-2" />
@@ -475,10 +475,10 @@ export default function BrowsePage() {
                   className="h-44 bg-emerald-50 relative flex items-center justify-center overflow-hidden"
                 >
                   {item.image_url ? (
-                    <img
+                    <Photo
                       src={item.image_url}
                       alt={item.title}
-                      loading="lazy"
+                      sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 33vw"
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -503,9 +503,10 @@ export default function BrowsePage() {
                       className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 group"
                     >
                       {item.seller_profiles?.avatar_url ? (
-                        <img
+                        <Photo
                           src={item.seller_profiles.avatar_url}
                           alt={item.seller_profiles?.farm_name || 'Farm'}
+                          sizes="24px"
                           className="w-6 h-6 rounded-full object-cover border border-emerald-300"
                         />
                       ) : (

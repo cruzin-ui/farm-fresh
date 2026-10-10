@@ -101,7 +101,7 @@ export default function ResetPasswordPage() {
                   className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm"
                 />
               </div>
-              <p className="text-[11px] text-gray-500 mt-1">At least {MIN_PASSWORD_LENGTH} characters.</p>
+              <p className="text-xs text-gray-500 mt-1">At least {MIN_PASSWORD_LENGTH} characters.</p>
             </div>
 
             <div>

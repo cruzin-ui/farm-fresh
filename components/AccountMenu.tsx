@@ -20,6 +20,7 @@ import {
   CircleHelp,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import Photo from '@/components/Photo';
 import { safeNextPath, AFTER_LOGIN_KEY } from '@/lib/safeRedirect';
 import { postWithAuth } from '@/lib/authedFetch';
 import { onAccountChange, PROFILE_PHOTO_KEY } from '@/lib/accountEvents';
@@ -265,7 +266,7 @@ export default function AccountMenu() {
           </span>
           <span className="hidden md:block">
             {picture ? (
-              <img src={picture} alt="" className="w-7 h-7 rounded-full object-cover border border-emerald-200" />
+              <Photo src={picture} alt="" sizes="28px" eager className="w-7 h-7 rounded-full object-cover border border-emerald-200" />
             ) : (
               <CircleUser className="w-6 h-6 text-emerald-600" aria-hidden="true" />
             )}
@@ -291,11 +292,12 @@ export default function AccountMenu() {
           role="menu"
           className="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-2xl shadow-lg p-2 z-50"
         >
-          <p className="flex items-center gap-2 px-3 py-2 text-[11px] text-gray-400 border-b border-gray-100 mb-1">
+          <p className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 border-b border-gray-100 mb-1">
             {picture && (
-              <img
+              <Photo
                 src={picture}
                 alt=""
+                sizes="28px"
                 className="md:hidden w-7 h-7 rounded-full object-cover border border-emerald-200 shrink-0"
               />
             )}
@@ -319,7 +321,7 @@ export default function AccountMenu() {
               </span>
             )}
           </Link>
-          {buyerWaiting > 0 && <p className="px-3 pb-1 -mt-1 text-[11px] text-gray-500">{buyerWaitingText}</p>}
+          {buyerWaiting > 0 && <p className="px-3 pb-1 -mt-1 text-xs text-gray-500">{buyerWaitingText}</p>}
           <Link
             href="/dashboard"
             role="menuitem"
@@ -333,7 +335,7 @@ export default function AccountMenu() {
               </span>
             )}
           </Link>
-          {sellerWaiting > 0 && <p className="px-3 pb-1 -mt-1 text-[11px] text-gray-500">{sellerWaitingText}</p>}
+          {sellerWaiting > 0 && <p className="px-3 pb-1 -mt-1 text-xs text-gray-500">{sellerWaitingText}</p>}
           <Link
             href="/account"
             role="menuitem"

@@ -11,6 +11,8 @@ import { BUYER_FEE_LABEL } from '@/lib/pricing';
 import { addToCart, useCart } from '@/lib/cart';
 import { describeUsualPickup } from '@/lib/pickupRules';
 import FollowFarmButton from '@/components/FollowFarmButton';
+import Photo from '@/components/Photo';
+import { ListingPageSkeleton } from '@/components/Skeletons';
 
 // Public listing detail page — no sign-in needed to view, or to buy: items go
 // into the cart, and checkout works for guests as well as signed-in buyers.
@@ -25,6 +27,17 @@ export default function ListingDetailPage() {
   const { items: cartItems } = useCart();
   const [addQuantity, setAddQuantity] = useState('1');
   const [cartMessage, setCartMessage] = useState<string | null>(null);
+
+  // On phones a slim bar with the price and Add to Cart is pinned to the
+  // bottom of the screen whenever the main button has scrolled out of view.
+  const [addButtonEl, setAddButtonEl] = useState<HTMLElement | null>(null);
+  const [addButtonInView, setAddButtonInView] = useState(true);
+  useEffect(() => {
+    if (!addButtonEl || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => setAddButtonInView(entry.isIntersecting));
+    observer.observe(addButtonEl);
+    return () => observer.disconnect();
+  }, [addButtonEl]);
 
   useEffect(() => {
     async function fetchListing() {
@@ -69,11 +82,7 @@ export default function ListingDetailPage() {
   }, [listingId]);
 
   if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto my-20 p-8 text-center text-gray-500 text-sm">
-        Loading harvest listing...
-      </div>
-    );
+    return <ListingPageSkeleton />;
   }
 
   if (!listing) {
@@ -114,8 +123,38 @@ export default function ListingDetailPage() {
     }
   };
 
+  const canBuy = !soldOut && Boolean(seller?.stripe_onboarding_complete);
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
+      {canBuy && !addButtonInView && (
+        <div className="md:hidden print:hidden fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 bg-white/95 backdrop-blur-md border-t border-emerald-100 shadow-[0_-2px_8px_rgba(0,0,0,0.06)] px-4 py-2.5 flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-gray-900 truncate">{listing.title}</p>
+            <p className="text-xs text-gray-600">
+              <span className="font-bold text-gray-900">${Number(listing.price_per_unit || 0).toFixed(2)}</span> /{' '}
+              {unitType}
+              {inCart > 0 && ` · ${inCart} in cart`}
+            </p>
+          </div>
+          {inCart > 0 && (
+            <Link
+              href="/checkout"
+              className="shrink-0 inline-flex items-center justify-center bg-white border border-emerald-300 text-emerald-800 font-bold px-3 py-3 rounded-xl text-xs"
+            >
+              View Cart
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={handleAddToCart}
+            disabled={roomLeft < 1}
+            className="shrink-0 inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-bold px-4 py-3 rounded-xl text-sm"
+          >
+            <ShoppingCart className="w-4 h-4" aria-hidden="true" /> {inCart > 0 ? 'Add Another' : 'Add to Cart'}
+          </button>
+        </div>
+      )}
       <Link
         href="/browse"
         className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-emerald-600 mb-4 font-medium"
@@ -126,7 +165,13 @@ export default function ListingDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-emerald-50 rounded-2xl border border-gray-200 overflow-hidden flex items-center justify-center min-h-64 md:min-h-96">
           {listing.image_url ? (
-            <img src={listing.image_url} alt={listing.title} className="w-full h-full object-cover" />
+            <Photo
+              src={listing.image_url}
+              alt={listing.title}
+              sizes="(max-width: 767px) 100vw, 480px"
+              eager
+              className="w-full h-full object-cover"
+            />
           ) : (
             <div className="text-center text-emerald-700/60 font-semibold text-sm p-4">
               <Sprout className="w-14 h-14 mx-auto mb-1 opacity-50" />
@@ -236,7 +281,7 @@ export default function ListingDetailPage() {
               </p>
             ) : (
               <>
-                <div className="flex items-stretch gap-2">
+                <div ref={setAddButtonEl} className="flex items-stretch gap-2">
                   <div className="flex items-center gap-2 bg-white border px-3 rounded-xl">
                     <label htmlFor="listing-qty" className="text-xs text-gray-600 font-semibold">
                       Qty:
@@ -294,7 +339,7 @@ export default function ListingDetailPage() {
                 )}
               </>
             )}
-            <p className="text-[11px] text-gray-400 text-center">
+            <p className="text-xs text-gray-400 text-center">
               No account needed — check out as a guest or sign in. Paid in full online, plus a {BUYER_FEE_LABEL} service
               fee — exact pickup details are sent once the farmer marks your order ready.
             </p>
@@ -306,9 +351,10 @@ export default function ListingDetailPage() {
               className="flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-2xl shadow-sm hover:border-emerald-300 hover:shadow-md transition-all"
             >
               {seller.avatar_url ? (
-                <img
+                <Photo
                   src={seller.avatar_url}
                   alt={seller.farm_name || 'Farm'}
+                  sizes="48px"
                   className="w-12 h-12 rounded-xl object-cover border border-emerald-200 shrink-0"
                 />
               ) : (
@@ -317,7 +363,7 @@ export default function ListingDetailPage() {
                 </div>
               )}
               <div className="flex-1 overflow-hidden">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Grown by</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Grown by</p>
                 <p className="text-sm font-bold text-gray-900 truncate">{seller.farm_name || 'Local Farm'}</p>
                 {seller.review_count > 0 && (
                   <p className="text-xs font-semibold text-amber-700">

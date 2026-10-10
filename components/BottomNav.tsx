@@ -2,18 +2,22 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingBag, Receipt, LayoutDashboard } from 'lucide-react';
+import { ShoppingBag, ShoppingCart, LayoutDashboard } from 'lucide-react';
+import { useCart } from '@/lib/cart';
 
 const TABS = [
-  { href: '/browse', label: 'Browse', icon: ShoppingBag, match: ['/browse', '/listings', '/sellers', '/checkout'] },
-  { href: '/orders', label: 'My Orders', icon: Receipt, match: ['/orders'] },
+  { href: '/browse', label: 'Browse', icon: ShoppingBag, match: ['/browse', '/listings', '/sellers'] },
+  { href: '/checkout', label: 'Cart', icon: ShoppingCart, match: ['/checkout'] },
   { href: '/dashboard', label: 'Sell', icon: LayoutDashboard, match: ['/dashboard', '/sell'] },
 ];
 
-// Phone-only tab bar fixed to the bottom of the screen, within thumb reach.
-// On larger screens the links in the top header are used instead.
+// Phone-only tab bar fixed to the bottom of the screen, within thumb reach:
+// the three things a visitor does most. Everything else, My Orders included,
+// is in the menu button at the top. On larger screens the links in the top
+// header are used instead.
 export default function BottomNav() {
   const pathname = usePathname();
+  const { count } = useCart();
 
   return (
     <nav
@@ -33,8 +37,16 @@ export default function BottomNav() {
                 active ? 'text-emerald-700' : 'text-gray-500'
               }`}
             >
-              <Icon className={`w-5 h-5 ${active ? 'stroke-[2.5]' : ''}`} />
+              <span className="relative">
+                <Icon className={`w-5 h-5 ${active ? 'stroke-[2.5]' : ''}`} />
+                {href === '/checkout' && count > 0 && (
+                  <span className="absolute -top-1.5 -right-3 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-700 text-white text-[10px] font-bold leading-none flex items-center justify-center">
+                    {count}
+                  </span>
+                )}
+              </span>
               {label}
+              {href === '/checkout' && count > 0 && <span className="sr-only">, {count} in cart</span>}
             </Link>
           );
         })}

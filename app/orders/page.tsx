@@ -7,6 +7,7 @@ import { ShoppingBag, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import PickupGroupCard from '@/components/PickupGroupCard';
+import { CardListSkeleton } from '@/components/Skeletons';
 import { describeBuyerOrders } from '@/lib/buyerOrders';
 import { groupOrdersForPickup, type PickupGroup } from '@/lib/pickupGroups';
 
@@ -57,11 +58,7 @@ export default function MyOrdersPage() {
   }, [router]);
 
   if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto my-20 p-8 text-center text-gray-500 text-sm">
-        Loading your orders...
-      </div>
-    );
+    return <CardListSkeleton label="Loading your orders..." />;
   }
 
   return (

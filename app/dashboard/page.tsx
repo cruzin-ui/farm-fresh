@@ -108,6 +108,9 @@ const UNIT_TYPE_OPTIONS = [
 export default function SellerDashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<DashboardTab>('listings');
+  // The first time orders load, a seller with open orders is taken straight
+  // to them, since that is what they came for.
+  const openedOnOrders = useRef(false);
   // On phones the section menu is a drop-down; this is whether it is open.
   const [navOpen, setNavOpen] = useState(false);
   useEffect(() => {
@@ -331,9 +334,12 @@ export default function SellerDashboardPage() {
           known_pickup_address: o.pickup_address || listingLookup[o.listing_id]?.pickup_address || '',
         }));
 
-        setIncomingOrders(
-          merged.filter((o) => o.status === 'pending_pickup' || o.status === 'ready_for_pickup')
-        );
+        const openOrders = merged.filter((o) => o.status === 'pending_pickup' || o.status === 'ready_for_pickup');
+        setIncomingOrders(openOrders);
+        if (!openedOnOrders.current) {
+          openedOnOrders.current = true;
+          if (openOrders.length > 0) setActiveTab((current) => (current === 'listings' ? 'orders' : current));
+        }
         // Pickup codes are hidden from farmers until an order is completed;
         // after that they're shown in Sales History as a record.
         let completedCodes: Record<string, string> = {};
@@ -1617,7 +1623,7 @@ export default function SellerDashboardPage() {
                         </button>
                       ) : (
                         previousListingsByTitle.size > 0 && (
-                          <p className="text-[10px] text-gray-400 mt-1">
+                          <p className="text-xs text-gray-400 mt-1">
                             Start typing or click the field to pick a crop you've posted before.
                           </p>
                         )
@@ -1637,7 +1643,7 @@ export default function SellerDashboardPage() {
                         disabled={identityLocked}
                         className="w-full px-4 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500"
                       />
-                      <p className="text-[10px] text-gray-400 mt-1">
+                      <p className="text-xs text-gray-400 mt-1">
                         Buyers nearly always ask. If you don't know the variety, describe it: "Large brown",
                         "Wildflower", "Mixed".
                       </p>
@@ -1778,7 +1784,7 @@ export default function SellerDashboardPage() {
                           Add
                         </button>
                       </div>
-                      <p className="text-[10px] text-gray-400 mt-1">
+                      <p className="text-xs text-gray-400 mt-1">
                         {customTag.length}/{MAX_LISTING_TAG_LENGTH} characters.
                       </p>
                       {customTagError && (
@@ -1788,7 +1794,7 @@ export default function SellerDashboardPage() {
                       )}
                     </div>
 
-                    <p className="text-[10px] text-gray-400 mt-2">
+                    <p className="text-xs text-gray-400 mt-2">
                       Pick or write up to {MAX_LISTING_TAGS}. All of them show on your listing's page, and the first{' '}
                       {CARD_LISTING_TAGS} on its card in Browse. Only say what's true of this produce: for example,
                       don't write "Certified Organic" unless you hold the certification.
@@ -1827,7 +1833,7 @@ export default function SellerDashboardPage() {
                         onChange={(e) => setPricePerUnit(e.target.value)}
                         className="w-full px-3 py-2 border rounded-lg text-sm"
                       />
-                      <p className="text-[10px] text-gray-400 mt-1">
+                      <p className="text-xs text-gray-400 mt-1">
                         You keep {100 - SELLER_FEE_RATE * 100}% — a {SELLER_FEE_RATE * 100}% seller fee comes
                         out of your payout.
                       </p>
@@ -1847,7 +1853,7 @@ export default function SellerDashboardPage() {
                         onChange={(e) => setAvailableQuantity(e.target.value)}
                         className="w-full px-3 py-2 border rounded-lg text-sm"
                       />
-                      <p className="text-[10px] text-gray-400 mt-1">
+                      <p className="text-xs text-gray-400 mt-1">
                         Whole numbers only — buyers order whole {unitType}. Selling smaller amounts? Pick a
                         smaller unit, like oz.
                       </p>
@@ -1905,7 +1911,7 @@ export default function SellerDashboardPage() {
                     />
                     {otherPickupAddresses.length > 0 && (
                       <div className="mt-2">
-                        <p className="text-[10px] font-semibold text-gray-600 mb-1">
+                        <p className="text-xs font-semibold text-gray-600 mb-1">
                           {pickupAddress.trim() ? 'Or use another address from before:' : "Use an address you've used before:"}
                         </p>
                         <div className="flex flex-wrap gap-1.5">
@@ -1929,7 +1935,7 @@ export default function SellerDashboardPage() {
                         </div>
                       </div>
                     )}
-                    <p className="text-[10px] text-gray-400 mt-1">
+                    <p className="text-xs text-gray-400 mt-1">
                       Only shown to buyers after they've paid — your listing shows just the city and zip
                       code below. Hours and other instructions go in the message you send when you mark an order
                       ready.
@@ -1952,7 +1958,7 @@ export default function SellerDashboardPage() {
                         onChange={(e) => handleZipChange(e.target.value)}
                         className="w-full px-4 py-2 border rounded-lg text-sm"
                       />
-                      <p className="text-[10px] text-gray-400 mt-1">
+                      <p className="text-xs text-gray-400 mt-1">
                         {lookingUpZip
                           ? 'Looking up city...'
                           : zipNotFound
@@ -2110,7 +2116,7 @@ export default function SellerDashboardPage() {
                         ? 'Marking ready...'
                         : `Mark All ${waitingGroupCount} Waiting Orders Ready`}
                     </button>
-                    <p className="text-[11px] text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       Uses your usual pickup days and times from Farm Profile.
                     </p>
                   </div>
@@ -2331,7 +2337,7 @@ export default function SellerDashboardPage() {
                             onChange={(e) => setCompleteCode(e.target.value)}
                             className="w-44 px-3 py-2 border border-emerald-200 rounded-lg text-sm bg-white font-mono uppercase"
                           />
-                          <p className="text-[11px] text-emerald-900">
+                          <p className="text-xs text-emerald-900">
                             Ask the buyer to show the QR code or read you the code from their order when they
                             collect their produce. Scanning or entering it completes the order and releases your
                             payout.
@@ -2360,7 +2366,7 @@ export default function SellerDashboardPage() {
                                   </span>
                                 </label>
                               ))}
-                              <p className="text-[11px] text-emerald-900">
+                              <p className="text-xs text-emerald-900">
                                 Anything left unticked stays open. This code stops working once it is used: the
                                 buyer is emailed a new code for whatever they still have to collect.
                               </p>
@@ -2417,7 +2423,7 @@ export default function SellerDashboardPage() {
                                 onChange={(e) => setAdjustQuantity(e.target.value)}
                                 className="w-28 px-3 py-2 border border-red-200 rounded-lg text-sm bg-white"
                               />
-                              <p className="text-[11px] text-red-900 mt-1">
+                              <p className="text-xs text-red-900 mt-1">
                                 Currently {currentQty} {order.listing_unit_type}.{' '}
                                 {validQty
                                   ? `The buyer will be refunded about $${estimatedRefund.toFixed(2)}, and your payout for this order shrinks to match.`
@@ -2491,7 +2497,7 @@ export default function SellerDashboardPage() {
                                   </span>
                                 </label>
                               ))}
-                              <p className="text-[11px] text-blue-900">
+                              <p className="text-xs text-blue-900">
                                 Untick anything that isn't ready yet. It stays on this order for you to mark ready
                                 later. The buyer gets one email listing the ticked items.
                               </p>
@@ -2503,7 +2509,7 @@ export default function SellerDashboardPage() {
                             <div className="text-xs text-blue-950">
                               <p className="font-semibold">Pickup address</p>
                               <p className="text-sm">{order.known_pickup_address}</p>
-                              <p className="text-[11px] text-blue-900 mt-0.5">
+                              <p className="text-xs text-blue-900 mt-0.5">
                                 This is the address from your listing. The buyer has only seen your city and zip
                                 code so far; sending this is what gives them the full address. It can't be changed
                                 for this order.
@@ -2530,7 +2536,7 @@ export default function SellerDashboardPage() {
                                   setReadyAddressVerified(true);
                                 }}
                               />
-                              <p className="text-[11px] text-blue-900 mt-1">
+                              <p className="text-xs text-blue-900 mt-1">
                                 This listing has no pickup address saved, so we need one for this order. Add it to
                                 the listing too and it will be filled in for you next time.
                               </p>
@@ -2961,7 +2967,7 @@ export default function SellerDashboardPage() {
                       className="hidden"
                     />
                   </div>
-                  <p className="text-[10px] text-gray-400">
+                  <p className="text-xs text-gray-400">
                     This photo will display beside every harvest listing you publish.
                   </p>
                 </div>
@@ -2972,7 +2978,7 @@ export default function SellerDashboardPage() {
                   <p id="dash-banner-label" className="text-xs font-semibold text-gray-700">
                     Farm Banner Photo (Optional)
                   </p>
-                  <p className="text-[10px] text-gray-400">
+                  <p className="text-xs text-gray-400">
                     A wide photo shown across the top of your public farm page — your fields, your stand or
                     your harvest. Landscape photos work best; the middle of the photo is what shows.
                   </p>
@@ -3022,7 +3028,7 @@ export default function SellerDashboardPage() {
                     className="hidden"
                   />
                 </div>
-                <p className="text-[10px] text-gray-400">Click "Save Profile &amp; Branding" below to apply.</p>
+                <p className="text-xs text-gray-400">Click "Save Profile &amp; Branding" below to apply.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

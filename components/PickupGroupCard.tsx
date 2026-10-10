@@ -404,7 +404,7 @@ export default function PickupGroupCard({
                 <div className="text-right shrink-0">
                   <p className="text-sm font-black text-emerald-800">${item.total_price.toFixed(2)}</p>
                   {item.refunded_amount > 0 && (
-                    <p className="text-[11px] text-gray-500">${item.refunded_amount.toFixed(2)} refunded</p>
+                    <p className="text-xs text-gray-500">${item.refunded_amount.toFixed(2)} refunded</p>
                   )}
                 </div>
               </div>
