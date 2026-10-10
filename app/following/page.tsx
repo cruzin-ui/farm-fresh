@@ -52,10 +52,10 @@ export default function FollowedFarmsPage() {
       try {
         const res = await postWithAuth('/api/follows', { action: 'list' });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Could not load your followed farms.');
+        if (!res.ok) throw new Error(data.error || 'Could not load your favorite farms.');
         setFarms(data.farms);
       } catch (err: any) {
-        setErrorMsg(err.message || 'Could not load your followed farms.');
+        setErrorMsg(err.message || 'Could not load your favorite farms.');
       } finally {
         setLoading(false);
       }
@@ -64,16 +64,16 @@ export default function FollowedFarmsPage() {
   }, [router]);
 
   const unfollow = async (farm: FollowedFarm) => {
-    if (!confirm(`Stop following ${farm.farm_name}?`)) return;
+    if (!confirm(`Remove ${farm.farm_name} from your favorites?`)) return;
 
     setBusyFarmId(farm.id);
     setErrorMsg(null);
     try {
       const res = await postWithAuth('/api/follows', { action: 'unfollow', farmerId: farm.id });
-      if (!res.ok) throw new Error('Could not stop following that farm.');
+      if (!res.ok) throw new Error('Could not remove that farm from your favorites.');
       setFarms((current) => current.filter((f) => f.id !== farm.id));
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not stop following that farm.');
+      setErrorMsg(err.message || 'Could not remove that farm from your favorites.');
     } finally {
       setBusyFarmId(null);
     }
@@ -88,10 +88,10 @@ export default function FollowedFarmsPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Heart className="w-6 h-6 text-emerald-600" aria-hidden="true" /> Followed Farms
+            <Heart className="w-6 h-6 text-emerald-600" aria-hidden="true" /> Favorite Farms
           </h1>
           <p className="text-xs text-gray-500 mt-0.5">
-            The farms you follow and what each has for sale right now. Check back to see what's new.
+            Your favorite farms and what each has for sale right now. Check back to see what's new.
           </p>
         </div>
         <Link
@@ -111,9 +111,9 @@ export default function FollowedFarmsPage() {
       {!errorMsg && farms.length === 0 && (
         <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200 px-4">
           <Heart className="mx-auto h-12 w-12 text-gray-400 mb-3" aria-hidden="true" />
-          <h2 className="text-base font-semibold text-gray-900">You aren't following any farms yet</h2>
+          <h2 className="text-base font-semibold text-gray-900">You don't have any favorite farms yet</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Click <strong>Follow This Farm</strong> on a farm's page, a listing or one of your orders to keep it
+            Click <strong>Favorite This Farm</strong> on a farm's page, a listing or one of your orders to keep it
             here.
           </p>
           <Link
@@ -161,7 +161,7 @@ export default function FollowedFarmsPage() {
                 disabled={busyFarmId === farm.id}
                 className="shrink-0 bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl"
               >
-                {busyFarmId === farm.id ? 'Removing...' : 'Stop Following'}
+                {busyFarmId === farm.id ? 'Removing...' : 'Remove Favorite'}
               </button>
             </div>
 

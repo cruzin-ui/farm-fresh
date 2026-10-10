@@ -32,9 +32,9 @@ export default function PrivacyPolicyPage() {
               <strong>Guest checkout.</strong> Your email address, if you buy without creating an account.
             </li>
             <li>
-              <strong>Farms you follow.</strong> If you choose to follow a farm, which farms, so we can show
-              them on your Followed Farms page. We don't email you about them, and the farm isn't told who
-              follows it.
+              <strong>Your favorite farms.</strong> If you choose to favorite a farm, which farms, so we can show
+              them on your Favorite Farms page. We don't email you about them, and the farm isn't told who
+              favorited it.
             </li>
             <li>
               <strong>Orders.</strong> What you bought or sold, the quantity, the price, the date and the status

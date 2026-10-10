@@ -7,7 +7,7 @@ import { Heart } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 
-// "Follow this farm": adds it to the shopper's Followed Farms page, where they
+// "Follow this farm": adds it to the shopper's Favorite Farms page, where they
 // can see what it has for sale. Following needs an account, so someone who
 // isn't signed in is sent to sign in and brought back.
 export default function FollowFarmButton({ farmerId, farmName }: { farmerId: string; farmName: string }) {
@@ -71,7 +71,7 @@ export default function FollowFarmButton({ farmerId, farmName }: { farmerId: str
         href={`/login?redirect=${encodeURIComponent(pathname || '/browse')}`}
         className={`${buttonClass} bg-white border-gray-300 text-gray-700 hover:bg-gray-50 print:hidden`}
       >
-        <Heart className="w-4 h-4" aria-hidden="true" /> Sign In to Follow This Farm
+        <Heart className="w-4 h-4" aria-hidden="true" /> Sign In to Favorite This Farm
       </Link>
     );
   }
@@ -90,14 +90,14 @@ export default function FollowFarmButton({ farmerId, farmName }: { farmerId: str
         }`}
       >
         <Heart className={`w-4 h-4 ${following ? 'fill-emerald-600 text-emerald-600' : ''}`} aria-hidden="true" />
-        {following ? 'Following' : 'Follow This Farm'}
+        {following ? 'Favorited' : 'Favorite This Farm'}
       </button>
 
       {justFollowed && (
         <p role="status" className="text-xs text-emerald-800">
           Added {farmName} to your{' '}
           <Link href="/following" className="font-semibold underline">
-            Followed Farms
+            Favorite Farms
           </Link>
           .
         </p>

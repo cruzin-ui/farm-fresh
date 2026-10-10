@@ -61,7 +61,7 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'Can I find out when a farm has something new?',
     answer:
-      "Yes, with an account. Click Follow This Farm on a farm's page, a listing or one of your orders, then open Followed Farms from the My Account menu to see what each of your farms has for sale, with new listings marked. We don't send emails about it.",
+      "Yes, with an account. Click Favorite This Farm on a farm's page, a listing or one of your orders, then open Favorite Farms from the My Account menu to see what each of your farms has for sale, with new listings marked. We don't send emails about it.",
   },
   {
     question: 'How do I contact the farmer?',

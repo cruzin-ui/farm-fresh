@@ -3,10 +3,10 @@ import { LISTING_CATEGORIES } from '@/lib/categories';
 import { describeUsualPickup } from '@/lib/pickupRules';
 
 // SERVER-ONLY. "Follow a farm": a signed-in shopper keeps a list of farms they
-// like, and sees what each one has for sale on their Followed Farms page. No
+// like, and sees what each one has for sale on their Favorite Farms page. No
 // emails are sent — the page is where they look.
 
-// How many of each farm's listings the Followed Farms page shows.
+// How many of each farm's listings the Favorite Farms page shows.
 const LISTINGS_PER_FARM = 6;
 
 export async function followFarm(farmerId: string, userId: string) {
