@@ -215,8 +215,11 @@ function PaymentForm({
       <label className="flex items-start gap-2 text-sm text-gray-700">
         <input type="checkbox" required className="mt-0.5 w-4 h-4 shrink-0" />
         <span>
-          I understand how pickup works, and I won't give a pickup code to a farmer until I have my
-          produce from them. I agree to the{' '}
+          <strong className="font-bold text-gray-900">
+            I understand how pickup works, and I won't give a pickup code to a farmer until I have my produce
+            from them.
+          </strong>{' '}
+          I agree to the{' '}
           <Link href="/terms" target="_blank" className="font-semibold text-emerald-800 underline">
             Terms of Use
           </Link>{' '}
