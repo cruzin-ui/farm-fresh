@@ -25,6 +25,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing order or pickup details.' }, { status: 400 });
     }
 
+    // A buyer's other items with this farm from the same checkout can be marked
+    // ready in the same go, so they get one email covering all of them.
+    const alsoOrderIds: string[] = Array.isArray(body.alsoOrderIds)
+      ? body.alsoOrderIds.filter((id: unknown) => typeof id === 'string' && id !== orderId).slice(0, 20)
+      : [];
+
     const { data: order, error: fetchError } = await supabaseAdmin
       .from('orders')
       .select('*')
@@ -46,26 +52,49 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
     }
 
+    // The extra items have to be this farmer's, from the same checkout, and
+    // still waiting; anything else is left alone.
+    const others: { order: any; title: string }[] = [];
+    if (alsoOrderIds.length > 0 && order.checkout_id) {
+      const { data: otherOrders } = await supabaseAdmin
+        .from('orders')
+        .select('*')
+        .in('id', alsoOrderIds)
+        .eq('checkout_id', order.checkout_id)
+        .eq('status', 'pending_pickup');
+      const otherListingIds = (otherOrders || []).map((o) => o.listing_id);
+      const { data: otherListings } = otherListingIds.length
+        ? await supabaseAdmin.from('produce_listings').select('id, title, farmer_id').in('id', otherListingIds)
+        : { data: [] as any[] };
+      const listingById = new Map((otherListings || []).map((l) => [l.id, l]));
+      for (const other of otherOrders || []) {
+        const otherListing = listingById.get(other.listing_id);
+        if (otherListing?.farmer_id === user.id) others.push({ order: other, title: otherListing.title || 'Your order' });
+      }
+    }
+
     // The pickup address is fixed when the buyer pays — it is what their sales
     // tax was worked out for — and kept privately until now. Marking the order
     // ready is what puts it on the order, where the buyer can see it. If the
     // private copy is missing, the listing's current address is used; only an
     // order with neither takes one the farmer types in.
-    const { data: savedAddress } = await supabaseAdmin
-      .from('order_pickup_addresses')
-      .select('address')
-      .eq('order_id', order.id)
-      .maybeSingle();
-    const { data: listingAddress } = savedAddress?.address
-      ? { data: null }
-      : await supabaseAdmin
-          .from('listing_pickup_addresses')
-          .select('address')
-          .eq('listing_id', order.listing_id)
-          .maybeSingle();
+    const addressFor = async (target: any): Promise<string | null> => {
+      if (target.pickup_address) return target.pickup_address;
+      const { data: savedAddress } = await supabaseAdmin
+        .from('order_pickup_addresses')
+        .select('address')
+        .eq('order_id', target.id)
+        .maybeSingle();
+      if (savedAddress?.address) return savedAddress.address;
+      const { data: listingAddress } = await supabaseAdmin
+        .from('listing_pickup_addresses')
+        .select('address')
+        .eq('listing_id', target.listing_id)
+        .maybeSingle();
+      return listingAddress?.address || enteredAddress || null;
+    };
 
-    const pickupAddress: string | null =
-      order.pickup_address || savedAddress?.address || listingAddress?.address || enteredAddress || null;
+    const pickupAddress = await addressFor(order);
     if (!pickupAddress) {
       return NextResponse.json({ error: 'Enter the pickup address for this order.' }, { status: 400 });
     }
@@ -90,6 +119,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
+    // The other items, each at its own address (nearly always the same one).
+    const readyTitles: string[] = [listing.title || 'Your order'];
+    const otherAddresses: string[] = [];
+    for (const other of others) {
+      const otherAddress: string = (await addressFor(other.order)) || pickupAddress;
+      const { error: otherError } = await supabaseAdmin
+        .from('orders')
+        .update({
+          status: 'ready_for_pickup',
+          pickup_details: pickupDetails,
+          pickup_address: otherAddress,
+          ready_at: readyAt.toISOString(),
+          pickup_by: pickupBy.toISOString(),
+        })
+        .eq('id', other.order.id)
+        .eq('status', 'pending_pickup');
+      if (otherError) {
+        console.error('mark-ready: could not mark an extra item ready', other.order.id, otherError.message);
+        continue;
+      }
+      readyTitles.push(other.title);
+      if (otherAddress !== pickupAddress && !otherAddresses.includes(otherAddress)) otherAddresses.push(otherAddress);
+    }
+
     const codeRecord = await getPickupCodeRecord(order.id);
     const pickupCode = codeRecord?.code || order.pickup_code || order.verification_code;
     // Guests reach their order through a secret link. (Older guest orders kept the token on the order row.)
@@ -102,12 +155,24 @@ export async function POST(request: Request) {
         html: `
           <div style="font-family: sans-serif; max-width: 480px;">
             <h2 style="color: #059669;">Your harvest is ready!</h2>
-            <p><strong>${escapeHtml(listing.title || 'Your order')}</strong> is ready for pickup.</p>
+            ${
+              readyTitles.length === 1
+                ? `<p><strong>${escapeHtml(readyTitles[0])}</strong> is ready for pickup.</p>`
+                : `<p>These items are ready for pickup:</p><ul>${readyTitles
+                    .map((title) => `<li><strong>${escapeHtml(title)}</strong></li>`)
+                    .join('')}</ul>`
+            }
             <p>Your order number: <strong style="font-family: monospace; font-size: 16px;">${orderRef(order)}</strong><br /><span style="font-size: 12px; color: #6b7280;">Tell the farmer this number at pickup so they can find your order. It is not your pickup code.</span></p>
             <p>
               Pickup address: <strong>${escapeHtml(pickupAddress)}</strong><br />
               <a href="${mapLink(pickupAddress)}">Get directions</a>
             </p>
+            ${otherAddresses
+              .map(
+                (address) =>
+                  `<p>Some items are at a different address: <strong>${escapeHtml(address)}</strong><br /><a href="${mapLink(address)}">Get directions</a></p>`
+              )
+              .join('')}
             <p style="white-space: pre-wrap;">${escapeHtml(String(pickupDetails))}</p>
             <p>
               <strong>Please pick up by ${formatDeadline(pickupBy)}.</strong> You have ${BUYER_PICKUP_DAYS} days
@@ -127,7 +192,7 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, readyCount: readyTitles.length });
   } catch (err: any) {
     console.error('mark-ready error:', err);
     await alertAdmin('mark-ready error', err);
