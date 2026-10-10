@@ -5,6 +5,7 @@ import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { buyerGuidanceEmailHtml } from '@/lib/buyerGuidance';
 import { alertAdmin } from '@/lib/alerts';
+import { orderRef } from '@/lib/pickupGroups';
 import { pickupDeadline, formatDeadline, mapLink, BUYER_PICKUP_DAYS } from '@/lib/pickupRules';
 
 export const dynamic = 'force-dynamic';
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
           <div style="font-family: sans-serif; max-width: 480px;">
             <h2 style="color: #059669;">Your harvest is ready!</h2>
             <p><strong>${escapeHtml(listing.title || 'Your order')}</strong> is ready for pickup.</p>
+            <p>Your order number: <strong style="font-family: monospace; font-size: 16px;">${orderRef(order)}</strong><br /><span style="font-size: 12px; color: #6b7280;">Tell the farmer this number at pickup so they can find your order. It is not your pickup code.</span></p>
             <p>
               Pickup address: <strong>${escapeHtml(pickupAddress)}</strong><br />
               <a href="${mapLink(pickupAddress)}">Get directions</a>

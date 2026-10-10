@@ -8,6 +8,8 @@ import { SELLER_FEE_RATE } from '@/lib/pricing';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
+import PickList from '@/components/PickList';
+import { orderRef } from '@/lib/pickupGroups';
 import { announceAccountChange } from '@/lib/accountEvents';
 import { LISTING_CATEGORIES, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import {
@@ -66,13 +68,14 @@ import {
   ImageIcon,
   X,
   QrCode,
+  ClipboardList,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { loadConnectAndInitialize } from '@stripe/connect-js/pure';
 import type { StripeConnectInstance } from '@stripe/connect-js';
 import { ConnectComponentsProvider, ConnectAccountOnboarding } from '@stripe/react-connect-js';
 
-type DashboardTab = 'listings' | 'new' | 'orders' | 'history' | 'profile' | 'settings';
+type DashboardTab = 'listings' | 'new' | 'orders' | 'picklist' | 'history' | 'profile' | 'settings';
 
 const UNIT_TYPE_OPTIONS = [
   { value: 'lbs', label: 'lbs (Pounds)' },
@@ -187,6 +190,7 @@ export default function SellerDashboardPage() {
   const [readyDays, setReadyDays] = useState<string[]>([]);
   const [readyTimes, setReadyTimes] = useState<string[]>([]);
   const [readyAddress, setReadyAddress] = useState('');
+  const [readyAddressVerified, setReadyAddressVerified] = useState(false);
   // The days and times the seller is usually available, saved on their farm
   // profile. Shoppers see them before buying, and they are ticked for the
   // seller when marking orders ready.
@@ -552,6 +556,7 @@ export default function SellerDashboardPage() {
     setReadyDays(usualPickupDates());
     setReadyTimes(usualTimes);
     setReadyAddress('');
+    setReadyAddressVerified(false);
   };
 
   // The dates on offer that fall on one of the seller's usual weekdays.
@@ -1101,6 +1106,28 @@ export default function SellerDashboardPage() {
               {incomingOrders.length > 0 && (
                 <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
                   {incomingOrders.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab('picklist');
+                setSuccessMsg(null);
+                setErrorMsg(null);
+              }}
+              className={`shrink-0 whitespace-nowrap md:w-full flex items-center justify-between gap-2 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                activeTab === 'picklist'
+                  ? 'bg-emerald-50 text-emerald-700 font-bold'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <ClipboardList className="w-4 h-4" /> Pick List
+              </span>
+              {incomingOrders.filter((o) => o.status === 'pending_pickup').length > 0 && (
+                <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
+                  {incomingOrders.filter((o) => o.status === 'pending_pickup').length}
                 </span>
               )}
             </button>
@@ -1900,7 +1927,7 @@ export default function SellerDashboardPage() {
                               {order.status === 'pending_pickup' ? 'Pending Harvest' : 'Ready for Pickup'}
                             </span>
                             <span className="text-xs text-gray-400">
-                              Order #{order.id.slice(0, 8)}
+                              Order {orderRef(order)}
                             </span>
                           </div>
                           <h3 className="text-base font-bold text-gray-900">
@@ -2189,15 +2216,26 @@ export default function SellerDashboardPage() {
                               <label htmlFor="dash-ready-address" className="block text-xs font-semibold text-blue-900 mb-1">
                                 Pickup address *
                               </label>
-                              <input
+                              {/* The same address lookup used when posting a listing. */}
+                              <AddressAutocomplete
                                 id="dash-ready-address"
-                                type="text"
-                                autoComplete="street-address"
-                                placeholder="Street, city, state and zip"
+                                required
+                                placeholder="Start typing, then pick your address from the list"
                                 value={readyAddress}
-                                onChange={(e) => setReadyAddress(e.target.value)}
-                                className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white"
+                                verified={readyAddressVerified}
+                                onChange={(text) => {
+                                  setReadyAddress(text);
+                                  setReadyAddressVerified(false);
+                                }}
+                                onSelect={(suggestion) => {
+                                  setReadyAddress(suggestion.address);
+                                  setReadyAddressVerified(true);
+                                }}
                               />
+                              <p className="text-[11px] text-blue-900 mt-1">
+                                This listing has no pickup address saved, so we need one for this order. Add it to
+                                the listing too and it will be filled in for you next time.
+                              </p>
                             </div>
                           )}
 
@@ -2285,6 +2323,8 @@ export default function SellerDashboardPage() {
               )}
             </div>
           )}
+
+          {activeTab === 'picklist' && <PickList orders={incomingOrders} listings={myListings} farmName={farmName} />}
 
           {activeTab === 'history' && (
             <div className="space-y-6">

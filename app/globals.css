@@ -77,3 +77,23 @@ h3,
     font-size: 16px !important;
   }
 }
+
+/* A page with a .print-area prints only that area (the seller's Pick List),
+   leaving out the header, menus and everything else around it. Pages without
+   one print as normal. */
+@media print {
+  body:has(.print-area) * {
+    visibility: hidden;
+  }
+  body:has(.print-area) .print-area,
+  body:has(.print-area) .print-area * {
+    visibility: visible;
+  }
+  body:has(.print-area) .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 16px;
+  }
+}
