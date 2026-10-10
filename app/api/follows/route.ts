@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     if (!user) {
-      return NextResponse.json({ error: 'Sign in to follow farms.' }, { status: 401 });
+      return NextResponse.json({ error: 'Sign in to favorite farms.' }, { status: 401 });
     }
 
     if (action === 'list') {

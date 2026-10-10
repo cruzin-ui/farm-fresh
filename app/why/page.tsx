@@ -43,7 +43,7 @@ const FOR_SELLERS = [
   {
     icon: MapPin,
     title: 'New customers find you',
-    body: 'Buyers search by zip code, so people nearby who have never heard of you see what you grow. They can follow your farm and come back for what you post next.',
+    body: 'Buyers search by zip code, so people nearby who have never heard of you see what you grow. They can favorite your farm and come back for what you post next.',
   },
   {
     icon: Wallet,
