@@ -53,6 +53,7 @@ const shortDate = (date: string | Date) =>
   new Date(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 import {
   Sprout,
+  MapPin,
   AlertCircle,
   CheckCircle2,
   PlusCircle,
@@ -990,6 +991,21 @@ export default function SellerDashboardPage() {
   }, new Map<string, any>());
   const reusableListing = previousListingsByTitle.get(title.trim());
 
+  // The pickup addresses this farmer has used before, newest first, each with
+  // the public city and zip that went with it, offered as one-tap choices.
+  const pastPickupAddresses = myListings
+    .reduce((found: any[], l) => {
+      const address = (l.pickup_address || '').trim();
+      if (address && !found.some((f) => f.address.toLowerCase() === address.toLowerCase())) {
+        found.push({ address, zip_code: l.zip_code || '', location_name: l.location_name || '' });
+      }
+      return found;
+    }, [])
+    .slice(0, 4);
+  const otherPickupAddresses = pastPickupAddresses.filter(
+    (p) => p.address.toLowerCase() !== pickupAddress.trim().toLowerCase()
+  );
+
   // Copies the details of an earlier post of the same crop into the form, so
   // a repeat harvest only needs its quantity and dates.
   const reuseListingDetails = (previous: any) => {
@@ -1664,45 +1680,6 @@ export default function SellerDashboardPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="dash-zip-code" className="block text-xs font-semibold text-gray-700 mb-1">
-                        Zip Code *
-                      </label>
-                      <input id="dash-zip-code"
-                        type="text"
-                        inputMode="numeric"
-                        required
-                        pattern="[0-9]{5}"
-                        title="Enter a 5-digit zip code"
-                        placeholder="e.g., 85001"
-                        value={zipCode}
-                        onChange={(e) => handleZipChange(e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg text-sm"
-                      />
-                      <p className="text-[10px] text-gray-400 mt-1">
-                        {lookingUpZip
-                          ? 'Looking up city...'
-                          : zipNotFound
-                            ? "Couldn't find that zip code — please type the city."
-                            : 'The city fills in automatically from the zip code.'}
-                      </p>
-                    </div>
-                    <div>
-                      <label htmlFor="dash-city-area" className="block text-xs font-semibold text-gray-700 mb-1">
-                        City / Area *
-                      </label>
-                      <input id="dash-city-area"
-                        type="text"
-                        required
-                        placeholder="Filled in from zip code"
-                        value={locationName}
-                        onChange={(e) => setLocationName(e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
                       <label htmlFor="dash-harvest-date" className="block text-xs font-semibold text-gray-700 mb-1">
                         Harvest Date *
                       </label>
@@ -1750,11 +1727,76 @@ export default function SellerDashboardPage() {
                         }
                       }}
                     />
+                    {otherPickupAddresses.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-[10px] font-semibold text-gray-600 mb-1">
+                          {pickupAddress.trim() ? 'Or use another address from before:' : "Use an address you've used before:"}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {otherPickupAddresses.map((past) => (
+                            <button
+                              key={past.address}
+                              type="button"
+                              onClick={() => {
+                                setPickupAddress(past.address);
+                                setPickupAddressVerified(true);
+                                // Keep the public city and zip in step with the address.
+                                if (past.zip_code) setZipCode(past.zip_code);
+                                if (past.location_name) setLocationName(past.location_name);
+                              }}
+                              className="inline-flex items-center gap-1 text-left text-xs text-gray-700 bg-white border border-gray-300 hover:border-emerald-600 hover:bg-emerald-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                            >
+                              <MapPin className="w-3 h-3 text-emerald-700 shrink-0" aria-hidden="true" />
+                              {past.address}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <p className="text-[10px] text-gray-400 mt-1">
                       Only shown to buyers after they've paid — your listing shows just the city and zip
-                      code. Hours and other instructions go in the message you send when you mark an order
+                      code below. Hours and other instructions go in the message you send when you mark an order
                       ready.
                     </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="dash-zip-code" className="block text-xs font-semibold text-gray-700 mb-1">
+                        Zip Code *
+                      </label>
+                      <input id="dash-zip-code"
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        pattern="[0-9]{5}"
+                        title="Enter a 5-digit zip code"
+                        placeholder="e.g., 85001"
+                        value={zipCode}
+                        onChange={(e) => handleZipChange(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg text-sm"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        {lookingUpZip
+                          ? 'Looking up city...'
+                          : zipNotFound
+                            ? "Couldn't find that zip code — please type the city."
+                            : 'Filled in from your pickup address. This is what buyers see, so check it is right.'}
+                      </p>
+                    </div>
+                    <div>
+                      <label htmlFor="dash-city-area" className="block text-xs font-semibold text-gray-700 mb-1">
+                        City / Area *
+                      </label>
+                      <input id="dash-city-area"
+                        type="text"
+                        required
+                        placeholder="Filled in from your address"
+                        value={locationName}
+                        onChange={(e) => setLocationName(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg text-sm"
+                      />
+                    </div>
                   </div>
 
                   <div>
