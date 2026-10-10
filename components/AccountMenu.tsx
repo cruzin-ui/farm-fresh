@@ -3,7 +3,22 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { CircleUser, ChevronDown, Receipt, LayoutDashboard, LogOut, LogIn, Mail, Sprout, Heart, UserCog } from 'lucide-react';
+import {
+  CircleUser,
+  ChevronDown,
+  Receipt,
+  LayoutDashboard,
+  LogOut,
+  LogIn,
+  Mail,
+  Sprout,
+  Heart,
+  UserCog,
+  Menu,
+  X,
+  ShoppingBag,
+  CircleHelp,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { safeNextPath, AFTER_LOGIN_KEY } from '@/lib/safeRedirect';
 import { postWithAuth } from '@/lib/authedFetch';
@@ -28,6 +43,9 @@ type AccountSummary = {
 // user's profile picture, with a small numbered badge when something is
 // waiting: for a seller, orders to mark ready and unopened messages from
 // buyers; for a buyer, unopened messages from farmers.
+//
+// On phones the control is a menu ("hamburger") button instead, whose menu
+// also holds the links that sit in the header on wider screens.
 export default function AccountMenu() {
   const router = useRouter();
   const pathname = usePathname();
@@ -138,7 +156,7 @@ export default function AccountMenu() {
   // Reserve the space until we know whether someone is signed in, so the
   // header doesn't jump.
   if (!checked) {
-    return <div className="w-24 h-10" aria-hidden="true" />;
+    return <div className="w-10 md:w-24 h-10" aria-hidden="true" />;
   }
 
   if (!email) {
@@ -149,9 +167,47 @@ export default function AccountMenu() {
     const redirect = midShopping ? `?redirect=${encodeURIComponent(pathname!)}` : '';
 
     return (
-      <div className="flex items-center gap-3">
+      <>
+      {/* Phones: one menu button holding everything. */}
+      <div ref={menuRef} className="relative md:hidden">
+        <button
+          onClick={() => setOpen((current) => !current)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={open ? 'Close menu' : 'Open menu'}
+          className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-700 border border-gray-200 hover:bg-gray-50 transition-colors"
+        >
+          {open ? <X className="w-5 h-5" aria-hidden="true" /> : <Menu className="w-5 h-5" aria-hidden="true" />}
+        </button>
+
+        {open && (
+          <div role="menu" className="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-2xl shadow-lg p-2 z-50">
+            <Link href="/browse" role="menuitem" className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800">
+              <ShoppingBag className="w-4 h-4" /> Browse
+            </Link>
+            <Link href="/dashboard" role="menuitem" className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800">
+              <Sprout className="w-4 h-4" /> Sell
+            </Link>
+            <Link href="/faq" role="menuitem" className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800">
+              <CircleHelp className="w-4 h-4" /> FAQ
+            </Link>
+            <Link href="/contact" role="menuitem" className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800">
+              <Mail className="w-4 h-4" /> Contact Us
+            </Link>
+            <Link
+              href={`/login${redirect}`}
+              role="menuitem"
+              className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-bold text-emerald-700 hover:bg-emerald-50 border-t border-gray-100 mt-1"
+            >
+              <LogIn className="w-4 h-4" /> Sign In
+            </Link>
+          </div>
+        )}
+      </div>
+
+      <div className="hidden md:flex items-center gap-3">
         {/* Signed-out visitors have no account menu, so this is their way to
-            the seller side. Desktop only — phones have "Sell" in the tab bar. */}
+            the seller side. */}
         <Link
           href="/dashboard"
           className="hidden md:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
@@ -165,6 +221,7 @@ export default function AccountMenu() {
           <LogIn className="w-4 h-4" /> Sign In
         </Link>
       </div>
+      </>
     );
   }
 
@@ -196,14 +253,20 @@ export default function AccountMenu() {
         onClick={() => setOpen((current) => !current)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-1.5 px-2.5 h-10 rounded-xl text-xs font-bold text-gray-700 border border-gray-200 hover:bg-gray-50 transition-colors"
+        className="flex items-center justify-center gap-1.5 w-10 md:w-auto md:px-2.5 h-10 rounded-xl text-xs font-bold text-gray-700 border border-gray-200 hover:bg-gray-50 transition-colors"
       >
         <span className="relative shrink-0">
-          {picture ? (
-            <img src={picture} alt="" className="w-7 h-7 rounded-full object-cover border border-emerald-200" />
-          ) : (
-            <CircleUser className="w-6 h-6 text-emerald-600" aria-hidden="true" />
-          )}
+          {/* Phones show a menu icon; wider screens the profile picture. */}
+          <span className="md:hidden">
+            {open ? <X className="w-5 h-5" aria-hidden="true" /> : <Menu className="w-5 h-5" aria-hidden="true" />}
+          </span>
+          <span className="hidden md:block">
+            {picture ? (
+              <img src={picture} alt="" className="w-7 h-7 rounded-full object-cover border border-emerald-200" />
+            ) : (
+              <CircleUser className="w-6 h-6 text-emerald-600" aria-hidden="true" />
+            )}
+          </span>
           {waiting > 0 && (
             <span
               aria-hidden="true"
@@ -213,9 +276,11 @@ export default function AccountMenu() {
             </span>
           )}
         </span>
-        <span className="sr-only sm:not-sr-only">My Account</span>
+        <span className="sr-only md:not-sr-only">My Account</span>
         {waiting > 0 && <span className="sr-only">, {waitingText}</span>}
-        <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`hidden md:block w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {open && (
@@ -223,9 +288,21 @@ export default function AccountMenu() {
           role="menu"
           className="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-2xl shadow-lg p-2 z-50"
         >
-          <p className="px-3 py-2 text-[11px] text-gray-400 truncate border-b border-gray-100 mb-1">
-            Signed in as <span className="font-semibold text-gray-600">{email}</span>
+          <p className="flex items-center gap-2 px-3 py-2 text-[11px] text-gray-400 border-b border-gray-100 mb-1">
+            {picture && (
+              <img
+                src={picture}
+                alt=""
+                className="md:hidden w-7 h-7 rounded-full object-cover border border-emerald-200 shrink-0"
+              />
+            )}
+            <span className="truncate">
+              Signed in as <span className="font-semibold text-gray-600">{email}</span>
+            </span>
           </p>
+          <Link href="/browse" role="menuitem" className="md:hidden flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800">
+            <ShoppingBag className="w-4 h-4" /> Browse
+          </Link>
           <Link
             href="/orders"
             role="menuitem"
@@ -267,6 +344,9 @@ export default function AccountMenu() {
             className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
           >
             <UserCog className="w-4 h-4" /> Profile Picture
+          </Link>
+          <Link href="/faq" role="menuitem" className="md:hidden flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800">
+            <CircleHelp className="w-4 h-4" /> FAQ
           </Link>
           <Link
             href="/contact"

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { friendlyDate } from '@/lib/dates';
 import { supabase } from '@/lib/supabaseClient';
 import { Sprout, MapPin, Star, Calendar, ShoppingBag, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
@@ -204,7 +205,7 @@ export default function PublicSellerProfilePage() {
                     ${Number(item.price_per_unit || 0).toFixed(2)} / {item.unit_type}
                   </p>
                   <p className="text-xs text-gray-500 flex items-center gap-1 mt-2">
-                    <Calendar className="w-3.5 h-3.5" /> Harvest date: {item.harvest_ready_date}
+                    <Calendar className="w-3.5 h-3.5" /> Harvest date: {friendlyDate(item.harvest_ready_date) || 'Available Now'}
                   </p>
                 </div>
                 <div className="p-5 pt-0">
