@@ -227,7 +227,7 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'How and when do I get paid?',
     answer:
-      "At pickup, click Mark Completed on the order in your Seller Dashboard, then scan the QR code on the buyer's phone or type their pickup code. If the buyer bought several items from you, tick the ones you're handing over. That releases your payment to your Stripe account, and Stripe deposits it to your bank once a week, on Fridays. Each open order shows the exact amount you'll receive.",
+      "At pickup, tap Buyer Is Here: Scan Code on the order in your Seller Dashboard, then scan the QR code on the buyer's phone or type their pickup code. If the buyer bought several items from you, tick the ones you're handing over. That releases your payment to your Stripe account, and Stripe deposits it to your bank once a week, on Fridays. Each open order shows the exact amount you'll receive.",
   },
   {
     question: 'Is my address public?',
