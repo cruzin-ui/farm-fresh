@@ -211,7 +211,9 @@ export default function SellerDashboardPage() {
   const [submittingComplete, setSubmittingComplete] = useState(false);
   // Other items from the same buyer's checkout being handed over in the same
   // visit — one pickup code covers them all.
-  const [completeAlsoIds, setCompleteAlsoIds] = useState<string[]>([]);
+  // The items ticked in the pickup panel, and in the mark-ready panel.
+  const [completeIds, setCompleteIds] = useState<string[]>([]);
+  const [readyIds, setReadyIds] = useState<string[]>([]);
   // Scanning the buyer's QR code with the camera, as an alternative to typing.
   const [scanningCode, setScanningCode] = useState(false);
   const [scanNote, setScanNote] = useState<string | null>(null);
@@ -500,6 +502,16 @@ export default function SellerDashboardPage() {
       ? incomingOrders.filter((o) => o.id !== order.id && o.checkout_id === order.checkout_id)
       : [];
 
+  // Open orders as the seller thinks of them: everything one buyer bought
+  // from this farm in one checkout is a single order with several items.
+  const orderGroups = incomingOrders.reduce((groups: any[][], o) => {
+    const group = o.checkout_id ? groups.find((g) => g[0].checkout_id === o.checkout_id) : undefined;
+    if (group) group.push(o);
+    else groups.push([o]);
+    return groups;
+  }, []);
+  const waitingGroupCount = orderGroups.filter((g) => g.some((o) => o.status === 'pending_pickup')).length;
+
   const openComplete = (order: any) => {
     setReadyDraftOrderId(null);
     setAdjustOrderId(null);
@@ -509,11 +521,12 @@ export default function SellerDashboardPage() {
     setScanNote(null);
     // Start with the ones already marked ready ticked; the farmer unticks
     // anything the buyer isn't taking today.
-    setCompleteAlsoIds(
-      sameCheckoutOrders(order)
+    setCompleteIds([
+      order.id,
+      ...sameCheckoutOrders(order)
         .filter((o) => o.status === 'ready_for_pickup')
-        .map((o) => o.id)
-    );
+        .map((o) => o.id),
+    ]);
   };
 
   // `scannedCode` is passed when the code came from the camera rather than
@@ -524,13 +537,22 @@ export default function SellerDashboardPage() {
       alert("Enter the buyer's pickup code to complete this order.");
       return;
     }
+    // The ticked items; an order with one item has nothing to tick.
+    const ids = sameCheckoutOrders({ id: orderId, checkout_id: incomingOrders.find((o) => o.id === orderId)?.checkout_id })
+      .length > 0
+      ? completeIds
+      : [orderId];
+    if (ids.length === 0) {
+      alert('Tick at least one item you are handing over.');
+      return;
+    }
 
     setSubmittingComplete(true);
     try {
       const res = await postWithAuth('/api/orders/complete', {
-        orderId,
+        orderId: ids[0],
         code,
-        alsoOrderIds: completeAlsoIds,
+        alsoOrderIds: ids.slice(1),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not complete order.');
@@ -544,7 +566,7 @@ export default function SellerDashboardPage() {
       );
       setCompleteOrderId(null);
       setCompleteCode('');
-      setCompleteAlsoIds([]);
+      setCompleteIds([]);
       await fetchDashboardData();
     } catch (err: any) {
       alert(err.message || 'Could not complete order.');
@@ -577,6 +599,14 @@ export default function SellerDashboardPage() {
 
   const openReadyDraft = (order: any) => {
     setReadyDraftOrderId(order.id);
+    // Everything of this buyer's that is still waiting starts ticked; the
+    // farmer unticks anything that isn't ready yet.
+    setReadyIds([
+      order.id,
+      ...sameCheckoutOrders(order)
+        .filter((o) => o.status === 'pending_pickup')
+        .map((o) => o.id),
+    ]);
     // Any standing instructions from the listing, as a starting point.
     setReadyDraftText(order.listing_pickup_instructions || '');
     // Start from the seller's usual availability: the dates in the buyer's
@@ -608,7 +638,7 @@ export default function SellerDashboardPage() {
     }
     if (
       !confirm(
-        `Mark ${waiting.length} order${waiting.length === 1 ? '' : 's'} ready and email each buyer?\n\nDays: ${days.join(', ')}\nTimes: ${usualTimes.join(', ')}`
+        `Mark ${waiting.length} item${waiting.length === 1 ? '' : 's'} ready and email each buyer?\n\nDays: ${days.join(', ')}\nTimes: ${usualTimes.join(', ')}`
       )
     ) {
       return;
@@ -617,10 +647,17 @@ export default function SellerDashboardPage() {
     setMarkingAllReady(true);
     let done = 0;
     const problems: string[] = [];
+    // One request per buyer's order, so each buyer gets a single email
+    // covering all of their items.
+    const sent = new Set<string>();
     for (const order of waiting) {
+      if (sent.has(order.id)) continue;
+      const together = waiting.filter((o) => o.id !== order.id && o.checkout_id && o.checkout_id === order.checkout_id);
+      [order, ...together].forEach((o) => sent.add(o.id));
       try {
         const res = await postWithAuth('/api/orders/mark-ready', {
           orderId: order.id,
+          alsoOrderIds: together.map((o) => o.id),
           pickupDetails: pickupDetailsText(days, usualTimes, order.listing_pickup_instructions || ''),
         });
         const data = await res.json();
@@ -643,10 +680,17 @@ export default function SellerDashboardPage() {
   };
 
   const confirmMarkReady = async (order: any) => {
-    const orderId = order.id;
     const address = readyAddress.trim();
+    const chosen = [order, ...sameCheckoutOrders(order)].filter(
+      (o) => o.status === 'pending_pickup' && readyIds.includes(o.id)
+    );
 
-    if (!order.known_pickup_address && !address) {
+    if (chosen.length === 0) {
+      alert('Tick at least one item that is ready.');
+      return;
+    }
+    const orderId = chosen[0].id;
+    if (!chosen[0].known_pickup_address && !address) {
       alert('Enter the pickup address for this order.');
       return;
     }
@@ -661,13 +705,18 @@ export default function SellerDashboardPage() {
     try {
       const res = await postWithAuth('/api/orders/mark-ready', {
         orderId,
+        alsoOrderIds: chosen.slice(1).map((o) => o.id),
         pickupDetails,
-        ...(order.known_pickup_address ? {} : { pickupAddress: address }),
+        ...(address ? { pickupAddress: address } : {}),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to mark order ready.');
 
-      setSuccessMsg('Order marked ready — the buyer has been emailed the pickup details.');
+      setSuccessMsg(
+        chosen.length > 1
+          ? `${chosen.length} items marked ready — the buyer has been emailed the pickup details.`
+          : 'Order marked ready — the buyer has been emailed the pickup details.'
+      );
       setReadyDraftOrderId(null);
       setReadyDraftText('');
       await fetchDashboardData();
@@ -1921,7 +1970,7 @@ export default function SellerDashboardPage() {
                     How this works
                   </button>
                 </p>
-                {incomingOrders.filter((o) => o.status === 'pending_pickup').length > 1 && (
+                {waitingGroupCount > 1 && (
                   <div className="mt-3">
                     <button
                       type="button"
@@ -1932,7 +1981,7 @@ export default function SellerDashboardPage() {
                       <PackageCheck className="w-4 h-4" aria-hidden="true" />
                       {markingAllReady
                         ? 'Marking ready...'
-                        : `Mark All ${incomingOrders.filter((o) => o.status === 'pending_pickup').length} Waiting Orders Ready`}
+                        : `Mark All ${waitingGroupCount} Waiting Orders Ready`}
                     </button>
                     <p className="text-[11px] text-gray-500 mt-1">
                       Uses your usual pickup days and times from Farm Profile.
@@ -1951,65 +2000,99 @@ export default function SellerDashboardPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {incomingOrders.map((order) => (
+                  {orderGroups.map((items) => {
+                    const pendingItems = items.filter((o) => o.status === 'pending_pickup');
+                    const readyItems = items.filter((o) => o.status === 'ready_for_pickup');
+                    const completing = items.find((o) => o.id === completeOrderId);
+                    const adjusting = items.find((o) => o.id === adjustOrderId);
+                    const readying = items.find((o) => o.id === readyDraftOrderId);
+                    const several = items.length > 1;
+                    const payoutKnown = items.every((o) => o.farmer_payout_amount != null);
+                    const payoutTotal = items.reduce(
+                      (sum, o) => sum + Number((payoutKnown ? o.farmer_payout_amount : o.total_price) || 0),
+                      0
+                    );
+
+                    return (
                     <div
-                      key={order.id}
+                      key={items[0].id}
                       className="p-5 border rounded-2xl border-gray-200 shadow-sm bg-white flex flex-col gap-4"
                     >
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span
                             className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
-                              order.status === 'pending_pickup' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                              pendingItems.length > 0 ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
                             }`}
                           >
-                            {order.status === 'pending_pickup' ? 'To Prepare' : 'Ready for Pickup'}
+                            {pendingItems.length === 0
+                              ? 'Ready for Pickup'
+                              : readyItems.length === 0
+                                ? 'To Prepare'
+                                : 'Partly Ready'}
                           </span>
                           <span className="text-xs text-gray-500">
-                            Order <span className="font-mono font-bold text-gray-700">{orderRef(order)}</span>
+                            Order <span className="font-mono font-bold text-gray-700">{orderRef(items[0])}</span>
                           </span>
                         </div>
 
-                        <h3 className="text-base font-bold text-gray-900">
-                          {order.reserved_quantity} {order.listing_unit_type} of {order.listing_title}
-                        </h3>
+                        {several ? (
+                          <>
+                            <h3 className="text-base font-bold text-gray-900">{items.length} items for one buyer</h3>
+                            <ul className="divide-y divide-gray-100 border-y border-gray-100">
+                              {items.map((item) => (
+                                <li key={item.id} className="py-2">
+                                  <p className="text-sm font-bold text-gray-900">
+                                    {item.reserved_quantity} {item.listing_unit_type} of {item.listing_title}
+                                  </p>
+                                  <p
+                                    className={`text-xs ${
+                                      orderStatusLine(item).urgent ? 'font-bold text-red-700' : 'text-gray-600'
+                                    }`}
+                                  >
+                                    {orderStatusLine(item).text}
+                                  </p>
+                                </li>
+                              ))}
+                            </ul>
+                          </>
+                        ) : (
+                          <>
+                            <h3 className="text-base font-bold text-gray-900">
+                              {items[0].reserved_quantity} {items[0].listing_unit_type} of {items[0].listing_title}
+                            </h3>
 
-                        <p className={`text-sm ${orderStatusLine(order).urgent ? 'font-bold text-red-700' : 'text-gray-700'}`}>
-                          {orderStatusLine(order).text}
-                        </p>
+                            <p
+                              className={`text-sm ${
+                                orderStatusLine(items[0]).urgent ? 'font-bold text-red-700' : 'text-gray-700'
+                              }`}
+                            >
+                              {orderStatusLine(items[0]).text}
+                            </p>
+                          </>
+                        )}
 
                         <p className="text-xs font-extrabold text-emerald-700">
-                          {order.farmer_payout_amount != null
-                            ? `Your payout at pickup: $${Number(order.farmer_payout_amount).toFixed(2)}`
-                            : `Total Paid: $${Number(order.total_price || 0).toFixed(2)}`}
+                          {payoutKnown
+                            ? `Your payout at pickup: $${payoutTotal.toFixed(2)}${several ? ` for all ${items.length} items` : ''}`
+                            : `Total Paid: $${payoutTotal.toFixed(2)}`}
                         </p>
-
-                        {sameCheckoutOrders(order).length > 0 && (
-                          <p className="text-xs text-gray-600">
-                            Same buyer also ordered:{' '}
-                            <span className="font-semibold">
-                              {sameCheckoutOrders(order)
-                                .map((o) => o.listing_title)
-                                .join(', ')}
-                            </span>
-                            .
-                          </p>
-                        )}
                       </div>
 
                       <div className="flex flex-col sm:flex-row sm:items-start gap-2">
                         {/* The one thing to do next for this order. */}
-                        {order.status === 'pending_pickup' && readyDraftOrderId !== order.id && (
+                        {pendingItems.length > 0 && !readying && (
                           <button
-                            onClick={() => openReadyDraft(order)}
+                            onClick={() => openReadyDraft(pendingItems[0])}
                             className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-3 rounded-xl transition-colors shadow-sm"
                           >
-                            <PackageCheck className="w-4 h-4" aria-hidden="true" /> Mark Ready for Pickup
+                            <PackageCheck className="w-4 h-4" aria-hidden="true" />{' '}
+                            {pendingItems.length > 1 ? 'Mark Items Ready for Pickup' : 'Mark Ready for Pickup'}
                           </button>
                         )}
-                        {order.status === 'ready_for_pickup' && completeOrderId !== order.id && (
+                        {readyItems.length > 0 && !completing && (
                           <button
-                            onClick={() => openComplete(order)}
+                            onClick={() => openComplete(readyItems[0])}
                             className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-3 rounded-xl transition-colors shadow-sm"
                           >
                             <QrCode className="w-4 h-4" aria-hidden="true" /> Buyer Is Here: Scan Code
@@ -2022,54 +2105,71 @@ export default function SellerDashboardPage() {
                             More options
                           </summary>
                           <div className="mt-1 flex flex-col gap-2">
-                            {order.status === 'pending_pickup' && completeOrderId !== order.id && (
+                            {readyItems.length === 0 && !completing && (
                               <button
-                                onClick={() => openComplete(order)}
+                                onClick={() => openComplete(pendingItems[0])}
                                 className="inline-flex items-center justify-center gap-1.5 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-colors"
                               >
                                 <QrCode className="w-4 h-4" aria-hidden="true" /> Buyer Is Already Here: Scan Code
                               </button>
                             )}
-                            {order.stripe_payment_intent_id && adjustOrderId !== order.id && (
-                              <button
-                                onClick={() => openAdjust(order)}
-                                className="inline-flex items-center justify-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-colors"
-                              >
-                                <X className="w-4 h-4" aria-hidden="true" /> Cancel or Reduce This Order
-                              </button>
+                            {items.map(
+                              (item) =>
+                                item.stripe_payment_intent_id &&
+                                adjustOrderId !== item.id && (
+                                  <button
+                                    key={`adjust-${item.id}`}
+                                    onClick={() => openAdjust(item)}
+                                    className="inline-flex items-center justify-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-colors"
+                                  >
+                                    <X className="w-4 h-4" aria-hidden="true" />{' '}
+                                    {several ? `Cancel or Reduce: ${item.listing_title}` : 'Cancel or Reduce This Order'}
+                                  </button>
+                                )
                             )}
-                            {order.status === 'ready_for_pickup' &&
-                              order.stripe_payment_intent_id &&
-                              canReportNoShow(order) &&
-                              !order.no_show_reported_at && (
-                                <button
-                                  onClick={() => handleReportNoShow(order)}
-                                  className="inline-flex items-center justify-center gap-1.5 bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-colors"
-                                >
-                                  <AlertCircle className="w-4 h-4" aria-hidden="true" /> Buyer Did Not Show
-                                </button>
-                              )}
+                            {items.map(
+                              (item) =>
+                                item.status === 'ready_for_pickup' &&
+                                item.stripe_payment_intent_id &&
+                                canReportNoShow(item) &&
+                                !item.no_show_reported_at && (
+                                  <button
+                                    key={`noshow-${item.id}`}
+                                    onClick={() => handleReportNoShow(item)}
+                                    className="inline-flex items-center justify-center gap-1.5 bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-colors"
+                                  >
+                                    <AlertCircle className="w-4 h-4" aria-hidden="true" />{' '}
+                                    {several ? `Buyer Did Not Show: ${item.listing_title}` : 'Buyer Did Not Show'}
+                                  </button>
+                                )
+                            )}
                           </div>
                         </details>
                       </div>
 
                       <OrderMessages
-                        key={`messages-${order.id}-${unreadOrderIds.join(',')}`}
-                        orderId={order.id}
+                        key={`messages-${items[0].id}-${unreadOrderIds.join(',')}`}
+                        orderId={items[0].id}
                         role="seller"
-                        hasUnread={[order, ...sameCheckoutOrders(order)].some((o) => unreadOrderIds.includes(o.id))}
+                        hasUnread={items.some((o) => unreadOrderIds.includes(o.id))}
                       />
 
-                      {order.no_show_reported_at && (
-                        <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                          You reported this buyer as a no-show on{' '}
-                          {new Date(order.no_show_reported_at).toLocaleDateString()}. The buyer has 48 hours to respond; if
-                          they don't, the order is closed and you're paid a restocking fee. If the
-                          buyer does turn up, you can still complete the order with their pickup code.
-                        </p>
-                      )}
+                      {items
+                        .filter((item) => item.no_show_reported_at)
+                        .map((item) => (
+                          <p
+                            key={`reported-${item.id}`}
+                            className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3"
+                          >
+                            {several && <span className="font-bold">{item.listing_title}: </span>}
+                            You reported this buyer as a no-show on{' '}
+                            {new Date(item.no_show_reported_at).toLocaleDateString()}. The buyer has 48 hours to respond; if
+                            they don't, the order is closed and you're paid a restocking fee. If the
+                            buyer does turn up, you can still complete the order with their pickup code.
+                          </p>
+                        ))}
 
-                      {completeOrderId === order.id && (
+                      {completing && ((order: any) => (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
                           {scanningCode ? (
                             <QrScanner
@@ -2109,19 +2209,19 @@ export default function SellerDashboardPage() {
                             collect their produce. Scanning or entering it completes the order and releases your
                             payout.
                           </p>
-                          {sameCheckoutOrders(order).length > 0 && (
+                          {several && (
                             <fieldset className="space-y-2">
                               <legend className="text-xs font-semibold text-emerald-900">
-                                This buyer's code also covers these items. Tick the ones you are handing over now:
+                                This buyer's code covers all of these. Tick the ones you are handing over now:
                               </legend>
-                              {sameCheckoutOrders(order).map((other) => (
+                              {items.map((other) => (
                                 <label key={other.id} className="flex items-start gap-2 text-xs text-emerald-950">
                                   <input
                                     type="checkbox"
                                     className="mt-0.5 w-4 h-4 shrink-0"
-                                    checked={completeAlsoIds.includes(other.id)}
+                                    checked={completeIds.includes(other.id)}
                                     onChange={(e) =>
-                                      setCompleteAlsoIds((current) =>
+                                      setCompleteIds((current) =>
                                         e.target.checked ? [...current, other.id] : current.filter((id) => id !== other.id)
                                       )
                                     }
@@ -2142,7 +2242,7 @@ export default function SellerDashboardPage() {
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleMarkCompleted(order.id)}
-                              disabled={submittingComplete || !completeCode.trim()}
+                              disabled={submittingComplete || !completeCode.trim() || (several && completeIds.length === 0)}
                               className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
                             >
                               {submittingComplete ? 'Checking...' : 'Confirm Pickup & Release Payout'}
@@ -2156,9 +2256,9 @@ export default function SellerDashboardPage() {
                             </button>
                           </div>
                         </div>
-                      )}
+                      ))(completing)}
 
-                      {adjustOrderId === order.id && (() => {
+                      {adjusting && ((order: any) => {
                         const currentQty = Number(order.reserved_quantity ?? 0);
                         const newQty = Number(adjustQuantity);
                         const validQty =
@@ -2172,6 +2272,11 @@ export default function SellerDashboardPage() {
 
                         return (
                           <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+                            {several && (
+                              <p className="text-sm font-bold text-red-950">
+                                {order.reserved_quantity} {order.listing_unit_type} of {order.listing_title}
+                              </p>
+                            )}
                             <div>
                               <label htmlFor="dash-new-quantity-enter-to-cancel-the-whole-o" className="block text-xs font-semibold text-red-900 mb-1">
                                 New quantity ({order.listing_unit_type}) — enter 0 to cancel the whole order
@@ -2234,10 +2339,37 @@ export default function SellerDashboardPage() {
                             </div>
                           </div>
                         );
-                      })()}
+                      })(adjusting)}
 
-                      {readyDraftOrderId === order.id && (
+                      {readying && ((order: any) => (
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                          {pendingItems.length > 1 && (
+                            <fieldset className="space-y-2">
+                              <legend className="text-sm font-bold text-blue-950">Which items are ready?</legend>
+                              {pendingItems.map((item) => (
+                                <label key={item.id} className="flex items-start gap-2 text-sm text-blue-950">
+                                  <input
+                                    type="checkbox"
+                                    className="mt-0.5 w-4 h-4 shrink-0"
+                                    checked={readyIds.includes(item.id)}
+                                    onChange={(e) =>
+                                      setReadyIds((current) =>
+                                        e.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id)
+                                      )
+                                    }
+                                  />
+                                  <span>
+                                    {item.reserved_quantity} {item.listing_unit_type} of{' '}
+                                    <span className="font-semibold">{item.listing_title}</span>
+                                  </span>
+                                </label>
+                              ))}
+                              <p className="text-[11px] text-blue-900">
+                                Untick anything that isn't ready yet. It stays on this order for you to mark ready
+                                later. The buyer gets one email listing the ticked items.
+                              </p>
+                            </fieldset>
+                          )}
                           <p className="text-sm font-bold text-blue-950">Tell the buyer where and when to pick up</p>
 
                           {order.known_pickup_address ? (
@@ -2355,9 +2487,10 @@ export default function SellerDashboardPage() {
                             </button>
                           </div>
                         </div>
-                      )}
+                      ))(pendingItems.find((o) => readyIds.includes(o.id)) || readying)}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
