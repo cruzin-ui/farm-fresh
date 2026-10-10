@@ -11,8 +11,9 @@ import Photo from '@/components/Photo';
 const MAX_LISTINGS = 12;
 // How fast the strip drifts on its own, in pixels per second.
 const DRIFT_SPEED = 45;
-// How long after the visitor lets go before the strip starts drifting again.
-const RESUME_DELAY_MS = 2500;
+// A trackpad or mouse wheel sends a stream of small scrolls; the strip waits
+// this long after the last one before drifting again, so it doesn't fight them.
+const WHEEL_SETTLE_MS = 400;
 
 // One listing per farm first, then each farm's second, and so on — the same
 // take-turns idea as Browse, so one farm can't fill the whole strip.
@@ -36,8 +37,11 @@ function takeTurns(listings: any[]) {
 // A strip of current listings on the home page that drifts from right to left
 // in a continuous loop. It is a real scrolling row, so visitors can also swipe
 // it (touch), drag it (mouse) or scroll it sideways (trackpad) in either
-// direction. It stops drifting while someone is interacting with it, with the
-// pause button, and for visitors who have asked their device to reduce motion.
+// direction. It keeps drifting unless the pause button is pressed. It only
+// yields for the moment a visitor is actually moving it themselves (a finger
+// on it, a mouse drag, a trackpad scroll) or tabbing through it with the
+// keyboard, and carries on the instant they let go. Hovering doesn't stop it.
+// It doesn't drift for visitors who have asked their device to reduce motion.
 export default function FreshListingsWheel() {
   const [listings, setListings] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -45,7 +49,7 @@ export default function FreshListingsWheel() {
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
-  // True while the visitor is touching, dragging, hovering or tabbing through the strip.
+  // True while the visitor is moving the strip themselves or tabbing through it.
   const holdRef = useRef(false);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragRef = useRef<{ startX: number; startScroll: number; moved: boolean } | null>(null);
@@ -139,17 +143,22 @@ export default function FreshListingsWheel() {
     holdRef.current = true;
   };
 
-  const release = () => {
+  const release = (afterMs = 0) => {
     if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    if (afterMs <= 0) {
+      holdRef.current = false;
+      return;
+    }
     resumeTimerRef.current = setTimeout(() => {
       holdRef.current = false;
-    }, RESUME_DELAY_MS);
+    }, afterMs);
   };
 
   // Mouse users can drag the strip. (Touch and trackpads scroll it natively.)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType !== 'mouse' || e.button !== 0 || !scrollerRef.current) return;
     dragRef.current = { startX: e.clientX, startScroll: scrollerRef.current.scrollLeft, moved: false };
+    hold();
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -164,7 +173,10 @@ export default function FreshListingsWheel() {
   const endDrag = () => {
     // Keep `moved` readable for the click that follows a drag, then clear it.
     const drag = dragRef.current;
-    if (drag) setTimeout(() => (dragRef.current = null), 0);
+    if (drag) {
+      setTimeout(() => (dragRef.current = null), 0);
+      release();
+    }
   };
 
   // A drag that ends on a card shouldn't open that card's listing.
@@ -239,19 +251,23 @@ export default function FreshListingsWheel() {
         <div
           ref={scrollerRef}
           className="wheel cursor-grab active:cursor-grabbing"
-          onMouseEnter={hold}
-          onMouseLeave={() => {
-            endDrag();
-            release();
-          }}
+          onMouseLeave={endDrag}
           onTouchStart={hold}
-          onTouchEnd={release}
-          onTouchCancel={release}
-          onFocus={hold}
-          onBlur={release}
-          onWheel={() => {
-            hold();
-            release();
+          onTouchEnd={() => release()}
+          onTouchCancel={() => release()}
+          // Only keyboard focus holds it, so a card being tabbed to stays put;
+          // clicking a card with the mouse doesn't.
+          onFocus={(e) => {
+            if ((e.target as HTMLElement).matches(':focus-visible')) hold();
+          }}
+          onBlur={() => release()}
+          onWheel={(e) => {
+            // Sideways scrolling moves the strip; ordinary up-and-down page
+            // scrolling over it is none of its business.
+            if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+              hold();
+              release(WHEEL_SETTLE_MS);
+            }
           }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
