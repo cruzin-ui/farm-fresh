@@ -86,7 +86,12 @@ const BUYER_FAQS: Faq[] = [
     answer: (
       <>
         It's in your order confirmation email, and in the "ready for pickup" email. If you have an account, it's
-        also on your My Orders page. Guests can use the link in their confirmation email. Still stuck?{' '}
+        also on your My Orders page. Guests can use the link in their confirmation email. If you ordered as a guest
+        and can't find that email,{' '}
+        <Link href="/orders/find" className="font-semibold text-emerald-800 underline">
+          have your order links sent again
+        </Link>
+        . Still stuck?{' '}
         <Link href="/contact" className="font-semibold text-emerald-800 underline">
           Contact us
         </Link>

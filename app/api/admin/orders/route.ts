@@ -62,6 +62,8 @@ export async function POST(request: Request) {
         created_at: o.created_at,
         status: o.status,
         buyer_email: o.buyer_email,
+        // Bought without an account; reached through an emailed link.
+        is_guest: !o.buyer_id,
         listing_title: listing?.title || 'Unknown listing',
         unit_type: listing?.unit_type || 'units',
         farm_name: (listing && farmNameById.get(listing.farmer_id)) || 'Unknown farm',

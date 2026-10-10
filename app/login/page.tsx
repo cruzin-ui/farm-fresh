@@ -291,6 +291,15 @@ function LoginContent() {
           )}
         </p>
 
+        {mode === 'signin' && (
+          <p className="mt-3 text-center text-xs text-gray-500">
+            Ordered without an account?{' '}
+            <a href="/orders/find" className="font-semibold text-emerald-800 underline">
+              Find my order
+            </a>
+          </p>
+        )}
+
         {mode === 'signup' && (
           <p className="mt-3 text-center text-xs text-gray-500">
             By creating an account you agree to our{' '}

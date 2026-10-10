@@ -55,6 +55,7 @@ type AdminOrder = {
   created_at: string;
   status: string;
   buyer_email: string | null;
+  is_guest: boolean;
   listing_title: string;
   unit_type: string;
   farm_name: string;
@@ -338,6 +339,40 @@ export default function AdminPage() {
       await fetchOrders();
     } catch (err: any) {
       setErrorMsg(err.message || 'Action failed.');
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  // For a guest who has lost their confirmation email or mistyped their
+  // address at checkout. Confirm it is really the buyer before using this:
+  // the link leads to the order's pickup code.
+  const resendGuestLink = async (order: AdminOrder) => {
+    const entered = prompt(
+      "Send this guest's order links to which email address?\n\n" +
+        'Leave it as it is to resend to the address on the order, or type a corrected one. A corrected address replaces the one on the order.\n\n' +
+        'Only do this once you are sure you are dealing with the buyer: the link shows their pickup code.',
+      order.buyer_email || ''
+    );
+    if (entered === null) return;
+
+    setBusyOrderId(order.id);
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    try {
+      const res = await postWithAuth('/api/admin/orders/action', {
+        orderId: order.id,
+        action: 'resend_guest_link',
+        newEmail: entered.trim(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not send the links.');
+
+      setSuccessMsg(data.message);
+      await fetchOrders();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Could not send the links.');
     } finally {
       setBusyOrderId(null);
     }
@@ -1230,6 +1265,7 @@ export default function AdminPage() {
                           <p>
                             Farm: <span className="font-semibold">{order.farm_name}</span> · Buyer:{' '}
                             <span className="font-semibold">{order.buyer_email || 'Unknown'}</span>
+                            {order.is_guest && ' (guest, no account)'}
                           </p>
                           <p>
                             Paid: <span className="font-semibold">${order.total_price.toFixed(2)}</span>
@@ -1354,6 +1390,15 @@ export default function AdminPage() {
                               className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
                             >
                               Mark Problem Resolved
+                            </button>
+                          )}
+                          {order.is_guest && (
+                            <button
+                              disabled={busy}
+                              onClick={() => resendGuestLink(order)}
+                              className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                            >
+                              Fix Email / Resend Order Link
                             </button>
                           )}
                           {isOpen(order) && order.failed_code_attempts > 0 && (

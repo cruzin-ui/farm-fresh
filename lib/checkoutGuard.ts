@@ -96,6 +96,41 @@ export async function allowCheckoutAttempt(ip: string, email: string) {
   }
 }
 
+// The same idea for "email me my order links": a limit on how often one
+// visitor can ask, and on how often any one address can be sent the email, so
+// the form can't be used to fill someone's inbox. These are kept in the same
+// table under their own scrambled keys, apart from the payment counts.
+const MAX_LOOKUPS_PER_HOUR = 5;
+const MAX_LOOKUP_EMAILS_PER_HOUR = 3;
+
+export async function allowLookupAttempt(ip: string, email: string) {
+  try {
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || 'farm-fresh-direct';
+    const scramble = (value: string) => createHmac('sha256', key).update(value).digest('hex').slice(0, 32);
+    const ipKey = scramble(`order-lookup-ip:${ip}`);
+    const emailKey = scramble(`order-lookup-email:${email.trim().toLowerCase()}`);
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+    const { data: recent, error } = await supabaseAdmin
+      .from('checkout_attempts')
+      .select('ip_hash')
+      .in('ip_hash', [ipKey, emailKey])
+      .gte('created_at', hourAgo)
+      .limit(50);
+    if (error) throw error;
+
+    const fromVisitor = (recent || []).filter((row) => row.ip_hash === ipKey).length;
+    const toAddress = (recent || []).filter((row) => row.ip_hash === emailKey).length;
+    if (fromVisitor >= MAX_LOOKUPS_PER_HOUR || toAddress >= MAX_LOOKUP_EMAILS_PER_HOUR) return false;
+
+    await supabaseAdmin.from('checkout_attempts').insert([{ ip_hash: ipKey }, { ip_hash: emailKey }]);
+    return true;
+  } catch (err) {
+    console.error('Order lookup limit could not be checked:', err);
+    return true;
+  }
+}
+
 // Clears out old records. Called by the daily job.
 export async function clearOldCheckoutAttempts() {
   const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
