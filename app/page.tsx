@@ -119,6 +119,12 @@ export default function SplashLandingPage() {
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </span>
         </Link>
+        <p className="md:col-span-2 text-center text-sm text-gray-600">
+          Not sure yet?{' '}
+          <Link href="/why" className="font-semibold text-emerald-800 underline underline-offset-2">
+            See why people buy and sell here
+          </Link>
+        </p>
       </section>
 
       {/* Current listings, drifting right to left */}

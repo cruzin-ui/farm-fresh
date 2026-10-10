@@ -64,6 +64,12 @@ export default function AboutPage() {
             </Link>
             .
           </p>
+          <p>
+            <Link href="/why" className="font-semibold text-green-800 underline">
+              See what growers and buyers get from using Farm Fresh Direct
+            </Link>
+            .
+          </p>
         </div>
       </section>
     </div>
