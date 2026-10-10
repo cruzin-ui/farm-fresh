@@ -4,6 +4,7 @@ import { getRequestAdmin } from '@/lib/apiAuth';
 import { refundOrderQuantity } from '@/lib/orderActions';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { alertAdmin } from '@/lib/alerts';
+import { logAdminAction } from '@/lib/adminLog';
 import { PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 
 export const dynamic = 'force-dynamic';
@@ -99,6 +100,8 @@ export async function POST(request: Request) {
           });
         }
       }
+
+      await logAdminAction(admin.email || 'admin', 'Removed a listing', listing.title || String(body.id), reason);
 
       if (failed.length > 0) {
         return NextResponse.json({

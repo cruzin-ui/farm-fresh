@@ -6,6 +6,7 @@ import { parseCartItems, priceCart } from '@/lib/checkoutCart';
 import { TaxError } from '@/lib/tax';
 import { alertAdmin } from '@/lib/alerts';
 import { verifyCaptcha, allowCheckoutAttempt, requestIp } from '@/lib/checkoutGuard';
+import { isBuyerBlocked } from '@/lib/accountBlocks';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,13 @@ export async function POST(request: Request) {
     }
 
     const buyerEmail = user ? user.email || '' : guestEmail;
+
+    if (await isBuyerBlocked({ userId: user?.id, email: buyerEmail })) {
+      return NextResponse.json(
+        { error: "We can't take orders from this account at the moment. Please contact us if you think this is a mistake." },
+        { status: 403 }
+      );
+    }
 
     const items = parseCartItems(body.items);
     if (!items) {

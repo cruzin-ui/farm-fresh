@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { suspendedSellerIds } from '@/lib/accountBlocks';
 import { calculateCartTotals } from '@/lib/pricing';
 import { calculateCartTax } from '@/lib/tax';
 import { isAllowedCategory } from '@/lib/categories';
@@ -91,6 +92,7 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
         .in('id', farmerIds)
     : { data: [] as any[] };
   const sellerById = new Map((sellers || []).map((s: any) => [s.id as string, s]));
+  const suspended = await suspendedSellerIds(farmerIds as string[]);
 
   const lines: PricedLine[] = items.map((item) => {
     const listing = listingById.get(item.listingId);
@@ -109,6 +111,8 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
       problem = 'Sold out. Please remove it.';
     } else if (item.quantity > available) {
       problem = `Only ${available} left. Please lower the quantity.`;
+    } else if (suspended.has(listing.farmer_id)) {
+      problem = "This farm isn't taking orders right now. Please remove it.";
     } else if (!seller?.stripe_account_id || !seller.stripe_onboarding_complete) {
       problem = "This farmer hasn't finished setting up payouts yet, so it can't be bought right now. Please remove it.";
     }

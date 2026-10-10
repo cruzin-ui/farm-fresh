@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { pickupAvailability } from '@/lib/dates';
 import { CARD_LISTING_TAGS } from '@/lib/listingTags';
 import { supabase } from '@/lib/supabaseClient';
+import { fetchSuspendedSellerIds } from '@/lib/suspendedSellers';
 import { Search, MapPin, Calendar, ShoppingBag, Sprout, User } from 'lucide-react';
 import Link from 'next/link';
 import AddToCartButton from '@/components/AddToCartButton';
@@ -265,10 +266,13 @@ export default function BrowsePage() {
       }
     }
 
+    const suspended = await fetchSuspendedSellerIds(supabase, farmerIds);
+
     // A listing can't be bought until its farmer can be paid, so it stays
-    // hidden from buyers until their payout setup is finished.
+    // hidden from buyers until their payout setup is finished. A suspended
+    // farmer's listings are hidden too.
     const merged = (listingsData || [])
-      .filter((item) => sellerMap[item.farmer_id]?.stripe_onboarding_complete)
+      .filter((item) => sellerMap[item.farmer_id]?.stripe_onboarding_complete && !suspended.has(item.farmer_id))
       .map((item) => ({
         ...item,
         seller_profiles: sellerMap[item.farmer_id] || null,

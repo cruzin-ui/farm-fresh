@@ -3,9 +3,12 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
 import { alertAdmin } from '@/lib/alerts';
 import { sendGuestOrderLinks, looksLikeEmail } from '@/lib/orderLinks';
+import { logAdminAction } from '@/lib/adminLog';
+import { orderRef } from '@/lib/pickupGroups';
 import {
   completeOrderAndReleasePayout,
   refundOrderQuantity,
+  refundOrderAmount,
   resolveNoShow,
   OrderActionError,
 } from '@/lib/orderActions';
@@ -23,9 +26,38 @@ export const dynamic = 'force-dynamic';
 //   hold_no_show   — keep a reported no-show from being closed automatically
 //   reset_attempts — unlock an order after too many wrong pickup codes
 //   resolve_problem — mark a problem the buyer reported as dealt with
+//   partial_refund — give the buyer back part of what they paid, keeping
+//                    the order as it is
 //   resend_guest_link — email a guest their order links again, first
 //                    correcting the address on the order if a new one is given
+const ACTION_NAMES: Record<string, string> = {
+  release: 'Released a payout without a code',
+  refund: 'Cancelled and refunded an order',
+  partial_refund: 'Gave a partial refund',
+  no_show: 'Closed an order as a no-show',
+  dismiss_no_show: 'Dismissed a no-show report',
+  hold_no_show: 'Put a no-show report on hold',
+  reset_attempts: 'Reset pickup code attempts',
+  resolve_problem: "Marked a buyer's problem resolved",
+  resend_guest_link: "Resent a guest's order links",
+};
+
+// Every action that goes through is written to the admin record.
 export async function POST(request: Request) {
+  const record: { admin?: string; action?: string; target?: string } = {};
+  const response = await handle(request, record);
+
+  if (response.ok && record.admin && record.action) {
+    const outcome = await response
+      .clone()
+      .json()
+      .catch(() => ({}));
+    await logAdminAction(record.admin, ACTION_NAMES[record.action] || record.action, record.target, outcome?.message);
+  }
+  return response;
+}
+
+async function handle(request: Request, record: { admin?: string; action?: string; target?: string }) {
   try {
     const admin = await getRequestAdmin(request);
     if (!admin) {
@@ -50,6 +82,9 @@ export async function POST(request: Request) {
     }
 
     console.log(`Admin override: ${admin.email} ran "${action}" on order ${order.id}`);
+    record.admin = admin.email || 'admin';
+    record.action = String(action);
+    record.target = `Order ${orderRef(order)} (${order.buyer_email || 'unknown buyer'})`;
 
     // The farmer's no-show report was looked into and not upheld.
     if (action === 'dismiss_no_show') {
@@ -180,6 +215,25 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         message: `Order cancelled — $${refundAmount.toFixed(2)} refunded to the buyer.`,
+      });
+    }
+
+    if (action === 'partial_refund') {
+      const { refundAmount, payoutCut, takenBack } = await refundOrderAmount({
+        order,
+        listing,
+        amount: Number(body.amount),
+        note: typeof body.note === 'string' ? body.note.trim().slice(0, 500) : '',
+      });
+      return NextResponse.json({
+        success: true,
+        message:
+          `$${refundAmount.toFixed(2)} refunded to the buyer. ` +
+          (takenBack > 0
+            ? `$${takenBack.toFixed(2)} of it was taken back from the farmer's payout.`
+            : payoutCut > 0
+              ? `The farmer's payout at pickup is $${payoutCut.toFixed(2)} lower.`
+              : ''),
       });
     }
 

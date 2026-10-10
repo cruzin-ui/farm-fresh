@@ -18,6 +18,8 @@ import {
   Search,
   Store,
   Users,
+  Ban,
+  History,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
@@ -39,7 +41,31 @@ type AdminSeller = {
   disputes: number;
   fast_completions: number;
   flags: string[];
+  suspension_id: string | null;
+  suspension_reason: string | null;
 };
+
+type AccountBlock = {
+  id: string;
+  scope: 'seller' | 'buyer';
+  user_id: string | null;
+  email: string | null;
+  reason: string | null;
+  created_by: string | null;
+  created_at: string;
+  farm_name: string | null;
+};
+
+type AdminAction = {
+  id: string;
+  created_at: string;
+  admin_email: string;
+  action: string;
+  target: string | null;
+  detail: string | null;
+};
+
+type ThreadMessage = { id: string; sender: string; body: string; created_at: string };
 
 type AdminOrder = {
   completed_at: string | null;
@@ -52,6 +78,8 @@ type AdminOrder = {
   buyer_problem_note: string | null;
   buyer_problem_resolved_at: string | null;
   id: string;
+  order_ref: string;
+  buyer_block_id: string | null;
   created_at: string;
   status: string;
   buyer_email: string | null;
@@ -105,7 +133,9 @@ type AdminSection =
   | 'sellers'
   | 'reviews'
   | 'fees'
-  | 'reports';
+  | 'reports'
+  | 'blocks'
+  | 'activity';
 
 type AdminListing = {
   id: string;
@@ -209,6 +239,17 @@ export default function AdminPage() {
   const [farmSearch, setFarmSearch] = useState('');
   const [downloadingReport, setDownloadingReport] = useState(false);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
+  // Order search: what is typed, and the orders found for what was last
+  // searched (null when no search is on).
+  const [orderSearch, setOrderSearch] = useState('');
+  const [searchedFor, setSearchedFor] = useState('');
+  const [searchResults, setSearchResults] = useState<AdminOrder[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  // Buyer-farmer conversations opened on order cards.
+  const [threads, setThreads] = useState<Record<string, ThreadMessage[] | 'loading'>>({});
+  const [blocks, setBlocks] = useState<AccountBlock[]>([]);
+  const [activity, setActivity] = useState<AdminAction[]>([]);
+  const [busyAccount, setBusyAccount] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -257,6 +298,21 @@ export default function AdminPage() {
     const reviewsRes = await postWithAuth('/api/admin/reviews');
     const reviewsData = await reviewsRes.json();
     if (reviewsRes.ok) setReviews(reviewsData.reviews);
+
+    const blocksRes = await postWithAuth('/api/admin/accounts', { action: 'list' });
+    const blocksData = await blocksRes.json().catch(() => ({}));
+    if (blocksRes.ok) setBlocks(blocksData.blocks || []);
+
+    const activityRes = await postWithAuth('/api/admin/activity');
+    const activityData = await activityRes.json().catch(() => ({}));
+    if (activityRes.ok) setActivity(activityData.actions || []);
+
+    // Keep a search that is on in step with whatever was just changed.
+    if (searchedFor) {
+      const searchRes = await postWithAuth('/api/admin/orders', { search: searchedFor });
+      const searchData = await searchRes.json().catch(() => ({}));
+      if (searchRes.ok) setSearchResults(searchData.orders || []);
+    }
 
     setLoading(false);
   };
@@ -344,6 +400,151 @@ export default function AdminPage() {
     }
   };
 
+  // Looks through every order, not just the recent ones loaded on the page.
+  const searchOrders = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const term = orderSearch.trim();
+    if (!term) {
+      setSearchedFor('');
+      setSearchResults(null);
+      return;
+    }
+
+    setSearching(true);
+    setErrorMsg(null);
+    try {
+      const res = await postWithAuth('/api/admin/orders', { search: term });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Search failed.');
+      setSearchedFor(term);
+      setSearchResults(data.orders || []);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Search failed.');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const clearOrderSearch = () => {
+    setOrderSearch('');
+    setSearchedFor('');
+    setSearchResults(null);
+  };
+
+  // Shows or hides what the buyer and farmer have written to each other.
+  const toggleThread = async (order: AdminOrder) => {
+    if (threads[order.id]) {
+      setThreads((current) => {
+        const next = { ...current };
+        delete next[order.id];
+        return next;
+      });
+      return;
+    }
+
+    setThreads((current) => ({ ...current, [order.id]: 'loading' }));
+    try {
+      const res = await postWithAuth('/api/admin/orders/messages', { orderId: order.id });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not load the messages.');
+      setThreads((current) => ({ ...current, [order.id]: data.messages || [] }));
+    } catch (err: any) {
+      setThreads((current) => {
+        const next = { ...current };
+        delete next[order.id];
+        return next;
+      });
+      setErrorMsg(err.message || 'Could not load the messages.');
+    }
+  };
+
+  // Gives the buyer back part of what they paid, keeping the order as it is.
+  const partialRefund = async (order: AdminOrder) => {
+    const entered = prompt(
+      `Refund how much of the $${order.total_price.toFixed(2)} paid for this order? Enter dollars, for example 4.50.\n\n` +
+        "The buyer gets this back. The farmer's payout and our fees shrink by the same share" +
+        (order.payout_released ? ", and the farmer's share is taken back from the payout they were already sent." : '.') +
+        '\n\nTo refund all of it, use Cancel & Refund instead.'
+    );
+    if (entered === null) return;
+
+    const amount = Number(entered.replace(/[$,\s]/g, ''));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setErrorMsg('Enter the refund as a dollar amount, for example 4.50.');
+      return;
+    }
+
+    const note = prompt('A short note for the buyer, shown in their refund email (optional):', '');
+    if (note === null) return;
+    if (!confirm(`Refund $${amount.toFixed(2)} to ${order.buyer_email || 'the buyer'}? This can't be undone.`)) return;
+
+    setBusyOrderId(order.id);
+    setSuccessMsg(null);
+    setErrorMsg(null);
+    try {
+      const res = await postWithAuth('/api/admin/orders/action', {
+        orderId: order.id,
+        action: 'partial_refund',
+        amount,
+        note,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Refund failed.');
+      setSuccessMsg(data.message);
+      await fetchOrders();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Refund failed.');
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  // Suspensions and blocks all go through one route.
+  const changeAccount = async (key: string, payload: Record<string, unknown>) => {
+    setBusyAccount(key);
+    setSuccessMsg(null);
+    setErrorMsg(null);
+    try {
+      const res = await postWithAuth('/api/admin/accounts', payload);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'That did not work.');
+      setSuccessMsg(data.message);
+      await fetchOrders();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'That did not work.');
+    } finally {
+      setBusyAccount(null);
+    }
+  };
+
+  const suspendSeller = (seller: AdminSeller) => {
+    const reason = prompt(
+      `Suspend ${seller.farm_name}?\n\n` +
+        "Their listings are hidden from buyers and they can't post new ones until you lift it. Orders they already have stay open. " +
+        'They are emailed the reason below.',
+      ''
+    );
+    if (reason === null) return;
+    changeAccount(seller.farmer_id, { action: 'suspend_seller', sellerId: seller.farmer_id, reason });
+  };
+
+  const blockBuyer = (order: AdminOrder) => {
+    if (!order.buyer_email) return;
+    const reason = prompt(
+      `Block ${order.buyer_email} from placing orders?\n\n` +
+        'Orders they already have stay as they are. They are not emailed. The reason is only for your records. ' +
+        'A guest can get around this with a different email address, so it works best on buyers with accounts.',
+      ''
+    );
+    if (reason === null) return;
+    changeAccount(order.buyer_email, { action: 'block_buyer', email: order.buyer_email, reason });
+  };
+
+  const liftBlock = (id: string, what: string) => {
+    if (!confirm(`${what}?`)) return;
+    changeAccount(id, { action: 'lift', id });
+  };
+
   // For a guest who has lost their confirmation email or mistyped their
   // address at checkout. Confirm it is really the buyer before using this:
   // the link leads to the order's pickup code.
@@ -413,7 +614,8 @@ export default function AdminPage() {
   const flaggedSellers = sellers.filter((s) => s.flags.length > 0);
 
   const isOrderSection = section === 'attention' || section === 'open' || section === 'all';
-  const visibleOrders = section === 'attention' ? attentionOrders : section === 'open' ? openOrders : orders;
+  const visibleOrders =
+    section === 'attention' ? attentionOrders : section === 'open' ? openOrders : searchResults ?? orders;
 
   const summaryMonths = recentMonths();
 
@@ -499,6 +701,8 @@ export default function AdminPage() {
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'fees', label: 'Fee breakdown', icon: PieChart },
     { id: 'reports', label: 'Reports', icon: TrendingUp },
+    { id: 'blocks', label: 'Suspended & blocked', icon: Ban, count: blocks.length },
+    { id: 'activity', label: 'Activity', icon: History },
   ];
 
   const disputedNoShows = reportedNoShows.filter((o) => o.no_show_disputed_at).length;
@@ -859,6 +1063,27 @@ export default function AdminPage() {
                                   Flag: {flag}
                                 </span>
                               ))}
+                              {s.suspension_id && (
+                                <span className="block font-bold text-red-800">
+                                  SUSPENDED{s.suspension_reason ? `: ${s.suspension_reason}` : ''}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                disabled={busyAccount !== null}
+                                onClick={() =>
+                                  s.suspension_id
+                                    ? liftBlock(s.suspension_id, `Lift the suspension on ${s.farm_name}`)
+                                    : suspendSeller(s)
+                                }
+                                className={`mt-1.5 text-xs font-bold px-2.5 py-1 rounded-lg border disabled:opacity-50 ${
+                                  s.suspension_id
+                                    ? 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                    : 'bg-white border-red-200 text-red-700 hover:bg-red-50'
+                                }`}
+                              >
+                                {s.suspension_id ? 'Lift Suspension' : 'Suspend Seller'}
+                              </button>
                             </th>
                             {cell(s.orders)}
                             {cell(s.completed)}
@@ -1138,12 +1363,132 @@ export default function AdminPage() {
             </div>
           )}
 
+          {/* SUSPENDED & BLOCKED */}
+          {section === 'blocks' && (
+            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Suspended & blocked</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Sellers you have suspended and buyers you have blocked. Suspend a seller from the Sellers section;
+                  block a buyer from one of their orders.
+                </p>
+              </div>
+
+              {blocks.length === 0 ? (
+                <p className="text-sm text-gray-500">Nobody is suspended or blocked.</p>
+              ) : (
+                <ul className="divide-y divide-gray-100">
+                  {blocks.map((block) => (
+                    <li key={block.id} className="py-3 flex items-start justify-between gap-3 flex-wrap text-xs text-gray-600">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-gray-900 break-all">
+                          {block.scope === 'seller' ? block.farm_name || 'Seller' : block.email || 'Buyer'}
+                          <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-red-100 text-red-800">
+                            {block.scope === 'seller' ? 'Seller suspended' : 'Buyer blocked'}
+                          </span>
+                        </p>
+                        <p>
+                          {block.scope === 'seller' && block.email ? `${block.email} · ` : ''}
+                          {new Date(block.created_at).toLocaleString()}
+                          {block.created_by ? ` · by ${block.created_by}` : ''}
+                        </p>
+                        {block.reason && <p className="mt-0.5">Reason: {block.reason}</p>}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={busyAccount !== null}
+                        onClick={() =>
+                          liftBlock(
+                            block.id,
+                            block.scope === 'seller'
+                              ? `Lift the suspension on ${block.farm_name || 'this seller'}`
+                              : `Let ${block.email || 'this buyer'} place orders again`
+                          )
+                        }
+                        className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                      >
+                        {block.scope === 'seller' ? 'Lift Suspension' : 'Unblock'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {/* ACTIVITY */}
+          {section === 'activity' && (
+            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Activity</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  A record of what admins have done: refunds, payouts released without a code, removals, suspensions
+                  and blocks. The 300 most recent, newest first. It can't be edited.
+                </p>
+              </div>
+
+              {activity.length === 0 ? (
+                <p className="text-sm text-gray-500">Nothing recorded yet.</p>
+              ) : (
+                <ul className="divide-y divide-gray-100">
+                  {activity.map((entry) => (
+                    <li key={entry.id} className="py-3 text-xs text-gray-600">
+                      <p className="text-sm font-bold text-gray-900">
+                        {entry.action}
+                        {entry.target ? <span className="font-normal text-gray-700"> · {entry.target}</span> : null}
+                      </p>
+                      <p>
+                        {new Date(entry.created_at).toLocaleString()} · {entry.admin_email}
+                      </p>
+                      {entry.detail && <p className="mt-0.5 whitespace-pre-wrap break-words">{entry.detail}</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           {isOrderSection && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">{orderSectionTitle}</h2>
                 <p className="text-xs text-gray-500 mt-0.5">{orderSectionHint}</p>
               </div>
+
+              {section === 'all' && (
+                <form onSubmit={searchOrders} className="space-y-1.5">
+                  <div className="flex gap-2 flex-wrap">
+                    <div className="relative flex-1 min-w-[14rem]">
+                      <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+                      <input
+                        type="search"
+                        aria-label="Search orders"
+                        placeholder="Order number (like A1B2C3) or buyer's email"
+                        value={orderSearch}
+                        onChange={(e) => setOrderSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm bg-white"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={searching || !orderSearch.trim()}
+                      className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white text-xs font-bold px-4 py-2.5 rounded-xl"
+                    >
+                      {searching ? 'Searching...' : 'Search'}
+                    </button>
+                    {searchResults && (
+                      <button type="button" onClick={clearOrderSearch} className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors">
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {searchResults
+                      ? `${searchResults.length} order${searchResults.length === 1 ? '' : 's'} found for "${searchedFor}", from all orders ever placed.`
+                      : 'Showing the 200 most recent orders. A search looks through every order.'}
+                  </p>
+                </form>
+              )}
 
               {reportedNoShows.length > 0 && (
                 <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-sm text-amber-950 flex items-start gap-2">
@@ -1207,7 +1552,8 @@ export default function AdminPage() {
                               {STATUS_LABELS[order.status] || order.status}
                             </span>
                             <span className="text-gray-400">
-                              Order #{order.id.slice(0, 8)} · {new Date(order.created_at).toLocaleString()}
+                              Order <span className="font-mono font-bold text-gray-700">{order.order_ref}</span> ·{' '}
+                              {new Date(order.created_at).toLocaleString()}
                             </span>
                             {isOpen(order) && daysOpen(order) > STALE_AFTER_DAYS && (
                               <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase bg-red-100 text-red-800">
@@ -1266,6 +1612,7 @@ export default function AdminPage() {
                             Farm: <span className="font-semibold">{order.farm_name}</span> · Buyer:{' '}
                             <span className="font-semibold">{order.buyer_email || 'Unknown'}</span>
                             {order.is_guest && ' (guest, no account)'}
+                            {order.buyer_block_id && <span className="font-bold text-red-700"> · blocked from ordering</span>}
                           </p>
                           <p>
                             Paid: <span className="font-semibold">${order.total_price.toFixed(2)}</span>
@@ -1296,6 +1643,28 @@ export default function AdminPage() {
                                 Buyer wrote on {new Date(order.buyer_problem_at).toLocaleString()}:
                               </p>
                               <p className="whitespace-pre-wrap break-words">{order.buyer_problem_note}</p>
+                            </div>
+                          )}
+                          {threads[order.id] && (
+                            <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                              <p className="font-bold text-gray-900">Messages between the buyer and the farmer</p>
+                              {threads[order.id] === 'loading' ? (
+                                <p>Loading...</p>
+                              ) : (threads[order.id] as ThreadMessage[]).length === 0 ? (
+                                <p>They haven't sent each other any messages about this order.</p>
+                              ) : (
+                                (threads[order.id] as ThreadMessage[]).map((m) => (
+                                  <div key={m.id}>
+                                    <p className="text-gray-500">
+                                      <span className="font-bold text-gray-800">
+                                        {m.sender === 'seller' ? 'Farmer' : 'Buyer'}
+                                      </span>{' '}
+                                      · {new Date(m.created_at).toLocaleString()}
+                                    </p>
+                                    <p className="whitespace-pre-wrap break-words text-gray-800">{m.body}</p>
+                                  </div>
+                                ))
+                              )}
                             </div>
                           )}
                         </div>
@@ -1412,6 +1781,32 @@ export default function AdminPage() {
                               Reset Code Attempts
                             </button>
                           )}
+                          {refundable && (
+                            <button disabled={busy} onClick={() => partialRefund(order)} className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors">
+                              Partial Refund
+                            </button>
+                          )}
+                          <button disabled={busy} onClick={() => toggleThread(order)} className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors">
+                            {threads[order.id] ? 'Hide Messages' : 'View Messages'}
+                          </button>
+                          {order.buyer_email &&
+                            (order.buyer_block_id ? (
+                              <button
+                                disabled={busyAccount !== null}
+                                onClick={() => liftBlock(order.buyer_block_id!, `Let ${order.buyer_email} place orders again`)}
+                                className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                              >
+                                Unblock Buyer
+                              </button>
+                            ) : (
+                              <button
+                                disabled={busyAccount !== null}
+                                onClick={() => blockBuyer(order)}
+                                className="bg-white border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                              >
+                                Block Buyer
+                              </button>
+                            ))}
                         </div>
                       </div>
                     );
