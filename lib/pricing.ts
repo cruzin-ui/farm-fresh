@@ -4,7 +4,7 @@
 // its 2.9% + 30¢ card fee, and 50¢ for working out sales tax on a payment
 // wherever the business is registered to collect it (charged even when the
 // tax comes to zero). A percentage alone doesn't cover those on small orders.
-export const BUYER_FEE_RATE = 0.05;
+export const BUYER_FEE_RATE = 0.06;
 export const BUYER_FEE_FIXED_CENTS = 100;
 export const BUYER_FEE_LABEL = `${BUYER_FEE_RATE * 100}% + $${(BUYER_FEE_FIXED_CENTS / 100).toFixed(2)}`;
 
@@ -13,7 +13,7 @@ export const BUYER_FEE_LABEL = `${BUYER_FEE_RATE * 100}% + $${(BUYER_FEE_FIXED_C
 // the buyer fee alone doesn't on low-volume farmers. The rate in force at
 // checkout is saved on each order, so changing it here only affects new
 // orders.
-export const SELLER_FEE_RATE = 0.05;
+export const SELLER_FEE_RATE = 0.06;
 
 // What the farmer is paid for a given produce subtotal, in cents.
 export function calculateFarmerPayoutCents(subtotalCents: number, sellerFeeRate: number) {
