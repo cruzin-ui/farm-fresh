@@ -69,13 +69,14 @@ import {
   X,
   QrCode,
   ClipboardList,
+  HelpCircle,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { loadConnectAndInitialize } from '@stripe/connect-js/pure';
 import type { StripeConnectInstance } from '@stripe/connect-js';
 import { ConnectComponentsProvider, ConnectAccountOnboarding } from '@stripe/react-connect-js';
 
-type DashboardTab = 'listings' | 'new' | 'orders' | 'picklist' | 'history' | 'profile' | 'settings';
+type DashboardTab = 'listings' | 'new' | 'orders' | 'picklist' | 'history' | 'profile' | 'settings' | 'help';
 
 const UNIT_TYPE_OPTIONS = [
   { value: 'lbs', label: 'lbs (Pounds)' },
@@ -466,6 +467,30 @@ export default function SellerDashboardPage() {
 
   // "Mark Completed" goes through the API because completing an order is what
   // releases the farmer's payout for it.
+  // Where an open order stands and what is due next, in one plain sentence.
+  // `urgent` marks the ones the seller is late on.
+  const orderStatusLine = (order: any): { text: string; urgent: boolean } => {
+    if (order.status === 'pending_pickup') {
+      if (!order.ready_by) return { text: 'Waiting for you to mark it ready.', urgent: false };
+      if (isSellerLate(order)) {
+        return {
+          text: `Overdue. This was due to be marked ready by ${shortDate(order.ready_by)}. The buyer can now cancel for a full refund, and it is cancelled automatically on ${shortDate(autoCancelAt(order)!)}.`,
+          urgent: true,
+        };
+      }
+      return { text: `Waiting for you to mark it ready by ${shortDate(order.ready_by)}.`, urgent: false };
+    }
+
+    if (order.no_show_reported_at) return { text: 'Ready. You reported the buyer as a no-show.', urgent: false };
+    if (!order.pickup_by) return { text: 'Ready. Waiting for the buyer to pick up.', urgent: false };
+    return canReportNoShow(order)
+      ? {
+          text: `Ready. The buyer's pickup time ended ${shortDate(order.pickup_by)}. You can report a no-show under More options.`,
+          urgent: false,
+        }
+      : { text: `Ready. The buyer has until ${shortDate(order.pickup_by)} to pick up.`, urgent: false };
+  };
+
   // The buyer's other open items with this farm from the same checkout.
   const sameCheckoutOrders = (order: any) =>
     order.checkout_id
@@ -1101,7 +1126,7 @@ export default function SellerDashboardPage() {
               }`}
             >
               <span className="flex items-center gap-2.5">
-                <ShoppingBag className="w-4 h-4" /> Incoming Orders
+                <ShoppingBag className="w-4 h-4" /> Orders
               </span>
               {incomingOrders.length > 0 && (
                 <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
@@ -1176,6 +1201,19 @@ export default function SellerDashboardPage() {
             >
               <CreditCard className="w-4 h-4" /> Payouts & Settings
             </button>
+
+            <button
+              onClick={() => {
+                setActiveTab('help');
+                setSuccessMsg(null);
+                setErrorMsg(null);
+              }}
+              className={`shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                activeTab === 'help' ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <HelpCircle className="w-4 h-4" /> Help
+            </button>
           </nav>
 
           <div className="pt-2 mt-2 md:pt-6 md:mt-6 border-t border-gray-100 space-y-2">
@@ -1212,7 +1250,7 @@ export default function SellerDashboardPage() {
               className="mb-6 bg-emerald-50 border border-emerald-200 rounded-2xl"
             >
               <summary className="cursor-pointer select-none px-5 py-4 text-sm font-bold text-emerald-950">
-                How selling works{setupComplete ? '' : ' — finish setting up to start selling'}
+                Getting set up{setupComplete ? ' — all done' : ' — finish these steps to start selling'}
               </summary>
 
               <div className="px-5 pb-5 space-y-5 text-sm text-gray-700">
@@ -1272,78 +1310,12 @@ export default function SellerDashboardPage() {
                   </ol>
                 </div>
 
-                <div>
-                  <h2 className="text-sm font-bold text-gray-900 mb-2">When you get an order</h2>
-                  <ol className="list-decimal pl-5 space-y-1.5 text-xs text-gray-700">
-                    <li>
-                      We email you, and the order appears under <strong>Incoming Orders</strong>. The buyer has
-                      already paid online — we hold the money until pickup.
-                    </li>
-                    <li>
-                      When the produce is ready, click <strong>Mark Ready for Pickup</strong>, tick the days and
-                      times the buyer can come, and add any instructions. That is also when the buyer is sent your
-                      pickup address. Need to reach them? Use <strong>Message Buyer</strong> on the order.
-                    </li>
-                    <li>
-                      At pickup, hand over the produce and <strong>ask the buyer for their pickup code</strong>.
-                    </li>
-                    <li>
-                      Click <strong>Mark Completed</strong>, then scan the QR code on the buyer's phone or type
-                      their code. That releases your payment.
-                    </li>
-                  </ol>
-                </div>
-
-                <div>
-                  <h2 className="text-sm font-bold text-gray-900 mb-2">How you get paid</h2>
-                  <ul className="list-disc pl-5 space-y-1.5 text-xs text-gray-700">
-                    <li>
-                      You're paid your produce price minus a {SELLER_FEE_RATE * 100}% seller fee. Each open
-                      order shows the exact amount as "Your payout at pickup".
-                    </li>
-                    <li>
-                      Entering the pickup code sends that amount to your Stripe account, and Stripe deposits
-                      it to your bank once a week, on Fridays.
-                    </li>
-                    <li>
-                      Short on produce? Use <strong>Cancel / Adjust</strong> on the order to reduce or cancel
-                      it. The buyer is refunded automatically.
-                    </li>
-                    <li>
-                      <strong>Mark each order ready within {SELLER_READY_DAYS} days</strong> of the order, or of
-                      your listing's harvest date if that's later. Each order shows its date. After it, the buyer
-                      can cancel for a full refund, and an order still not ready after {AUTO_CANCEL_DAYS} days is
-                      cancelled automatically.
-                    </li>
-                    <li>
-                      Once you mark an order ready, the buyer has {BUYER_PICKUP_DAYS} days to collect it, so
-                      offer pickup times on those days.
-                    </li>
-                    <li>
-                      Buyer never came? After those {BUYER_PICKUP_DAYS} days, use <strong>Buyer Did Not Show</strong>.
-                      We review it, and if it's confirmed you're paid a restocking fee and the produce goes
-                      back on your listing.
-                    </li>
-                    <li>
-                      Never collect cash at pickup — every order is already paid in full online.
-                    </li>
-                    <li>
-                      {PRODUCE_ONLY_NOTICE}
-                    </li>
-                    <li>
-                      You're responsible for making sure what you sell is legal in your state. Eggs, honey,
-                      jam and other prepared foods often have their own rules — see the{' '}
-                      <a href="/faq" className="font-semibold text-emerald-800 underline">
-                        FAQ
-                      </a>{' '}
-                      before listing them.
-                    </li>
-                    <li>
-                      Quantities are whole numbers: buyers can only order whole units (1 lb, 2 lbs, not 0.5
-                      lb). To sell smaller amounts, list in a smaller unit such as oz.
-                    </li>
-                  </ul>
-                </div>
+                <p className="text-xs text-gray-700">
+                  Not sure what happens when an order comes in, or how you get paid?{' '}
+                  <button onClick={() => setActiveTab('help')} className="font-bold text-emerald-800 underline">
+                    Open Help
+                  </button>
+                </p>
               </div>
             </details>
           )}
@@ -1875,9 +1847,12 @@ export default function SellerDashboardPage() {
           {activeTab === 'orders' && (
             <div className="space-y-6">
               <div className="pb-4 border-b border-gray-100">
-                <h1 className="text-2xl font-bold text-gray-900">Incoming Buyer Reservations</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Confirm orders and mark when harvested produce is ready for pickup.
+                  Each order shows where it stands and the one thing to do next.{' '}
+                  <button onClick={() => setActiveTab('help')} className="font-semibold text-emerald-800 underline">
+                    How this works
+                  </button>
                 </p>
                 {incomingOrders.filter((o) => o.status === 'pending_pickup').length > 1 && (
                   <div className="mt-3">
@@ -1902,9 +1877,9 @@ export default function SellerDashboardPage() {
               {incomingOrders.length === 0 ? (
                 <div className="text-center py-16 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                   <ShoppingBag className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                  <h3 className="text-base font-semibold text-gray-900">No Active Reservations</h3>
+                  <h3 className="text-base font-semibold text-gray-900">No open orders</h3>
                   <p className="text-xs text-gray-500 mt-1">
-                    When buyers reserve crops from your listings, they will show up here.
+                    When a buyer orders from one of your listings, it shows up here.
                   </p>
                 </div>
               ) : (
@@ -1914,104 +1889,101 @@ export default function SellerDashboardPage() {
                       key={order.id}
                       className="p-5 border rounded-2xl border-gray-200 shadow-sm bg-white flex flex-col gap-4"
                     >
-                      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
-                                order.status === 'pending_pickup'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-blue-100 text-blue-800'
-                              }`}
-                            >
-                              {order.status === 'pending_pickup' ? 'Pending Harvest' : 'Ready for Pickup'}
-                            </span>
-                            <span className="text-xs text-gray-400">
-                              Order {orderRef(order)}
-                            </span>
-                          </div>
-                          <h3 className="text-base font-bold text-gray-900">
-                            {order.listing_title}
-                          </h3>
-                          <p className="text-xs text-gray-600">
-                            Quantity: <span className="font-semibold">{order.reserved_quantity} {order.listing_unit_type}</span>
-                          </p>
-                          <p className="text-xs font-extrabold text-emerald-700">
-                            {order.farmer_payout_amount != null
-                              ? `Your payout at pickup: $${Number(order.farmer_payout_amount).toFixed(2)}`
-                              : `Total Paid: $${Number(order.total_price || 0).toFixed(2)}`}
-                          </p>
-                          {order.status === 'pending_pickup' &&
-                            order.ready_by &&
-                            (isSellerLate(order) ? (
-                              <p className="text-xs font-bold text-red-700">
-                                Overdue: this was due to be marked ready by {shortDate(order.ready_by)}. The buyer
-                                can now cancel for a full refund, and it is cancelled automatically on{' '}
-                                {shortDate(autoCancelAt(order)!)}.
-                              </p>
-                            ) : (
-                              <p className="text-xs font-semibold text-gray-700">
-                                Mark ready by {shortDate(order.ready_by)}
-                              </p>
-                            ))}
-                          {order.status === 'ready_for_pickup' && order.pickup_by && (
-                            <p className="text-xs font-semibold text-gray-700">
-                              {canReportNoShow(order)
-                                ? `The buyer's pickup time ended ${shortDate(order.pickup_by)}.`
-                                : `The buyer has until ${shortDate(order.pickup_by)} to pick up. You can report a no-show after that.`}
-                            </p>
-                          )}
-                          {sameCheckoutOrders(order).length > 0 && (
-                            <p className="text-xs text-gray-600">
-                              Same buyer also ordered:{' '}
-                              <span className="font-semibold">
-                                {sameCheckoutOrders(order)
-                                  .map((o) => o.listing_title)
-                                  .join(', ')}
-                              </span>
-                              . One pickup code covers what they collect in a visit.
-                            </p>
-                          )}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                              order.status === 'pending_pickup' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                            }`}
+                          >
+                            {order.status === 'pending_pickup' ? 'To Prepare' : 'Ready for Pickup'}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Order <span className="font-mono font-bold text-gray-700">{orderRef(order)}</span>
+                          </span>
                         </div>
 
-                        {/* Full-width stacked buttons on phones; a row on larger screens. */}
-                        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 w-full md:w-auto">
-                          {order.status === 'pending_pickup' && readyDraftOrderId !== order.id && (
-                            <button
-                              onClick={() => openReadyDraft(order)}
-                              className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-3 sm:py-2 rounded-xl transition-colors shadow-sm"
-                            >
-                              <PackageCheck className="w-4 h-4" /> Mark Ready for Pickup
-                            </button>
-                          )}
-                          {completeOrderId !== order.id && (
-                            <button
-                              onClick={() => openComplete(order)}
-                              className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-3 sm:py-2 rounded-xl transition-colors shadow-sm"
-                            >
-                              <Check className="w-4 h-4" /> Mark Completed
-                            </button>
-                          )}
-                          {order.stripe_payment_intent_id && adjustOrderId !== order.id && (
-                            <button
-                              onClick={() => openAdjust(order)}
-                              className="inline-flex items-center justify-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3.5 py-3 sm:py-2 rounded-xl transition-colors"
-                            >
-                              <X className="w-4 h-4" /> Cancel / Adjust
-                            </button>
-                          )}
-                          {order.status === 'ready_for_pickup' &&
-                            order.stripe_payment_intent_id &&
-                            canReportNoShow(order) &&
-                            !order.no_show_reported_at && (
+                        <h3 className="text-base font-bold text-gray-900">
+                          {order.reserved_quantity} {order.listing_unit_type} of {order.listing_title}
+                        </h3>
+
+                        <p className={`text-sm ${orderStatusLine(order).urgent ? 'font-bold text-red-700' : 'text-gray-700'}`}>
+                          {orderStatusLine(order).text}
+                        </p>
+
+                        <p className="text-xs font-extrabold text-emerald-700">
+                          {order.farmer_payout_amount != null
+                            ? `Your payout at pickup: $${Number(order.farmer_payout_amount).toFixed(2)}`
+                            : `Total Paid: $${Number(order.total_price || 0).toFixed(2)}`}
+                        </p>
+
+                        {sameCheckoutOrders(order).length > 0 && (
+                          <p className="text-xs text-gray-600">
+                            Same buyer also ordered:{' '}
+                            <span className="font-semibold">
+                              {sameCheckoutOrders(order)
+                                .map((o) => o.listing_title)
+                                .join(', ')}
+                            </span>
+                            .
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-2">
+                        {/* The one thing to do next for this order. */}
+                        {order.status === 'pending_pickup' && readyDraftOrderId !== order.id && (
+                          <button
+                            onClick={() => openReadyDraft(order)}
+                            className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-3 rounded-xl transition-colors shadow-sm"
+                          >
+                            <PackageCheck className="w-4 h-4" aria-hidden="true" /> Mark Ready for Pickup
+                          </button>
+                        )}
+                        {order.status === 'ready_for_pickup' && completeOrderId !== order.id && (
+                          <button
+                            onClick={() => openComplete(order)}
+                            className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-3 rounded-xl transition-colors shadow-sm"
+                          >
+                            <QrCode className="w-4 h-4" aria-hidden="true" /> Buyer Is Here: Scan Code
+                          </button>
+                        )}
+
+                        {/* Everything else, out of the way until it's needed. */}
+                        <details className="sm:ml-auto group">
+                          <summary className="cursor-pointer select-none text-xs font-semibold text-gray-600 hover:text-gray-900 px-2 py-3">
+                            More options
+                          </summary>
+                          <div className="mt-1 flex flex-col gap-2">
+                            {order.status === 'pending_pickup' && completeOrderId !== order.id && (
                               <button
-                                onClick={() => handleReportNoShow(order)}
-                                className="inline-flex items-center justify-center gap-1.5 bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 text-xs font-bold px-3.5 py-3 sm:py-2 rounded-xl transition-colors"
+                                onClick={() => openComplete(order)}
+                                className="inline-flex items-center justify-center gap-1.5 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-colors"
                               >
-                                <AlertCircle className="w-4 h-4" /> Buyer Did Not Show
+                                <QrCode className="w-4 h-4" aria-hidden="true" /> Buyer Is Already Here: Scan Code
                               </button>
                             )}
-                        </div>
+                            {order.stripe_payment_intent_id && adjustOrderId !== order.id && (
+                              <button
+                                onClick={() => openAdjust(order)}
+                                className="inline-flex items-center justify-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-colors"
+                              >
+                                <X className="w-4 h-4" aria-hidden="true" /> Cancel or Reduce This Order
+                              </button>
+                            )}
+                            {order.status === 'ready_for_pickup' &&
+                              order.stripe_payment_intent_id &&
+                              canReportNoShow(order) &&
+                              !order.no_show_reported_at && (
+                                <button
+                                  onClick={() => handleReportNoShow(order)}
+                                  className="inline-flex items-center justify-center gap-1.5 bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-colors"
+                                >
+                                  <AlertCircle className="w-4 h-4" aria-hidden="true" /> Buyer Did Not Show
+                                </button>
+                              )}
+                          </div>
+                        </details>
                       </div>
 
                       <OrderMessages
@@ -2325,6 +2297,102 @@ export default function SellerDashboardPage() {
           )}
 
           {activeTab === 'picklist' && <PickList orders={incomingOrders} listings={myListings} farmName={farmName} />}
+
+          {activeTab === 'help' && (
+            <div className="space-y-6">
+              <div className="pb-4 border-b border-gray-100">
+                <h1 className="text-2xl font-bold text-gray-900">Help</h1>
+                <p className="text-xs text-gray-500 mt-0.5">How orders and payouts work, in a few steps.</p>
+              </div>
+
+              <div className="space-y-6 text-sm text-gray-700 max-w-2xl">
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900 mb-2">When you get an order</h2>
+                  <ol className="list-decimal pl-5 space-y-1.5 text-xs text-gray-700">
+                    <li>
+                      We email you, and the order appears under <strong>Orders</strong>. The buyer has
+                      already paid online — we hold the money until pickup.
+                    </li>
+                    <li>
+                      When the produce is ready, click <strong>Mark Ready for Pickup</strong>, tick the days and
+                      times the buyer can come, and add any instructions. That is also when the buyer is sent your
+                      pickup address. Need to reach them? Use <strong>Message Buyer</strong> on the order.
+                    </li>
+                    <li>
+                      At pickup, hand over the produce and <strong>ask the buyer for their pickup code</strong>.
+                    </li>
+                    <li>
+                      Tap <strong>Buyer Is Here: Scan Code</strong> on the order, then scan the QR code on the buyer's
+                      phone or type their code. That releases your payment.
+                    </li>
+                  </ol>
+                </div>
+
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900 mb-2">How you get paid</h2>
+                  <ul className="list-disc pl-5 space-y-1.5 text-xs text-gray-700">
+                    <li>
+                      You're paid your produce price minus a {SELLER_FEE_RATE * 100}% seller fee. Each open
+                      order shows the exact amount as "Your payout at pickup".
+                    </li>
+                    <li>
+                      Entering the pickup code sends that amount to your Stripe account, and Stripe deposits
+                      it to your bank once a week, on Fridays.
+                    </li>
+                    <li>
+                      Short on produce? Use <strong>Cancel / Adjust</strong> on the order to reduce or cancel
+                      it. The buyer is refunded automatically.
+                    </li>
+                    <li>
+                      <strong>Mark each order ready within {SELLER_READY_DAYS} days</strong> of the order, or of
+                      your listing's harvest date if that's later. Each order shows its date. After it, the buyer
+                      can cancel for a full refund, and an order still not ready after {AUTO_CANCEL_DAYS} days is
+                      cancelled automatically.
+                    </li>
+                    <li>
+                      Once you mark an order ready, the buyer has {BUYER_PICKUP_DAYS} days to collect it, so
+                      offer pickup times on those days.
+                    </li>
+                    <li>
+                      Buyer never came? After those {BUYER_PICKUP_DAYS} days, use <strong>Buyer Did Not Show</strong>.
+                      We review it, and if it's confirmed you're paid a restocking fee and the produce goes
+                      back on your listing.
+                    </li>
+                    <li>
+                      Never collect cash at pickup — every order is already paid in full online.
+                    </li>
+                    <li>
+                      {PRODUCE_ONLY_NOTICE}
+                    </li>
+                    <li>
+                      You're responsible for making sure what you sell is legal in your state. Eggs, honey,
+                      jam and other prepared foods often have their own rules — see the{' '}
+                      <a href="/faq" className="font-semibold text-emerald-800 underline">
+                        FAQ
+                      </a>{' '}
+                      before listing them.
+                    </li>
+                    <li>
+                      Quantities are whole numbers: buyers can only order whole units (1 lb, 2 lbs, not 0.5
+                      lb). To sell smaller amounts, list in a smaller unit such as oz.
+                    </li>
+                  </ul>
+                </div>
+
+                <p className="text-xs text-gray-700">
+                  More answers are in the{' '}
+                  <a href="/faq" target="_blank" className="font-bold text-emerald-800 underline">
+                    FAQ
+                  </a>
+                  , or{' '}
+                  <a href="/contact" target="_blank" className="font-bold text-emerald-800 underline">
+                    contact us
+                  </a>
+                  .
+                </p>
+              </div>
+            </div>
+          )}
 
           {activeTab === 'history' && (
             <div className="space-y-6">
