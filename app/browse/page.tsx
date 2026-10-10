@@ -248,7 +248,7 @@ export default function BrowsePage() {
     if (farmerIds.length > 0) {
       const { data: sellersData, error: sellersError } = await supabase
         .from('seller_profiles')
-        .select('id, farm_name, avatar_url, location')
+        .select('id, farm_name, avatar_url, location, stripe_onboarding_complete')
         .in('id', farmerIds);
 
       if (sellersError) {
@@ -261,10 +261,14 @@ export default function BrowsePage() {
       }
     }
 
-    const merged = (listingsData || []).map((item) => ({
-      ...item,
-      seller_profiles: item.farmer_id ? sellerMap[item.farmer_id] || null : null,
-    }));
+    // A listing can't be bought until its farmer can be paid, so it stays
+    // hidden from buyers until their payout setup is finished.
+    const merged = (listingsData || [])
+      .filter((item) => sellerMap[item.farmer_id]?.stripe_onboarding_complete)
+      .map((item) => ({
+        ...item,
+        seller_profiles: sellerMap[item.farmer_id] || null,
+      }));
 
     setListings(orderFairly(merged));
     setLoading(false);
