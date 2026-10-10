@@ -2,19 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingBag, ShoppingCart, LayoutDashboard } from 'lucide-react';
+import { ShoppingBag, ShoppingCart, Receipt, LayoutDashboard } from 'lucide-react';
 import { useCart } from '@/lib/cart';
 
 const TABS = [
   { href: '/browse', label: 'Browse', icon: ShoppingBag, match: ['/browse', '/listings', '/sellers'] },
   { href: '/checkout', label: 'Cart', icon: ShoppingCart, match: ['/checkout'] },
+  { href: '/orders', label: 'My Orders', icon: Receipt, match: ['/orders'] },
   { href: '/dashboard', label: 'Sell', icon: LayoutDashboard, match: ['/dashboard', '/sell'] },
 ];
 
 // Phone-only tab bar fixed to the bottom of the screen, within thumb reach:
-// the three things a visitor does most. Everything else, My Orders included,
-// is in the menu button at the top. On larger screens the links in the top
-// header are used instead.
+// the things a visitor does most. Everything else is in the menu button at
+// the top. On larger screens the links in the top header are used instead.
 export default function BottomNav() {
   const pathname = usePathname();
   const { count } = useCart();
@@ -24,7 +24,7 @@ export default function BottomNav() {
       aria-label="Main"
       className="md:hidden print:hidden fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur-md border-t border-emerald-100 shadow-[0_-2px_8px_rgba(0,0,0,0.04)] pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="grid grid-cols-3">
+      <div className="grid grid-cols-4">
         {TABS.map(({ href, label, icon: Icon, match }) => {
           const active = match.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
