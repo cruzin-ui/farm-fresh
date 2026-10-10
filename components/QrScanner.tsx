@@ -17,6 +17,10 @@ export default function QrScanner({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
+  // The scan loop starts once, so it calls whatever `onResult` is current when
+  // a code is found rather than the one from when the camera opened.
+  const onResultRef = useRef(onResult);
+  onResultRef.current = onResult;
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -42,7 +46,7 @@ export default function QrScanner({
 
           if (found?.data) {
             stopped = true;
-            onResult(found.data);
+            onResultRef.current(found.data);
             return;
           }
         }
