@@ -10,6 +10,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
 import PickList from '@/components/PickList';
+import SellerTour, { type TourStep } from '@/components/SellerTour';
 import {
   LISTING_TAG_OPTIONS,
   MAX_LISTING_TAGS,
@@ -105,12 +106,77 @@ const UNIT_TYPE_OPTIONS = [
 ];
 
 
+// The guided tour a new seller is shown. Each step opens a section and points
+// at where it is: the entry in the side menu on a computer, or the section
+// button on a phone, where the menu is folded away.
+const TOUR_KEY = 'ffd-seller-tour-seen';
+const TOUR_STEPS: (TourStep & { tab: DashboardTab })[] = [
+  {
+    tab: 'listings',
+    title: 'Welcome to your seller dashboard',
+    body: "This quick tour shows you where everything is. It takes about a minute, and you can run it again any time from Help.",
+  },
+  {
+    tab: 'listings',
+    targets: ['menu', 'menu-button'],
+    title: 'Everything is in this menu',
+    body: 'Your listings, orders, profile and payouts each have their own section. On a phone, tap this button to switch between them.',
+  },
+  {
+    tab: 'profile',
+    targets: ['nav-profile', 'menu-button'],
+    title: 'Start with your Farm Profile',
+    body: "Add your farm's name, a photo, and the days and times you're usually around for pickups. Buyers see all of this before they order.",
+  },
+  {
+    tab: 'settings',
+    targets: ['nav-settings', 'menu-button'],
+    title: 'Connect your payouts',
+    body: 'Add your bank details through Stripe so you can be paid. Your listings stay hidden from buyers until this is done. Later, this is also where you see how your sales are going.',
+  },
+  {
+    tab: 'listings',
+    targets: ['post', 'nav-listings', 'menu-button'],
+    title: 'Post what you have to sell',
+    body: 'Tap Post New Harvest and fill in the crop, variety, price, quantity and pickup address. Posting is free; we only take a fee when something sells.',
+  },
+  {
+    tab: 'orders',
+    targets: ['nav-orders', 'menu-button'],
+    title: 'Orders arrive here',
+    body: "We email you when someone buys, and the order shows up here already paid. Tap Mark Ready for Pickup once it's picked and packed. When the buyer arrives, tap Buyer Is Here and scan their code: that is what pays you.",
+  },
+  {
+    tab: 'picklist',
+    targets: ['nav-picklist', 'menu-button'],
+    title: 'Your Pick List',
+    body: 'One list of everything to harvest and bag for your open orders. Print it or keep it open on your phone while you pick.',
+  },
+  {
+    tab: 'help',
+    targets: ['nav-help', 'menu-button'],
+    title: 'Help is always here',
+    body: "Step-by-step answers for things like running short on a crop or a buyer not showing up, plus this tour whenever you want it again. That's everything. You're ready to post your first harvest.",
+  },
+];
+
 export default function SellerDashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<DashboardTab>('listings');
   // The first time orders load, a seller with open orders is taken straight
   // to them, since that is what they came for.
   const openedOnOrders = useRef(false);
+  // The guided tour. It starts by itself the first time a seller with nothing
+  // listed yet opens the dashboard on this device, and can be run again from
+  // the Getting set up box and from Help.
+  const [tourOpen, setTourOpen] = useState(false);
+  const closeTour = () => {
+    setTourOpen(false);
+    setActiveTab('listings');
+    try {
+      localStorage.setItem(TOUR_KEY, '1');
+    } catch {}
+  };
   // On phones the section menu is a drop-down; this is whether it is open.
   const [navOpen, setNavOpen] = useState(false);
   useEffect(() => {
@@ -123,6 +189,21 @@ export default function SellerDashboardPage() {
 
   const [user, setUser] = useState<any>(null);
   const [myListings, setMyListings] = useState<any[]>([]);
+
+  // Start the tour for a seller who is new here: signed in, nothing listed
+  // yet, and not shown it before on this device. The short wait lets their
+  // listings finish loading first, so an existing seller isn't shown it.
+  useEffect(() => {
+    if (!user) return;
+    const timer = setTimeout(() => {
+      let seen = true;
+      try {
+        seen = Boolean(localStorage.getItem(TOUR_KEY));
+      } catch {}
+      if (!seen && myListings.length === 0) setTourOpen(true);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [user, myListings.length]);
   const [incomingOrders, setIncomingOrders] = useState<any[]>([]);
   const [salesHistory, setSalesHistory] = useState<any[]>([]);
 
@@ -1171,6 +1252,13 @@ export default function SellerDashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto md:px-4 py-2 md:py-8">
+      {tourOpen && (
+        <SellerTour
+          steps={TOUR_STEPS}
+          onStepChange={(index) => setActiveTab(TOUR_STEPS[index].tab)}
+          onClose={closeTour}
+        />
+      )}
       <div className="flex flex-col md:flex-row gap-4 md:gap-8">
         <aside className="w-full md:w-64 bg-white p-3 md:p-5 rounded-2xl border border-gray-200 shadow-sm shrink-0 self-start">
           <div className="flex items-center gap-3 pb-3 mb-3 md:pb-6 md:mb-6 border-b border-gray-100">
@@ -1200,6 +1288,7 @@ export default function SellerDashboardPage() {
             onClick={() => setNavOpen((current) => !current)}
             aria-expanded={navOpen}
             aria-controls="dash-sections"
+            data-tour="menu-button"
             className="md:hidden w-full flex items-center justify-between gap-2 px-3.5 py-3 rounded-xl border border-gray-300 bg-white text-sm font-bold text-gray-900"
           >
             <span className="flex items-center gap-2">
@@ -1230,8 +1319,9 @@ export default function SellerDashboardPage() {
             </span>
           </button>
 
-          <nav id="dash-sections" onClick={() => setNavOpen(false)} className={`${navOpen ? 'block mt-2' : 'hidden'} space-y-1 md:block md:mt-0`}>
+          <nav id="dash-sections" data-tour="menu" onClick={() => setNavOpen(false)} className={`${navOpen ? 'block mt-2' : 'hidden'} space-y-1 md:block md:mt-0`}>
             <button
+              data-tour="nav-listings"
               onClick={() => {
                 setActiveTab('listings');
                 setSuccessMsg(null);
@@ -1252,6 +1342,7 @@ export default function SellerDashboardPage() {
             </button>
 
             <button
+              data-tour="nav-orders"
               onClick={() => {
                 setActiveTab('orders');
                 setSuccessMsg(null);
@@ -1274,6 +1365,7 @@ export default function SellerDashboardPage() {
             </button>
 
             <button
+              data-tour="nav-picklist"
               onClick={() => {
                 setActiveTab('picklist');
                 setSuccessMsg(null);
@@ -1311,6 +1403,7 @@ export default function SellerDashboardPage() {
             </button>
 
             <button
+              data-tour="nav-profile"
               onClick={() => {
                 setActiveTab('profile');
                 setSuccessMsg(null);
@@ -1326,6 +1419,7 @@ export default function SellerDashboardPage() {
             </button>
 
             <button
+              data-tour="nav-settings"
               onClick={() => {
                 setActiveTab('settings');
                 setSuccessMsg(null);
@@ -1341,6 +1435,7 @@ export default function SellerDashboardPage() {
             </button>
 
             <button
+              data-tour="nav-help"
               onClick={() => {
                 setActiveTab('help');
                 setSuccessMsg(null);
@@ -1393,6 +1488,13 @@ export default function SellerDashboardPage() {
 
               <div className="px-5 pb-5 space-y-5 text-sm text-gray-700">
                 <div>
+                  <button
+                    type="button"
+                    onClick={() => setTourOpen(true)}
+                    className="mb-3 inline-flex items-center gap-2 bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-100 text-xs font-bold px-3.5 py-2.5 rounded-xl"
+                  >
+                    <HelpCircle className="w-4 h-4" aria-hidden="true" /> Take the 1-minute tour
+                  </button>
                   <h2 className="text-sm font-bold text-gray-900 mb-2">Getting set up</h2>
                   <ol className="space-y-2">
                     {[
@@ -1469,6 +1571,7 @@ export default function SellerDashboardPage() {
                 </div>
                 {activeTab === 'listings' && (
                   <button
+                    data-tour="post"
                     onClick={startNewListing}
                     className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-xl text-xs transition-colors shadow-sm"
                   >
@@ -2653,6 +2756,13 @@ export default function SellerDashboardPage() {
               <div className="pb-4 border-b border-gray-100">
                 <h1 className="text-2xl font-bold text-gray-900">Help</h1>
                 <p className="text-xs text-gray-500 mt-0.5">How orders and payouts work, in a few steps.</p>
+                <button
+                  type="button"
+                  onClick={() => setTourOpen(true)}
+                  className="mt-3 inline-flex items-center gap-2 bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-50 text-xs font-bold px-3.5 py-2.5 rounded-xl"
+                >
+                  <HelpCircle className="w-4 h-4" aria-hidden="true" /> Take the 1-minute tour of your dashboard
+                </button>
               </div>
 
               <div className="space-y-6 text-sm text-gray-700 max-w-2xl">
