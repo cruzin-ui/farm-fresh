@@ -58,6 +58,12 @@ export default function PrivacyPolicyPage() {
               <strong>Technical information.</strong> Standard information your browser sends when it loads a
               page, such as your IP address and browser type, which our hosting provider logs.
             </li>
+            <li>
+              <strong>Page visits.</strong> We count visits to the pages of the site, and how many people who
+              reach checkout go on to pay, so we can see what is working. This is done without cookies and
+              without building a profile of you: the counts are totals and are not tied to your name, email
+              address or account.
+            </li>
           </ul>
         </section>
 

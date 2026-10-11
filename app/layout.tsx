@@ -5,6 +5,7 @@ import AccountMenu from "@/components/AccountMenu";
 import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
+import { Analytics } from "@vercel/analytics/next";
 import { Sprout, ShoppingBag } from "lucide-react";
 
 // Body text: a clean, friendly sans-serif. Headings: a soft serif with a
@@ -122,6 +123,11 @@ export default function RootLayout({
         </footer>
 
         <BottomNav />
+
+        {/* Counts page visits, without cookies, so we can see which pages are
+            used. It does nothing until Web Analytics is switched on for the
+            project in Vercel. */}
+        <Analytics />
       </body>
     </html>
   );

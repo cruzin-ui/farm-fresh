@@ -7,6 +7,7 @@ import { TaxError } from '@/lib/tax';
 import { alertAdmin } from '@/lib/alerts';
 import { verifyCaptcha, allowCheckoutAttempt, requestIp } from '@/lib/checkoutGuard';
 import { isBuyerBlocked } from '@/lib/accountBlocks';
+import { bumpDailyCount } from '@/lib/dailyCounts';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,6 +102,9 @@ export async function POST(request: Request) {
       cart.lines.length === 1
         ? `Farm Fresh Direct — ${cart.lines[0].quantity} x ${cart.lines[0].title}`
         : `Farm Fresh Direct — ${cart.lines.length} items`;
+
+    // The shopper has pressed Pay: counted for the admin page's checkout figures.
+    await bumpDailyCount('payment_started');
 
     const paymentIntent = await stripeAdmin.paymentIntents.create({
       amount: cart.totalCents,
