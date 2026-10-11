@@ -108,6 +108,32 @@ export async function POST(request: Request) {
         );
       }
 
+      // A pickup code is what pays the farmer, and is only ever meant to be
+      // shown in person. A message asking for it, or sending it, is how a
+      // buyer would be talked out of their money, so it isn't delivered.
+      const { data: threadCodes } = await supabaseAdmin
+        .from('order_pickup_codes')
+        .select('code')
+        .in('order_id', threadOrderIds);
+      const digitsInMessage = text.replace(/\D/g, '');
+      const containsCode =
+        /FFD[\s-]*\d{6}/i.test(text) ||
+        (threadCodes || []).some((row) => {
+          const digits = String(row.code || '').replace(/\D/g, '');
+          return digits.length >= 6 && digitsInMessage.includes(digits);
+        });
+      if (containsCode) {
+        return NextResponse.json(
+          {
+            error:
+              role === 'buyer'
+                ? "For your protection, pickup codes can't be sent in messages. Only show or read out your code in person, when the produce is in your hands. If anyone asks you to send it, please tell us through Contact Us."
+                : "Pickup codes can't be sent in messages. The buyer shows you their code in person at pickup.",
+          },
+          { status: 400 }
+        );
+      }
+
       const { error: insertError } = await supabaseAdmin
         .from('order_messages')
         .insert([{ order_id: order.id, sender: role, body: text }]);

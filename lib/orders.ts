@@ -8,6 +8,7 @@ import { alertAdmin } from '@/lib/alerts';
 import { recordCartTax } from '@/lib/tax';
 import { readyDeadline, formatDeadline, SELLER_READY_DAYS, BUYER_PICKUP_DAYS } from '@/lib/pickupRules';
 import { orderRef } from '@/lib/pickupGroups';
+import { watchNewSellerOrder } from '@/lib/fraudWatch';
 
 // One item of a checkout, as saved on the payment by /api/checkout.
 type CheckoutLine = {
@@ -447,6 +448,18 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     } else if (sellerUser?.user?.email) {
       await sendSellerNotification({ sellerEmail: sellerUser.user.email, items: farm.items, buyerEmail, orderNumber });
     }
+
+    // Tells an admin when a seller who has only just joined gets a large
+    // order or a burst of them.
+    await watchNewSellerOrder({
+      farmerId: farm.farmerId,
+      farmName: farm.farmName,
+      sellerCreatedAt: sellerUser?.user?.created_at,
+      subtotalCents: farm.items.reduce((sum, item) => sum + item.subtotalCents, 0),
+      orderNumber,
+      buyerEmail,
+      siteUrl,
+    });
   }
 
   return result;

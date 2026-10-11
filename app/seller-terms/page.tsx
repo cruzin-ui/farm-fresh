@@ -104,7 +104,9 @@ export default function SellerTermsPage() {
             report an order as not collected only after that time has passed. If you cannot fulfill an order in
             full, reduce or cancel it through your Seller Dashboard so
             the buyer is refunded. When you cancel or reduce any part of a buyer&apos;s order, the buyer may
-            cancel the rest of that order for a full refund, and you are not paid a restocking fee for it. If a buyer does not collect an order, we may close it and pay you a restocking
+            cancel the rest of that order for a full refund, and you are not paid a restocking fee for it. If
+            several of your orders in a short period are cancelled by you or not made ready, we may pause your
+            listings automatically until we have been in touch with you. If a buyer does not collect an order, we may close it and pay you a restocking
             fee. A buyer may cancel an order before pickup: if they cancel within {FREE_CANCELLATION_HOURS} hours of ordering you are
             not paid for it, and if they cancel later you are paid a restocking fee.
           </p>

@@ -251,6 +251,9 @@ export default function AdminPage() {
   const [searching, setSearching] = useState(false);
   // Buyer-farmer conversations opened on order cards.
   const [threads, setThreads] = useState<Record<string, ThreadMessage[] | 'loading'>>({});
+  // The written record of an order, for answering a payment dispute.
+  const [evidence, setEvidence] = useState<Record<string, string>>({});
+  const [evidenceCopied, setEvidenceCopied] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<AccountBlock[]>([]);
   const [activity, setActivity] = useState<AdminAction[]>([]);
   const [busyAccount, setBusyAccount] = useState<string | null>(null);
@@ -459,6 +462,32 @@ export default function AdminPage() {
         return next;
       });
       setErrorMsg(err.message || 'Could not load the messages.');
+    }
+  };
+
+  // Shows or hides everything on record about an order, as text to paste into
+  // a reply to a payment dispute.
+  const toggleEvidence = async (order: AdminOrder) => {
+    if (evidence[order.id] !== undefined) {
+      setEvidence((current) => {
+        const next = { ...current };
+        delete next[order.id];
+        return next;
+      });
+      return;
+    }
+
+    setBusyOrderId(order.id);
+    setErrorMsg(null);
+    try {
+      const res = await postWithAuth('/api/admin/orders/evidence', { orderId: order.id });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not put the record together.');
+      setEvidence((current) => ({ ...current, [order.id]: data.text }));
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Could not put the record together.');
+    } finally {
+      setBusyOrderId(null);
     }
   };
 
@@ -1683,6 +1712,35 @@ export default function AdminPage() {
                               <p className="whitespace-pre-wrap break-words">{order.buyer_problem_note}</p>
                             </div>
                           )}
+                          {evidence[order.id] !== undefined && (
+                            <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <p className="font-bold text-gray-900">Order record, for a payment dispute</p>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(evidence[order.id]);
+                                      setEvidenceCopied(order.id);
+                                      setTimeout(() => setEvidenceCopied(null), 2500);
+                                    } catch {
+                                      setErrorMsg('Could not copy it. Select the text and copy it by hand.');
+                                    }
+                                  }}
+                                  className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                                >
+                                  {evidenceCopied === order.id ? 'Copied' : 'Copy'}
+                                </button>
+                              </div>
+                              <p>
+                                Paste this into your reply to the dispute in Stripe. Read it through first: it states
+                                only what the site recorded, and you may want to add what the farmer tells you.
+                              </p>
+                              <pre className="whitespace-pre-wrap break-words font-mono text-[11px] text-gray-800 bg-white border border-gray-200 rounded-lg p-3 max-h-96 overflow-y-auto">
+                                {evidence[order.id]}
+                              </pre>
+                            </div>
+                          )}
                           {threads[order.id] && (
                             <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
                               <p className="font-bold text-gray-900">Messages between the buyer and the farmer</p>
@@ -1824,6 +1882,17 @@ export default function AdminPage() {
                               Partial Refund
                             </button>
                           )}
+                          <button
+                            disabled={busy}
+                            onClick={() => toggleEvidence(order)}
+                            className={
+                              order.dispute_open
+                                ? 'bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors'
+                                : 'bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors'
+                            }
+                          >
+                            {evidence[order.id] !== undefined ? 'Hide Order Record' : 'Order Record for a Dispute'}
+                          </button>
                           <button disabled={busy} onClick={() => toggleThread(order)} className="bg-white border text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-xs font-bold px-3.5 py-2 rounded-xl transition-colors">
                             {threads[order.id] ? 'Hide Messages' : 'View Messages'}
                           </button>
