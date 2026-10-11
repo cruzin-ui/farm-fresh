@@ -114,8 +114,11 @@ export async function POST(request: Request) {
       }
 
       if (o.status === 'cancelled') {
-        if (o.cancelled_by_buyer_at && o.cancel_reason !== 'seller_late') row.buyer_cancelled += 1;
-        else if (o.cancel_reason === 'seller') row.seller_cancelled += 1;
+        // A buyer cancelling the rest of an order the seller changed is the
+        // seller's doing, like a late order, and isn't counted against the buyer.
+        if (o.cancelled_by_buyer_at && !['seller_late', 'seller_changed'].includes(o.cancel_reason || '')) {
+          row.buyer_cancelled += 1;
+        } else if (o.cancel_reason === 'seller' || o.cancel_reason === 'seller_changed') row.seller_cancelled += 1;
         else if (o.cancel_reason === 'never_ready' || o.cancel_reason === 'seller_late') row.not_ready_in_time += 1;
         // Orders closed as no-shows before reasons were recorded are
         // recognised by their restocking fee.

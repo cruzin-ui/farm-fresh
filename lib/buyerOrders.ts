@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient';
 import type { BuyerOrder } from '@/lib/pickupGroups';
+import { sellerChangedOrderIds } from '@/lib/sellerChanges';
 
 // Fills in what a signed-in buyer's order rows need for display: the listing
 // and farm names, the pickup codes (stored separately so only the buyer can
@@ -28,10 +29,13 @@ export async function describeBuyerOrders(rows: any[]): Promise<BuyerOrder[]> {
   const { data: reviews } = await supabase.from('seller_reviews').select('order_id').in('order_id', orderIds);
   const reviewedOrderIds = new Set((reviews || []).map((r) => r.order_id));
 
+  const sellerChanged = sellerChangedOrderIds(rows, (o) => listingById.get(o.listing_id)?.farmer_id);
+
   return rows.map((o) => {
     const listing = listingById.get(o.listing_id);
     return {
       id: o.id,
+      seller_changed: sellerChanged.has(o.id),
       checkout_id: o.checkout_id || null,
       status: o.status,
       created_at: o.created_at,

@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'crypto';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { alertAdmin } from '@/lib/alerts';
+import { sellerChangedOrderIds } from '@/lib/sellerChanges';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +79,8 @@ export async function POST(request: Request) {
     const { data: reviewRows } = await supabaseAdmin.from('seller_reviews').select('order_id').in('order_id', orderIds);
     const reviewedOrderIds = new Set((reviewRows || []).map((r) => r.order_id));
 
+    const sellerChanged = sellerChangedOrderIds(checkoutOrders, (o) => listingById.get(o.listing_id)?.farmer_id);
+
     const orders = checkoutOrders
       // Belt and braces: only items carrying this same token.
       .filter((o) => o.id === order.id || codeRowByOrderId.get(o.id)?.guest_access_token === expectedToken)
@@ -85,6 +88,7 @@ export async function POST(request: Request) {
         const listing = listingById.get(o.listing_id);
         return {
           id: o.id,
+          seller_changed: sellerChanged.has(o.id),
           checkout_id: o.checkout_id || null,
           status: o.status,
           created_at: o.created_at,

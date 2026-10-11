@@ -44,6 +44,9 @@ function CancelItem({ item, token, label }: { item: BuyerOrder; token?: string |
 
   // The farmer missed their deadline, so this cancellation costs the buyer nothing.
   const sellerLate = isSellerLate(item);
+  // The farm cancelled or reduced part of the order, so the rest can be
+  // cancelled in full too.
+  const sellerChanged = !sellerLate && Boolean(item.seller_changed) && !item.no_show_reported;
   const late = !isWithinFreeCancellation(item.created_at) || item.no_show_reported;
   const split = calculateCancellationSplit({
     subtotalCents: Math.round(item.subtotal_amount * 100),
@@ -96,6 +99,11 @@ function CancelItem({ item, token, label }: { item: BuyerOrder; token?: string |
         <p>
           The farmer didn't have this ready in time, so you'll be refunded in full:{' '}
           <strong>${item.total_price.toFixed(2)}</strong>, including the service fee.
+        </p>
+      ) : sellerChanged ? (
+        <p>
+          The farmer changed your order, so you can cancel this for a full refund:{' '}
+          <strong>${item.total_price.toFixed(2)}</strong>, including the service fee, with no restocking fee.
         </p>
       ) : (
       <ul className="list-disc pl-5 space-y-1">

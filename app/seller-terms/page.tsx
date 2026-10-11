@@ -103,7 +103,8 @@ export default function SellerTermsPage() {
             {BUYER_PICKUP_DAYS} days to collect it, and you must offer pickup times within those days. You may
             report an order as not collected only after that time has passed. If you cannot fulfill an order in
             full, reduce or cancel it through your Seller Dashboard so
-            the buyer is refunded. If a buyer does not collect an order, we may close it and pay you a restocking
+            the buyer is refunded. When you cancel or reduce any part of a buyer&apos;s order, the buyer may
+            cancel the rest of that order for a full refund, and you are not paid a restocking fee for it. If a buyer does not collect an order, we may close it and pay you a restocking
             fee. A buyer may cancel an order before pickup: if they cancel within {FREE_CANCELLATION_HOURS} hours of ordering you are
             not paid for it, and if they cancel later you are paid a restocking fee.
           </p>

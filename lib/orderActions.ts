@@ -10,6 +10,7 @@ import {
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { alertAdmin, notifyAdmins } from '@/lib/alerts';
 import { reverseOrderTax } from '@/lib/tax';
+import { FARMER_CANCEL_REASONS } from '@/lib/sellerChanges';
 
 // An order completed this soon after it was paid for is unusual for produce
 // that has to be picked and collected in person, and is how someone would
@@ -81,8 +82,11 @@ async function sendBuyerAdjustmentEmail(params: {
   newQuantity: number;
   refundAmount: number;
   note: string;
+  // True when the change was the farm's doing, which lets the buyer cancel
+  // whatever is left of the order in full.
+  canCancelRest?: boolean;
 }) {
-  const { buyerEmail, listingTitle, unitType, oldQuantity, newQuantity, refundAmount, note } = params;
+  const { buyerEmail, listingTitle, unitType, oldQuantity, newQuantity, refundAmount, note, canCancelRest } = params;
 
   const cancelled = newQuantity === 0;
   const title = escapeHtml(listingTitle);
@@ -107,6 +111,15 @@ async function sendBuyerAdjustmentEmail(params: {
           A refund of <strong>$${refundAmount.toFixed(2)}</strong> has been issued to your original
           payment method. It usually takes 5–10 business days to appear.
         </p>
+        ${
+          canCancelRest
+            ? `<p>${
+                cancelled
+                  ? 'If you ordered other items from this farm at the same time and no longer want them, you can cancel those too'
+                  : 'If the smaller amount no longer works for you, you can cancel the rest'
+              } from your order page (More options, then Cancel) for a full refund, including the service fee, at any time before pickup.</p>`
+            : ''
+        }
       </div>
     `,
   });
@@ -596,6 +609,9 @@ export async function refundOrderQuantity(params: {
       newQuantity,
       refundAmount,
       note,
+      // A reduction is always the farm's doing; a cancellation is when its
+      // reason says so. Not when the buyer is the one cancelling the rest.
+      canCancelRest: !cancelled || (reason !== 'seller_changed' && FARMER_CANCEL_REASONS.includes(reason || '')),
     });
   }
 

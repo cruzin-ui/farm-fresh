@@ -8,6 +8,7 @@ import { isSellerLate } from '@/lib/pickupRules';
 import { isWithinFreeCancellation, RESTOCKING_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { alertAdmin } from '@/lib/alerts';
+import { sellerChangedOrderIds } from '@/lib/sellerChanges';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,9 @@ function tokensMatch(a: string, b: string) {
 // farmer has reported the order as not collected — the farmer keeps a
 // restocking fee, the same as for a no-show. The exception is an order the
 // farmer failed to mark ready in time: that one is the farmer's doing, so the
-// buyer gets everything back, service fee included. Signed-in buyers are
+// buyer gets everything back, service fee included. The same goes for an order
+// the farmer has cancelled or reduced part of: what is left isn't what the
+// buyer ordered, so they can cancel the rest in full. Signed-in buyers are
 // matched by account; guests by the secret token in their order link.
 export async function POST(request: Request) {
   try {
@@ -67,19 +70,37 @@ export async function POST(request: Request) {
     }
 
     const sellerLate = isSellerLate(order);
+
+    // Has this farm cancelled or reduced anything in the order this is part of?
+    let sellerChanged = false;
+    if (!sellerLate && !order.no_show_reported_at) {
+      let orderRows: any[] = [order];
+      if (order.checkout_id) {
+        const { data: siblings } = await supabaseAdmin.from('orders').select('*').eq('checkout_id', order.checkout_id);
+        if (siblings?.length) orderRows = siblings;
+      }
+      const { data: rowListings } = await supabaseAdmin
+        .from('produce_listings')
+        .select('id, farmer_id')
+        .in('id', [...new Set(orderRows.map((o) => o.listing_id))]);
+      const farmerByListing = new Map((rowListings || []).map((l) => [l.id, l.farmer_id]));
+      sellerChanged = sellerChangedOrderIds(orderRows, (o) => farmerByListing.get(o.listing_id)).has(order.id);
+    }
     const quantity = Number(order.reserved_quantity ?? order.quantity ?? 0);
 
     let refundAmount: number;
     let restockingFee = 0;
 
-    if (sellerLate) {
+    if (sellerLate || sellerChanged) {
       ({ refundAmount } = await refundOrderQuantity({
         order,
         listing,
         newQuantity: 0,
         restock: true,
-        reason: 'seller_late',
-        note: "You cancelled this order because the farmer didn't have it ready in time, so it has been refunded in full, including the service fee.",
+        reason: sellerLate ? 'seller_late' : 'seller_changed',
+        note: sellerLate
+          ? "You cancelled this order because the farmer didn't have it ready in time, so it has been refunded in full, including the service fee."
+          : 'You cancelled this after the farmer changed your order, so it has been refunded in full, including the service fee.',
       }));
       await supabaseAdmin.from('orders').update({ cancelled_by_buyer_at: new Date().toISOString() }).eq('id', order.id);
     } else {
@@ -112,7 +133,9 @@ export async function POST(request: Request) {
               ${
                 sellerLate
                   ? "The buyer was able to cancel for a full refund because the order wasn't marked ready by its deadline."
-                  : restockingFee > 0
+                  : sellerChanged
+                    ? 'The buyer was able to cancel for a full refund, with no restocking fee, because part of their order from you had been cancelled or reduced.'
+                    : restockingFee > 0
                     ? `Because it was cancelled late, you've been paid a restocking fee of <strong>$${restockingFee.toFixed(2)}</strong>.`
                     : `It was cancelled within ${FREE_CANCELLATION_HOURS} hours of being placed, so there is no restocking fee.`
               }
