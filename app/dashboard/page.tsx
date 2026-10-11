@@ -10,6 +10,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
 import PickList from '@/components/PickList';
+import { buildSalesCsv, downloadCsv, salesYears, sellerEarnings } from '@/lib/salesCsv';
 import SellerTour, { type TourStep } from '@/components/SellerTour';
 import {
   LISTING_TAG_OPTIONS,
@@ -73,6 +74,7 @@ import {
   User,
   ShoppingBag,
   History,
+  Download,
   CreditCard,
   Check,
   PackageCheck,
@@ -166,6 +168,10 @@ export default function SellerDashboardPage() {
   // The first time orders load, a seller with open orders is taken straight
   // to them, since that is what they came for.
   const openedOnOrders = useRef(false);
+  // Which year of Sales History is shown and downloaded.
+  const [historyYear, setHistoryYear] = useState<number | 'all'>('all');
+  // Shown briefly after the seller copies the link to their farm page.
+  const [storefrontCopied, setStorefrontCopied] = useState(false);
   // The guided tour. It starts by itself the first time a seller with nothing
   // listed yet opens the dashboard on this device, and can be run again from
   // the Getting set up box and from Help.
@@ -1280,6 +1286,37 @@ export default function SellerDashboardPage() {
               <p className="text-xs text-gray-400 truncate">{user?.email}</p>
             </div>
           </div>
+
+          {/* The farm's public page is its storefront: a way to open it and a
+              link to share. */}
+          {user?.id && (
+            <div className="flex items-center gap-2 flex-wrap pb-3 mb-3 border-b border-gray-100 text-xs">
+              <a
+                href={`/sellers/${user.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-emerald-800 underline underline-offset-2"
+              >
+                View my farm page
+              </a>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(`${window.location.origin}/sellers/${user.id}`);
+                    setStorefrontCopied(true);
+                    setTimeout(() => setStorefrontCopied(false), 2500);
+                  } catch {
+                    // Copying isn't allowed in this browser: open the page so the address can be copied from it.
+                    window.open(`/sellers/${user.id}`, '_blank');
+                  }
+                }}
+                className="font-semibold text-gray-700 border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-50"
+              >
+                {storefrontCopied ? 'Link copied' : 'Copy link to share'}
+              </button>
+            </div>
+          )}
 
           {/* On phones, a drop-down showing the current section; on desktop the
               menu below is always open. */}
@@ -2994,9 +3031,74 @@ export default function SellerDashboardPage() {
               <div className="pb-4 border-b border-gray-100">
                 <h1 className="text-2xl font-bold text-gray-900">Sales & Order History</h1>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  View past fulfilled reservations and completed harvest sales.
+                  Every order that has been picked up or cancelled, kept as your record.
                 </p>
               </div>
+
+              {salesHistory.length > 0 &&
+                (() => {
+                  const report = buildSalesCsv(salesHistory, historyYear);
+                  return (
+                    <div className="p-4 border border-gray-200 rounded-xl space-y-3">
+                      <div className="flex items-end gap-3 flex-wrap">
+                        <div>
+                          <label htmlFor="dash-history-year" className="block text-xs font-semibold text-gray-700 mb-1">
+                            Show
+                          </label>
+                          <select
+                            id="dash-history-year"
+                            value={String(historyYear)}
+                            onChange={(e) => setHistoryYear(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                            className="px-3 py-2 border rounded-lg text-sm bg-white"
+                          >
+                            <option value="all">All years</option>
+                            {salesYears(salesHistory).map((year) => (
+                              <option key={year} value={year}>
+                                {year}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={report.count === 0}
+                          onClick={() =>
+                            downloadCsv(
+                              `farm-fresh-direct-sales-${historyYear === 'all' ? 'all-years' : historyYear}.csv`,
+                              report.csv
+                            )
+                          }
+                          className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-bold px-4 py-2.5 rounded-xl"
+                        >
+                          <Download className="w-4 h-4" aria-hidden="true" /> Download as a Spreadsheet
+                        </button>
+                      </div>
+                      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-500">
+                        <div>
+                          <dt>Produce sold</dt>
+                          <dd className="text-base font-bold text-gray-900">${report.totals.sales.toFixed(2)}</dd>
+                        </div>
+                        <div>
+                          <dt>Farm Fresh Direct fees</dt>
+                          <dd className="text-base font-bold text-gray-900">${report.totals.fee.toFixed(2)}</dd>
+                        </div>
+                        <div>
+                          <dt>Restocking fees to you</dt>
+                          <dd className="text-base font-bold text-gray-900">${report.totals.restocking.toFixed(2)}</dd>
+                        </div>
+                        <div>
+                          <dt>Paid to you</dt>
+                          <dd className="text-base font-bold text-emerald-800">${report.totals.paid.toFixed(2)}</dd>
+                        </div>
+                      </dl>
+                      <p className="text-xs text-gray-500">
+                        The file has one row per order, with the date, item, quantity, what it sold for, our fee and
+                        what you were paid, and a total at the bottom. It opens in Excel or Google Sheets. An order
+                        counts in the year it was picked up.
+                      </p>
+                    </div>
+                  );
+                })()}
 
               {salesHistory.length === 0 ? (
                 <div className="text-center py-16 bg-gray-50 rounded-xl border border-dashed border-gray-200">
@@ -3008,14 +3110,23 @@ export default function SellerDashboardPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {salesHistory.map((order) => (
+                  {salesHistory
+                    .filter(
+                      (order) =>
+                        historyYear === 'all' ||
+                        new Date(order.completed_at || order.created_at).getFullYear() === historyYear
+                    )
+                    .map((order) => (
                     <div
                       key={order.id}
-                      className="p-4 border rounded-xl border-gray-200 bg-gray-50/50 flex justify-between items-center"
+                      className="p-4 border rounded-xl border-gray-200 bg-gray-50/50 flex justify-between items-center gap-3"
                     >
                       <div>
                         <h4 className="text-sm font-bold text-gray-800">
                           {order.listing_title}
+                          <span className="ml-2 text-xs font-normal text-gray-500">
+                            Order <span className="font-mono font-bold">{orderRef(order)}</span>
+                          </span>
                         </h4>
                         <p className="text-xs text-gray-600 break-all">
                           Buyer: <span className="font-semibold">{order.buyer_email || 'Unknown'}</span>
@@ -3037,12 +3148,16 @@ export default function SellerDashboardPage() {
                             ` · buyer no-show, $${Number(order.no_show_fee_amount).toFixed(2)} restocking fee paid to you`}
                         </p>
                       </div>
-                      <span
-                        className={`text-sm font-black ${
-                          order.status === 'cancelled' ? 'text-gray-400' : 'text-emerald-800'
-                        }`}
-                      >
-                        ${Number(order.total_price || 0).toFixed(2)}
+                      {/* What this order paid the seller, which is what they need for their records. */}
+                      <span className="shrink-0 text-right">
+                        <span className="block text-[10px] font-semibold text-gray-500">Paid to you</span>
+                        <span
+                          className={`text-sm font-black ${
+                            sellerEarnings(order).paid > 0 ? 'text-emerald-800' : 'text-gray-400'
+                          }`}
+                        >
+                          ${sellerEarnings(order).paid.toFixed(2)}
+                        </span>
                       </span>
                     </div>
                   ))}
