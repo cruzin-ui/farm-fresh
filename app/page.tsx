@@ -23,48 +23,42 @@ const HOW_IT_WORKS = [
   },
 ];
 
-// The best reasons to use the site, as boxes on the home page. Each one opens
-// the page that says more about it.
+// Six short reasons to use the site, shown under the listings strip. Each one
+// opens the page that says more about it.
 const SELLING_POINTS = [
   {
     icon: ShieldCheck,
-    who: 'For buyers',
-    title: 'Protected until pickup',
-    body: 'We hold your payment until the produce is in your hands.',
+    title: 'Protected Until Pickup',
+    body: 'Your payment is held until you collect your order and hand over your pickup code.',
     href: '/why#why-buyers',
   },
   {
     icon: Sprout,
-    who: 'For buyers',
-    title: 'Picked fresh, nearby',
-    body: 'Skip the supply chain and eat food harvested this week.',
+    title: 'Peak Harvest Quality',
+    body: 'Skip long grocery store supply chains and eat food picked fresh today.',
     href: '/browse',
   },
   {
+    icon: HeartHandshake,
+    title: 'Support Local Growers',
+    body: 'Keep food dollars within your local community and neighborhood economy.',
+    href: '/about',
+  },
+  {
     icon: Store,
-    who: 'For growers',
-    title: 'Your own online farm stand',
-    body: "A page for your farm that's open even when you aren't.",
+    title: 'Your Own Online Farm Stand',
+    body: "Growers get a page for their farm that's open even when they aren't.",
     href: '/why#why-sellers',
   },
   {
     icon: Banknote,
-    who: 'For growers',
-    title: 'Paid before you pick',
-    body: 'Every order is paid up front, and no-shows are covered.',
+    title: 'Paid Before You Pick',
+    body: 'Every order is paid up front, and growers are covered for no-shows.',
     href: '/why#why-sellers',
   },
   {
-    icon: HeartHandshake,
-    who: 'For everyone',
-    title: 'Support local growers',
-    body: 'Your food dollars stay in your own community.',
-    href: '/about',
-  },
-  {
     icon: Tag,
-    who: 'For everyone',
-    title: 'Simple, low fees',
+    title: 'Simple, Low Fees',
     body: 'Free to list, and every fee is shown before you pay.',
     href: '/faq',
   },
@@ -171,36 +165,24 @@ export default function SplashLandingPage() {
       {/* Current listings, drifting right to left */}
       <FreshListingsWheel />
 
-      {/* Why people use the site: six boxes, each leading to more detail */}
-      <section aria-labelledby="home-why" className="mt-12 max-w-5xl mx-auto px-2 sm:px-6">
-        <h2 id="home-why" className="text-xl sm:text-3xl font-bold text-gray-900 text-center">
-          Why people buy and sell here
-        </h2>
-        <ul className="mt-5 grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {SELLING_POINTS.map(({ icon: Icon, who, title, body, href }) => (
+      {/* Why people use the site, in six short points */}
+      <section aria-label="Why buy and sell here" className="mt-10 max-w-5xl mx-auto px-6">
+        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5 text-left">
+          {SELLING_POINTS.map(({ icon: Icon, title, body, href }) => (
             <li key={title}>
-              <Link
-                href={href}
-                className="group h-full flex flex-col bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="w-10 h-10 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
-                    <Icon className="w-5 h-5" aria-hidden="true" />
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{who}</span>
-                </div>
-                <h3 className="mt-3 text-sm sm:text-base font-bold text-gray-900">{title}</h3>
-                <p className="mt-1 text-xs sm:text-sm text-gray-600 flex-1">{body}</p>
-                <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 group-hover:underline">
-                  Learn more <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+              <Link href={href} className="group flex items-start gap-3">
+                <Icon className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>
+                  <span className="block font-semibold text-gray-900 text-sm group-hover:underline">{title}</span>
+                  <span className="block text-xs text-gray-500 mt-0.5">{body}</span>
                 </span>
               </Link>
             </li>
           ))}
         </ul>
-        <p className="mt-4 text-center text-sm">
+        <p className="mt-5 text-center text-sm">
           <Link href="/why" className="font-semibold text-emerald-800 underline underline-offset-2">
-            See all the reasons
+            See why people buy and sell here
           </Link>
         </p>
       </section>
