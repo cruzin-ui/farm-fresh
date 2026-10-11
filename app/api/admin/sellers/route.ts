@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const { data: orders, error } = await supabaseAdmin
       .from('orders')
       .select(
-        'id, listing_id, status, created_at, completed_at, cancel_reason, no_show_reported_at, no_show_fee_amount, cancelled_by_buyer_at, buyer_problem_at, dispute_status, stripe_dispute_id, subtotal_amount'
+        'id, listing_id, status, created_at, completed_at, cancel_reason, no_show_reported_at, no_show_fee_amount, cancelled_by_buyer_at, buyer_problem_at, original_quantity, reserved_quantity, quantity, dispute_status, stripe_dispute_id, subtotal_amount'
       )
       .order('created_at', { ascending: false })
       .limit(5000);
@@ -48,6 +48,8 @@ export async function POST(request: Request) {
       open: number;
       completed: number;
       seller_cancelled: number;
+      // Orders the seller cut the quantity of without cancelling them.
+      seller_reduced: number;
       not_ready_in_time: number;
       no_shows: number;
       no_show_reports_open: number;
@@ -76,6 +78,7 @@ export async function POST(request: Request) {
         open: 0,
         completed: 0,
         seller_cancelled: 0,
+        seller_reduced: 0,
         not_ready_in_time: 0,
         no_shows: 0,
         no_show_reports_open: 0,
@@ -125,6 +128,16 @@ export async function POST(request: Request) {
         else if (o.cancel_reason === 'no_show' || (!o.cancel_reason && Number(o.no_show_fee_amount ?? 0) > 0)) {
           row.no_shows += 1;
         }
+      }
+
+      // Still standing, but for less than the buyer ordered. (One reduced and
+      // then cancelled shows up under the cancellations instead.)
+      if (
+        o.status !== 'cancelled' &&
+        o.original_quantity != null &&
+        Number(o.reserved_quantity ?? o.quantity ?? 0) < Number(o.original_quantity)
+      ) {
+        row.seller_reduced += 1;
       }
 
       if (o.buyer_problem_at) row.buyer_problems += 1;

@@ -34,6 +34,7 @@ type AdminSeller = {
   open: number;
   completed: number;
   seller_cancelled: number;
+  seller_reduced: number;
   not_ready_in_time: number;
   no_shows: number;
   no_show_reports_open: number;
@@ -1074,6 +1075,7 @@ export default function AdminPage() {
                           <th scope="col" className="py-2 pr-4 font-semibold text-right">Picked up</th>
                           <th scope="col" className="py-2 pr-4 font-semibold text-right">No-shows</th>
                           <th scope="col" className="py-2 pr-4 font-semibold text-right">Seller cancelled</th>
+                          <th scope="col" className="py-2 pr-4 font-semibold text-right">Seller reduced</th>
                           <th scope="col" className="py-2 pr-4 font-semibold text-right">Not ready in time</th>
                           <th scope="col" className="py-2 pr-4 font-semibold text-right">Buyer cancelled</th>
                           <th scope="col" className="py-2 pr-4 font-semibold text-right">Buyer problems</th>
@@ -1124,6 +1126,7 @@ export default function AdminPage() {
                             {cell(s.completed)}
                             {cell(s.no_shows, true)}
                             {cell(s.seller_cancelled, true)}
+                            {cell(s.seller_reduced, true)}
                             {cell(s.not_ready_in_time, true)}
                             {cell(s.buyer_cancelled)}
                             {cell(s.buyer_problems, true)}

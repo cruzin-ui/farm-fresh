@@ -2463,6 +2463,10 @@ export default function SellerDashboardPage() {
                               />
                               Put the removed quantity back on the listing for other buyers
                             </label>
+                            <p className="text-xs text-red-900">
+                              Once you change an order, the buyer can cancel the rest of what they ordered from you at
+                              the same time for a full refund, with no restocking fee to you.
+                            </p>
                             <div className="flex gap-2">
                               <button
                                 onClick={() => confirmAdjust(order)}
@@ -2758,6 +2762,12 @@ export default function SellerDashboardPage() {
                         isn't surprised at pickup. If you have none at all, enter 0, which cancels the order.
                       </p>
                       <p>
+                        <strong>The buyer may then cancel the rest.</strong> A smaller order may no longer suit them, so
+                        once you reduce or cancel any part of an order, the buyer can cancel everything else they
+                        ordered from you at the same time for a full refund. You aren't paid a restocking fee for it,
+                        however long ago they ordered.
+                      </p>
+                      <p>
                         If the shortage affects several orders, also lower the quantity on the listing itself (under
                         Your Listings) so no more is sold.
                       </p>
@@ -2782,6 +2792,10 @@ export default function SellerDashboardPage() {
                         <li>They're emailed straight away, with your message if you wrote one.</li>
                         <li>You aren't paid for it, and there's no charge to you.</li>
                         <li>
+                          If the buyer ordered other items from you at the same time, they can now cancel those for a
+                          full refund too, with no restocking fee to you.
+                        </li>
+                        <li>
                           Tick "Put the removed quantity back on the listing" if you still have it to sell to someone
                           else. Leave it unticked if the produce is gone.
                         </li>
@@ -2794,7 +2808,8 @@ export default function SellerDashboardPage() {
                         <strong>If the buyer cancels:</strong> we email you so you don't prepare it, and the quantity
                         goes back on your listing. If they cancel within {FREE_CANCELLATION_HOURS} hours of
                         ordering, you aren't paid. If they cancel later, you're paid a {RESTOCKING_RATE * 100}%
-                        restocking fee.
+                        restocking fee. The exception is an order you cancelled or reduced part of: the buyer can
+                        cancel the rest at any time and you aren't paid a restocking fee.
                       </p>
                       <p>
                         <strong>If you miss your ready-by date:</strong> you have {SELLER_READY_DAYS} days to mark an
