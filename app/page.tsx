@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Sprout, ShoppingBag, ArrowRight, ShieldCheck, HeartHandshake } from 'lucide-react';
+import { Sprout, ShoppingBag, ArrowRight, ShieldCheck, HeartHandshake, Store, Banknote, Tag } from 'lucide-react';
 import FreshListingsWheel from '@/components/FreshListingsWheel';
 
 const HOW_IT_WORKS = [
@@ -20,6 +20,53 @@ const HOW_IT_WORKS = [
       ['Mark orders ready', 'When the produce is ready, tick the days and times the buyer can come.'],
       ['Scan the pickup code to get paid', "Scan the buyer's QR code at pickup, or type their code. That releases your payment."],
     ],
+  },
+];
+
+// The best reasons to use the site, as boxes on the home page. Each one opens
+// the page that says more about it.
+const SELLING_POINTS = [
+  {
+    icon: ShieldCheck,
+    who: 'For buyers',
+    title: 'Protected until pickup',
+    body: 'We hold your payment until the produce is in your hands.',
+    href: '/why#why-buyers',
+  },
+  {
+    icon: Sprout,
+    who: 'For buyers',
+    title: 'Picked fresh, nearby',
+    body: 'Skip the supply chain and eat food harvested this week.',
+    href: '/browse',
+  },
+  {
+    icon: Store,
+    who: 'For growers',
+    title: 'Your own online farm stand',
+    body: "A page for your farm that's open even when you aren't.",
+    href: '/why#why-sellers',
+  },
+  {
+    icon: Banknote,
+    who: 'For growers',
+    title: 'Paid before you pick',
+    body: 'Every order is paid up front, and no-shows are covered.',
+    href: '/why#why-sellers',
+  },
+  {
+    icon: HeartHandshake,
+    who: 'For everyone',
+    title: 'Support local growers',
+    body: 'Your food dollars stay in your own community.',
+    href: '/about',
+  },
+  {
+    icon: Tag,
+    who: 'For everyone',
+    title: 'Simple, low fees',
+    body: 'Free to list, and every fee is shown before you pay.',
+    href: '/faq',
   },
 ];
 
@@ -119,16 +166,44 @@ export default function SplashLandingPage() {
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </span>
         </Link>
-        <p className="md:col-span-2 text-center text-sm text-gray-600">
-          Not sure yet?{' '}
-          <Link href="/why" className="font-semibold text-emerald-800 underline underline-offset-2">
-            See why people buy and sell here
-          </Link>
-        </p>
       </section>
 
       {/* Current listings, drifting right to left */}
       <FreshListingsWheel />
+
+      {/* Why people use the site: six boxes, each leading to more detail */}
+      <section aria-labelledby="home-why" className="mt-12 max-w-5xl mx-auto px-2 sm:px-6">
+        <h2 id="home-why" className="text-xl sm:text-3xl font-bold text-gray-900 text-center">
+          Why people buy and sell here
+        </h2>
+        <ul className="mt-5 grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          {SELLING_POINTS.map(({ icon: Icon, who, title, body, href }) => (
+            <li key={title}>
+              <Link
+                href={href}
+                className="group h-full flex flex-col bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="w-10 h-10 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
+                    <Icon className="w-5 h-5" aria-hidden="true" />
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{who}</span>
+                </div>
+                <h3 className="mt-3 text-sm sm:text-base font-bold text-gray-900">{title}</h3>
+                <p className="mt-1 text-xs sm:text-sm text-gray-600 flex-1">{body}</p>
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 group-hover:underline">
+                  Learn more <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-4 text-center text-sm">
+          <Link href="/why" className="font-semibold text-emerald-800 underline underline-offset-2">
+            See all the reasons
+          </Link>
+        </p>
+      </section>
 
       {/* The Mission, in brief — the full version is on the About page. A
           full-width tinted band, to break up the run of white cards. */}
@@ -178,31 +253,6 @@ export default function SplashLandingPage() {
               Read the FAQ
             </Link>
           </p>
-        </div>
-
-        {/* Value Props */}
-        <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left border-t border-gray-200/60 pt-10">
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
-            <div>
-              <h3 className="font-semibold text-gray-900 text-sm">Protected Until Pickup</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Your payment is held until you collect your order and hand over your pickup code.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <HeartHandshake className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
-            <div>
-              <h3 className="font-semibold text-gray-900 text-sm">Support Local Growers</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Keep food dollars within your local community and neighborhood economy.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <Sprout className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
-            <div>
-              <h3 className="font-semibold text-gray-900 text-sm">Peak Harvest Quality</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Skip long grocery store supply chains and eat food picked fresh today.</p>
-            </div>
-          </div>
         </div>
       </section>
     </div>
