@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { refundOrderQuantity, OrderActionError } from '@/lib/orderActions';
 import { alertAdmin } from '@/lib/alerts';
+import { checkSellerCancellations } from '@/lib/fraudWatch';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,7 +56,13 @@ export async function POST(request: Request) {
       reason: 'seller',
     });
 
-    return NextResponse.json({ success: true, ...result });
+    // A seller who has cancelled too many orders lately is paused until an
+    // admin has looked.
+    const suspended = result.cancelled
+      ? await checkSellerCancellations(user.id, new URL(request.url).origin)
+      : false;
+
+    return NextResponse.json({ success: true, ...result, suspended });
   } catch (err: any) {
     if (err instanceof OrderActionError) {
       return NextResponse.json({ error: err.message }, { status: err.status });

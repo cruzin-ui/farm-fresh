@@ -10,6 +10,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
 import PickList from '@/components/PickList';
+import { SELLER_CANCEL_LIMIT, SELLER_CANCEL_WINDOW_DAYS } from '@/lib/sellerLimits';
 import { buildSalesCsv, downloadCsv, salesYears, sellerEarnings } from '@/lib/salesCsv';
 import SellerTour, { type TourStep } from '@/components/SellerTour';
 import {
@@ -883,6 +884,11 @@ export default function SellerDashboardPage() {
       );
       setAdjustOrderId(null);
       await fetchDashboardData();
+      if (data.suspended) {
+        setErrorMsg(
+          "Because several of your recent orders have been cancelled, your listings are now paused. Contact us to tell us what happened and we'll get them back up."
+        );
+      }
     } catch (err: any) {
       alert(err.message || 'Failed to adjust order.');
     } finally {
@@ -2948,8 +2954,10 @@ export default function SellerDashboardPage() {
                         </li>
                       </ul>
                       <p>
-                        Cancelling now and then is fine; harvests are unpredictable. Sellers who cancel a large share
-                        of their orders are flagged for us to look at.
+                        Cancelling now and then is fine; harvests are unpredictable. If {SELLER_CANCEL_LIMIT} or more
+                        of your orders from the same {SELLER_CANCEL_WINDOW_DAYS} days are cancelled by you or never
+                        made ready, your listings are paused automatically until you&apos;ve been in touch with us.
+                        Tell us what happened through Contact Us and we&apos;ll put them back up.
                       </p>
                       <p>
                         <strong>If the buyer cancels:</strong> we email you so you don't prepare it, and the quantity
