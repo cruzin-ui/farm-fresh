@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     let role: 'buyer' | 'seller' | null = null;
     if (user && listing?.farmer_id === user.id) role = 'seller';
     else if (user && order.buyer_id && order.buyer_id === user.id) role = 'buyer';
-    else if (!order.buyer_id && token) {
+    else if (token) {
       const expectedToken = codeRecord?.guestToken || order.guest_access_token;
       if (expectedToken && tokensMatch(expectedToken, token)) role = 'buyer';
     }

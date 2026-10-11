@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     const user = await getRequestUser(request);
     let isBuyer = Boolean(user && order.buyer_id && order.buyer_id === user.id);
 
-    if (!isBuyer && !order.buyer_id && token) {
+    if (!isBuyer && token) {
       const codeRecord = await getPickupCodeRecord(order.id);
       const expectedToken = codeRecord?.guestToken || order.guest_access_token;
       isBuyer = Boolean(expectedToken && tokensMatch(expectedToken, token));

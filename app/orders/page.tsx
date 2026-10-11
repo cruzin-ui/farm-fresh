@@ -14,6 +14,8 @@ import { groupOrdersForPickup, type PickupGroup } from '@/lib/pickupGroups';
 export default function MyOrdersPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  // How many earlier guest orders were just added to this account.
+  const [claimedCount, setClaimedCount] = useState(0);
   const [groups, setGroups] = useState<PickupGroup[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   // Orders with a message from the farmer that hasn't been opened.
@@ -28,6 +30,13 @@ export default function MyOrdersPage() {
         router.push('/login?redirect=/orders');
         return;
       }
+
+      // Orders placed as a guest with this email address, before the account
+      // existed, are moved onto it first so they show up below.
+      try {
+        const claimRes = await postWithAuth('/api/orders/claim');
+        if (claimRes.ok) setClaimedCount(Number((await claimRes.json()).claimed) || 0);
+      } catch {}
 
       const { data: myOrders, error } = await supabase
         .from('orders')
@@ -86,10 +95,23 @@ export default function MyOrdersPage() {
         </div>
       )}
 
+      {claimedCount > 0 && (
+        <div role="status" className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-sm">
+          We found {claimedCount === 1 ? 'an order' : `${claimedCount} items`} you placed with this email address
+          before you had an account, and added {claimedCount === 1 ? 'it' : 'them'} to your orders below.
+        </div>
+      )}
+
       {!fetchError && groups.length === 0 && (
         <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200">
           <ShoppingBag className="mx-auto h-12 w-12 text-gray-400 mb-3" />
           <h3 className="text-base font-semibold text-gray-900">No orders yet</h3>
+          <p className="text-xs text-gray-500 mt-1 px-4">
+            Ordered as a guest with a different email address?{' '}
+            <Link href="/orders/find" className="font-semibold text-emerald-800 underline">
+              Find that order
+            </Link>
+          </p>
           <Link
             href="/browse"
             className="mt-4 inline-flex items-center gap-2 bg-emerald-600 text-white font-semibold py-2.5 px-5 rounded-lg text-xs shadow-sm hover:bg-emerald-700"

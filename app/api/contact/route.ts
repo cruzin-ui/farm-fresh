@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 
         let isBuyer = Boolean(order && user && order.buyer_id && order.buyer_id === user.id);
         const orderToken = typeof body.orderToken === 'string' ? body.orderToken : '';
-        if (order && !isBuyer && !order.buyer_id && orderToken) {
+        if (order && !isBuyer && orderToken) {
           const expected = (await getPickupCodeRecord(order.id))?.guestToken || order.guest_access_token || '';
           const a = Buffer.from(expected);
           const b = Buffer.from(orderToken);
