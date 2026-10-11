@@ -67,6 +67,22 @@ type AdminAction = {
   detail: string | null;
 };
 
+type OrderSizes = { orders: number; averageCents: number; under15: number; from15to40: number; over40: number };
+type Insights = {
+  buyers: {
+    total: number;
+    orderedTwice: number;
+    orderedThreeTimes: number;
+    medianDaysToSecondOrder: number | null;
+    farmPairs: number;
+    farmPairsRepeated: number;
+  };
+  orderSize: { last30Days: OrderSizes; allTime: OrderSizes };
+  sellers: { withListings: number; withOrdersLast30Days: number; ordersPerSellerPerWeek: number };
+  share: { produceCents: number; buyerFeeCents: number; sellerFeeCents: number };
+  checkout: { opened: number; started: number; completed: number } | null;
+};
+
 type ThreadMessage = { id: string; sender: string; body: string; created_at: string };
 
 type AdminOrder = {
@@ -137,7 +153,8 @@ type AdminSection =
   | 'fees'
   | 'reports'
   | 'blocks'
-  | 'activity';
+  | 'activity'
+  | 'insights';
 
 type AdminListing = {
   id: string;
@@ -256,6 +273,7 @@ export default function AdminPage() {
   const [evidenceCopied, setEvidenceCopied] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<AccountBlock[]>([]);
   const [activity, setActivity] = useState<AdminAction[]>([]);
+  const [insights, setInsights] = useState<Insights | null>(null);
   const [busyAccount, setBusyAccount] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -313,6 +331,10 @@ export default function AdminPage() {
     const activityRes = await postWithAuth('/api/admin/activity');
     const activityData = await activityRes.json().catch(() => ({}));
     if (activityRes.ok) setActivity(activityData.actions || []);
+
+    const insightsRes = await postWithAuth('/api/admin/insights');
+    const insightsData = await insightsRes.json().catch(() => null);
+    if (insightsRes.ok && insightsData) setInsights(insightsData);
 
     // Keep a search that is on in step with whatever was just changed.
     if (searchedFor) {
@@ -734,6 +756,7 @@ export default function AdminPage() {
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'fees', label: 'Fee breakdown', icon: PieChart },
     { id: 'reports', label: 'Reports', icon: TrendingUp },
+    { id: 'insights', label: 'Insights', icon: PieChart },
     { id: 'blocks', label: 'Suspended & blocked', icon: Ban, count: blocks.length },
     { id: 'activity', label: 'Activity', icon: History },
   ];
@@ -1429,6 +1452,192 @@ export default function AdminPage() {
 
             </div>
           )}
+
+          {/* INSIGHTS */}
+          {section === 'insights' &&
+            (() => {
+              const pct = (part: number, whole: number) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : 'n/a');
+              const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+              const tile = (label: string, value: string, note: string) => (
+                <div key={label} className="p-4 border border-gray-200 rounded-xl bg-white">
+                  <p className="text-xs text-gray-500">{label}</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+                  <p className="text-xs text-gray-500 mt-1">{note}</p>
+                </div>
+              );
+
+              if (!insights) {
+                return (
+                  <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 text-sm text-gray-500">
+                    The insights could not be loaded.
+                  </div>
+                );
+              }
+
+              const { buyers, orderSize, sellers, share, checkout } = insights;
+              const sizeRow = (label: string, s: OrderSizes) => (
+                <tr key={label} className="border-b border-gray-100 last:border-0">
+                  <th scope="row" className="py-2 pr-4 text-left font-semibold text-gray-900">{label}</th>
+                  <td className="py-2 pr-4 text-right tabular-nums">{s.orders}</td>
+                  <td className="py-2 pr-4 text-right tabular-nums">{s.orders ? usd(s.averageCents) : 'n/a'}</td>
+                  <td className="py-2 pr-4 text-right tabular-nums">
+                    {s.under15} ({pct(s.under15, s.orders)})
+                  </td>
+                  <td className="py-2 pr-4 text-right tabular-nums">
+                    {s.from15to40} ({pct(s.from15to40, s.orders)})
+                  </td>
+                  <td className="py-2 text-right tabular-nums">
+                    {s.over40} ({pct(s.over40, s.orders)})
+                  </td>
+                </tr>
+              );
+
+              return (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">Insights</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Whether the marketplace is working, in a few numbers. An order here is one checkout, and a
+                      checkout that was cancelled entirely isn&apos;t counted. Test orders are included until they
+                      are cleared.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 mb-2">Do buyers come back?</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {tile('Buyers', String(buyers.total), 'Everyone who has placed an order')}
+                      {tile(
+                        'Ordered a second time',
+                        pct(buyers.orderedTwice, buyers.total),
+                        `${buyers.orderedTwice} of ${buyers.total} buyers`
+                      )}
+                      {tile(
+                        'Ordered a third time',
+                        pct(buyers.orderedThreeTimes, buyers.total),
+                        `${buyers.orderedThreeTimes} of ${buyers.total} buyers`
+                      )}
+                      {tile(
+                        'Time to second order',
+                        buyers.medianDaysToSecondOrder === null
+                          ? 'n/a'
+                          : `${buyers.medianDaysToSecondOrder} day${buyers.medianDaysToSecondOrder === 1 ? '' : 's'}`,
+                        'For a typical returning buyer'
+                      )}
+                    </div>
+                    <div className="mt-3 p-4 border border-gray-200 rounded-xl bg-white text-xs text-gray-600">
+                      <p className="text-sm font-bold text-gray-900">
+                        Back to the same farm: {pct(buyers.farmPairsRepeated, buyers.farmPairs)}
+                      </p>
+                      <p className="mt-1">
+                        Of {buyers.farmPairs} times a buyer bought from a farm, {buyers.farmPairsRepeated} came back to
+                        that farm through the site. If buyers return to the site but rarely to the same farm, they may
+                        be arranging repeat orders with the farmer directly.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+                    <h3 className="text-sm font-bold text-gray-900">How big are orders?</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      By the price of the produce, before fees. Many orders under $15 means the flat part of the
+                      buyer&apos;s fee is a large share of what they pay.
+                    </p>
+                    <div className="overflow-x-auto mt-3">
+                      <table className="w-full text-xs text-gray-700">
+                        <thead className="text-gray-500 border-b">
+                          <tr>
+                            <th scope="col" className="py-2 pr-4 text-left font-semibold">Period</th>
+                            <th scope="col" className="py-2 pr-4 text-right font-semibold">Orders</th>
+                            <th scope="col" className="py-2 pr-4 text-right font-semibold">Average</th>
+                            <th scope="col" className="py-2 pr-4 text-right font-semibold">Under $15</th>
+                            <th scope="col" className="py-2 pr-4 text-right font-semibold">$15 to $40</th>
+                            <th scope="col" className="py-2 text-right font-semibold">Over $40</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sizeRow('Last 30 days', orderSize.last30Days)}
+                          {sizeRow('All time', orderSize.allTime)}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 mb-2">Are sellers getting orders?</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {tile('Sellers with something on sale', String(sellers.withListings), 'Right now')}
+                      {tile(
+                        'Sellers who got an order',
+                        String(sellers.withOrdersLast30Days),
+                        'In the last 30 days'
+                      )}
+                      {tile(
+                        'Orders per seller per week',
+                        sellers.ordersPerSellerPerWeek.toFixed(1),
+                        'Last 4 weeks, sellers with orders'
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 mb-2">Our share of what was sold</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {tile('Produce sold', usd(share.produceCents), 'Picked-up orders, all time')}
+                      {tile(
+                        'Fees collected',
+                        usd(share.buyerFeeCents + share.sellerFeeCents),
+                        `${usd(share.buyerFeeCents)} from buyers, ${usd(share.sellerFeeCents)} from sellers`
+                      )}
+                      {tile(
+                        'Fees as a share of produce',
+                        pct(share.buyerFeeCents + share.sellerFeeCents, share.produceCents),
+                        "Before Stripe's charges"
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+                    <h3 className="text-sm font-bold text-gray-900">How far do shoppers get through checkout?</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      The last 30 days. Checkout is where a shopper first sees the total with our fee, so a big drop
+                      before Pay is the place to look if fees are putting people off.
+                    </p>
+                    {!checkout ? (
+                      <p className="mt-3 text-sm text-amber-800">
+                        Not set up yet: run db/insights.sql in Supabase to start counting.
+                      </p>
+                    ) : (
+                      <ol className="mt-3 space-y-2 text-sm text-gray-700">
+                        <li className="flex items-baseline justify-between gap-3 border-b border-gray-100 pb-2">
+                          <span>1. Opened checkout and saw the total</span>
+                          <span className="font-bold text-gray-900 tabular-nums">{checkout.opened}</span>
+                        </li>
+                        <li className="flex items-baseline justify-between gap-3 border-b border-gray-100 pb-2">
+                          <span>
+                            2. Pressed Pay{' '}
+                            <span className="text-xs text-gray-500">({pct(checkout.started, checkout.opened)} of those who opened it)</span>
+                          </span>
+                          <span className="font-bold text-gray-900 tabular-nums">{checkout.started}</span>
+                        </li>
+                        <li className="flex items-baseline justify-between gap-3">
+                          <span>
+                            3. Payment went through{' '}
+                            <span className="text-xs text-gray-500">({pct(checkout.completed, checkout.opened)} of those who opened it)</span>
+                          </span>
+                          <span className="font-bold text-gray-900 tabular-nums">{checkout.completed}</span>
+                        </li>
+                      </ol>
+                    )}
+                    <p className="mt-3 text-xs text-gray-500">
+                      Step 1 counts each visit once. Step 2 counts each press of Pay, so someone who tries twice is
+                      counted twice. The numbers show a trend, not exact people. For which pages visitors use and
+                      where they come from, see Web Analytics in your Vercel project.
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
           {/* SUSPENDED & BLOCKED */}
           {section === 'blocks' && (

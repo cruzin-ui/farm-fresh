@@ -324,6 +324,20 @@ function CheckoutContent() {
         if (!res.ok) throw new Error(data.error || 'Could not price this order.');
         setQuote({ ...data, key: cartKey });
         setQuoteError(null);
+
+        // Counts this visit to checkout, once, now that the shopper has been
+        // shown a total. It is a tally for the admin page, not a record of them.
+        try {
+          if (!sessionStorage.getItem('ffd-checkout-counted')) {
+            sessionStorage.setItem('ffd-checkout-counted', '1');
+            fetch('/api/track', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ event: 'checkout_opened' }),
+              keepalive: true,
+            }).catch(() => {});
+          }
+        } catch {}
       } catch (err: any) {
         if (!cancelled) setQuoteError(err.message || 'Could not price this order.');
       }

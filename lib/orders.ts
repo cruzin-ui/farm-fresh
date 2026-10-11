@@ -9,6 +9,7 @@ import { recordCartTax } from '@/lib/tax';
 import { readyDeadline, formatDeadline, SELLER_READY_DAYS, BUYER_PICKUP_DAYS } from '@/lib/pickupRules';
 import { orderRef } from '@/lib/pickupGroups';
 import { watchNewSellerOrder } from '@/lib/fraudWatch';
+import { bumpDailyCount } from '@/lib/dailyCounts';
 
 // One item of a checkout, as saved on the payment by /api/checkout.
 type CheckoutLine = {
@@ -318,6 +319,10 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     .filter((order): order is NonNullable<typeof order> => Boolean(order));
 
   const result = await finish(orders);
+
+  // Only the caller that saved the orders gets this far, so a payment is
+  // counted once however many times it is reported.
+  await bumpDailyCount('payment_completed');
 
   // The private copies of the pickup addresses. If this fails the order still
   // stands; marking it ready falls back to the listing's current address.
