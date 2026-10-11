@@ -223,6 +223,11 @@ const SELLER_FAQS: Faq[] = [
     ),
   },
   {
+    question: 'What do I get besides a place to list?',
+    answer:
+      'Three things beyond the sale itself. A storefront: your farm has its own page with your photo, story, growing practices, current listings and reviews, and a link you can share anywhere. Regular customers: buyers can favorite your farm to see what you post next, and reviews from real pickups build trust with new ones. Records: every order, pickup, cancellation and payout is kept in your Sales History, and your dashboard charts your earnings by week and by crop.',
+  },
+  {
     question: 'What does it cost to sell?',
     answer: `Posting is free. We keep a ${SELLER_FEE} seller fee from each completed sale, taken out of your payout. There are no monthly or listing fees.`,
   },

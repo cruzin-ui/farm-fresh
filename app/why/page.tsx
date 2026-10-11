@@ -8,7 +8,9 @@ import {
   Banknote,
   CalendarCheck,
   MapPin,
-  Wallet,
+  Store,
+  Heart,
+  ClipboardList,
   Tag,
   SlidersHorizontal,
   ShieldCheck,
@@ -31,24 +33,34 @@ const RESTOCKING_FEE = `${RESTOCKING_RATE * 100}%`;
 
 const FOR_SELLERS = [
   {
+    icon: Store,
+    title: 'A storefront of your own',
+    body: 'Your farm gets its own page with your photo, your story, how you grow, what you have for sale and your reviews. Share the link anywhere: it is an online farm stand that is open when you are not.',
+  },
+  {
+    icon: Heart,
+    title: 'Regulars who come back',
+    body: 'Buyers can favorite your farm and see what you post next, and every pickup can earn you a review. One good first order becomes a customer who checks back each week.',
+  },
+  {
+    icon: ClipboardList,
+    title: 'Your records, kept for you',
+    body: 'Every order, pickup, cancellation and payout is saved in your Sales History. Your dashboard charts what you earned each week and which crops earned it, so you are not piecing it together from texts and a notebook.',
+  },
+  {
+    icon: MapPin,
+    title: 'New customers find you',
+    body: 'Buyers search by zip code, so people nearby who have never heard of you see what you grow.',
+  },
+  {
     icon: Banknote,
     title: 'Paid before you pick',
-    body: 'Every order is paid in full when it is placed. You harvest what has sold, not what you hope will sell.',
+    body: 'Every order is paid in full when it is placed, so you harvest what has sold. No cash box, no making change and no chasing a payment: your earnings are deposited to your bank account every week.',
   },
   {
     icon: CalendarCheck,
     title: 'Your time is protected',
     body: `If a buyer cancels late or never turns up, you are paid a ${RESTOCKING_FEE} restocking fee and the produce goes back on your listing for someone else.`,
-  },
-  {
-    icon: MapPin,
-    title: 'New customers find you',
-    body: 'Buyers search by zip code, so people nearby who have never heard of you see what you grow. They can favorite your farm and come back for what you post next.',
-  },
-  {
-    icon: Wallet,
-    title: 'No money to handle',
-    body: 'No cash box, no making change and no chasing a payment. Your earnings are deposited to your bank account every week.',
   },
   {
     icon: Tag,
@@ -133,7 +145,7 @@ export default function WhyPage() {
           <p className="text-xs font-bold uppercase tracking-wide">For growers</p>
         </div>
         <h2 id="why-sellers" className="mt-1 text-2xl font-bold text-gray-900">
-          Sell your harvest without the hassle
+          More than a place to sell: your own online farm stand
         </h2>
         <Reasons items={FOR_SELLERS} />
         <Link

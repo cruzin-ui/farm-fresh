@@ -112,7 +112,7 @@ export default function SplashLandingPage() {
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-xl font-bold text-gray-900">I Want to Sell</h2>
-            <p className="text-sm text-gray-500">List your harvest and earn from your surplus.</p>
+            <p className="text-sm text-gray-500">Your own online farm stand: get paid up front and build regulars.</p>
           </div>
           <span className="shrink-0 inline-flex items-center gap-1.5 bg-gray-900 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap">
             Sell
