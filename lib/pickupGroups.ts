@@ -20,6 +20,9 @@ export type BuyerOrder = {
   // The buyer's own account of the order: confirmed received, or a problem
   // they reported (and when).
   buyer_received: boolean;
+  // True when the farm cancelled or reduced part of this order, which lets
+  // the buyer cancel the rest in full (see lib/sellerChanges.ts).
+  seller_changed?: boolean;
   // When the farmer marked it picked up.
   completed_at?: string | null;
   buyer_problem_at: string | null;

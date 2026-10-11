@@ -102,7 +102,7 @@ const BUYER_FAQS: Faq[] = [
   {
     question: "What if the farmer doesn't have what I ordered?",
     answer:
-      "Harvests are unpredictable. If a farmer has less than expected they can reduce or cancel your order, and you're refunded automatically for whatever you don't receive. We'll email you when that happens.",
+      "Harvests are unpredictable. If a farmer has less than expected they can reduce or cancel your order, and you're refunded automatically for whatever you don't receive. We'll email you when that happens. If what's left no longer works for you, you can cancel the rest of what you ordered from that farm for a full refund, including the service fee, at any time before pickup: open the order, tap More options and choose Cancel.",
   },
   {
     question: "What if I can't make the pickup?",
@@ -262,7 +262,7 @@ const SELLER_FAQS: Faq[] = [
   },
   {
     question: 'What happens if a buyer cancels?',
-    answer: `Buyers can cancel an order themselves any time before pickup. We email you straight away so you don't prepare it, and the quantity goes back on your listing. If they cancel within ${FREE_CANCELLATION_HOURS} hours of ordering, there's no payment to you. If they cancel later than that, you're paid a ${NO_SHOW_FEE} restocking fee.`,
+    answer: `Buyers can cancel an order themselves any time before pickup. We email you straight away so you don't prepare it, and the quantity goes back on your listing. If you cancelled or reduced part of their order, they can cancel the rest for a full refund and there's no payment to you. Otherwise, if they cancel within ${FREE_CANCELLATION_HOURS} hours of ordering, there's no payment to you. If they cancel later than that, you're paid a ${NO_SHOW_FEE} restocking fee.`,
   },
   {
     question: "What if a buyer doesn't show up?",

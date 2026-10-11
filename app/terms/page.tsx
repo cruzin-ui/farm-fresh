@@ -104,6 +104,12 @@ export default function TermsPage() {
               after it should have started is cancelled and refunded in full automatically.
             </li>
             <li>
+              <strong>If the seller cancels or reduces part of your order,</strong> you are refunded for that
+              part, including its share of the service fee, and you can cancel the rest of what you ordered from
+              that seller in the same checkout for a full refund, including the service fee, at any time before
+              pickup.
+            </li>
+            <li>
               <strong>If you cancel your order,</strong> which you can do from your order page any time before
               pickup, you are refunded what you paid for the produce. The service fee is not refunded. If you
               cancel more than {FREE_CANCELLATION_HOURS} hours after ordering, or after the seller has reported the order as not
