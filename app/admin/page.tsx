@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ShieldCheck,
@@ -445,6 +445,38 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A link from the admin panel on a farm's page (/admin?section=...&seller=<id>)
+  // opens straight onto that seller's orders or listings.
+  const openedFromLink = useRef(false);
+  useEffect(() => {
+    if (loading || notAuthorized || openedFromLink.current) return;
+    openedFromLink.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const sellerId = params.get('seller');
+    if (!sellerId) return;
+    const farmName = sellers.find((s) => s.farmer_id === sellerId)?.farm_name || '';
+
+    if (params.get('section') === 'listings') {
+      setSection('listings');
+      setListingSearch(farmName);
+      return;
+    }
+
+    setSection('all');
+    setSearching(true);
+    postWithAuth('/api/admin/orders', { search: `seller:${sellerId}` })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not load their orders.');
+        setSearchedFor(`seller:${sellerId}`);
+        setSearchResults(data.orders || []);
+      })
+      .catch((err) => setErrorMsg(err.message || 'Could not load their orders.'))
+      .finally(() => setSearching(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
   const runAction = async (order: AdminOrder, action: string, confirmText: string) => {
     if (!confirm(confirmText)) return;
 
@@ -718,6 +750,13 @@ export default function AdminPage() {
       (isOpen(o) && (o.no_show_reported_at || daysOpen(o) > STALE_AFTER_DAYS))
   );
   const flaggedSellers = sellers.filter((s) => s.flags.length > 0);
+
+  // What the current order search is for, in words: a seller's name when the
+  // search is "every order for this seller".
+  const searchedSellerId = /^seller:(.+)$/.exec(searchedFor)?.[1];
+  const searchedForLabel = searchedSellerId
+    ? sellers.find((s) => s.farmer_id === searchedSellerId)?.farm_name || 'this seller'
+    : `"${searchedFor}"`;
 
   const isOrderSection = section === 'attention' || section === 'open' || section === 'all';
   const visibleOrders =
@@ -1965,7 +2004,7 @@ export default function AdminPage() {
                   </div>
                   <p className="text-xs text-gray-500">
                     {searchResults
-                      ? `${searchResults.length} order${searchResults.length === 1 ? '' : 's'} found for "${searchedFor}", from all orders ever placed.`
+                      ? `${searchResults.length} order${searchResults.length === 1 ? '' : 's'} found for ${searchedForLabel}, from all orders ever placed.`
                       : 'Showing the 200 most recent orders. A search looks through every order.'}
                   </p>
                 </form>

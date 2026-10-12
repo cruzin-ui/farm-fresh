@@ -26,7 +26,15 @@ export async function POST(request: Request) {
     const search = typeof body.search === 'string' ? body.search.trim().replace(/^#/, '') : '';
 
     let query = supabaseAdmin.from('orders').select('*').order('created_at', { ascending: false }).limit(200);
-    if (/^[0-9a-f]{6}$/i.test(search)) {
+    const sellerMatch = /^seller:([0-9a-f-]{36})$/i.exec(search);
+    if (sellerMatch) {
+      // Every order for one seller's listings: "seller:<their id>", which is
+      // what the admin panel on a farm's page links to.
+      const { data: theirListings } = await supabaseAdmin.from('produce_listings').select('id').eq('farmer_id', sellerMatch[1]);
+      const theirListingIds = (theirListings || []).map((l) => l.id);
+      if (theirListingIds.length === 0) return NextResponse.json({ orders: [] });
+      query = query.in('listing_id', theirListingIds);
+    } else if (/^[0-9a-f]{6}$/i.test(search)) {
       // An order number is the start of the checkout's id (or the order's own,
       // for orders from before carts), so it is found as a range of ids.
       const low = `${search.toLowerCase()}00-0000-0000-0000-000000000000`;
