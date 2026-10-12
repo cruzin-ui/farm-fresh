@@ -12,6 +12,7 @@ import { FarmPageSkeleton } from '@/components/Skeletons';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import { describeUsualPickup } from '@/lib/pickupRules';
 import FollowFarmButton from '@/components/FollowFarmButton';
+import FarmAdminPanel from '@/components/FarmAdminPanel';
 
 // A farm's public page: its photo, story, what it has for sale and its reviews.
 // Shown at the farm's own web address (/night-owl-produce) and at its original
@@ -78,6 +79,9 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
+      {/* Shown to admins only; nothing for anyone else. */}
+      <FarmAdminPanel sellerId={sellerId} />
+
       {/* Cover Banner & Profile Card */}
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm mb-8">
         <div className="h-48 bg-emerald-700 relative flex items-center justify-center text-white">
