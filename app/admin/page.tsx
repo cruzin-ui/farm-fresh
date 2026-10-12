@@ -253,6 +253,21 @@ const STALE_AFTER_DAYS = 7;
 const daysOpen = (order: AdminOrder) =>
   Math.floor((Date.now() - new Date(order.created_at).getTime()) / (24 * 60 * 60 * 1000));
 
+// A link that opens a reply in the computer's or phone's own email app,
+// addressed to the sender, with their message quoted underneath. The quote is
+// cut short if it is long, because these links have a length limit.
+function replyLink(message: ContactMessage) {
+  const quoted = message.message.length > 1200 ? `${message.message.slice(0, 1200)}...` : message.message;
+  const body = [
+    '',
+    '',
+    '',
+    `On ${new Date(message.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, you wrote:`,
+    ...quoted.split('\n').map((line) => `> ${line}`),
+  ].join('\n');
+  return `mailto:${message.email}?subject=${encodeURIComponent(`Re: ${message.subject}`)}&body=${encodeURIComponent(body)}`;
+}
+
 const isOpen = (order: AdminOrder) =>
   order.status === 'pending_pickup' || order.status === 'ready_for_pickup';
 
@@ -1001,8 +1016,9 @@ export default function AdminPage() {
                     Contact Messages{openMessages.length > 0 ? ` (${openMessages.length} open)` : ''}
                   </h2>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Sent through the Contact Us page. Each one is also emailed to you; replying to that email
-                    answers the sender.
+                    Sent through the Contact Us page. Reply opens an email to the sender in your own email app,
+                    with their message quoted. Each message is also emailed to you, and replying to that email
+                    answers them too.
                   </p>
                 </div>
                 {messages.length > openMessages.length && (
@@ -1030,7 +1046,7 @@ export default function AdminPage() {
                           <p className="text-xs text-gray-500">
                             From{' '}
                             <a
-                              href={`mailto:${m.email}?subject=${encodeURIComponent(`Re: ${m.subject}`)}`}
+                              href={replyLink(m)}
                               className="font-semibold text-emerald-700 underline break-all"
                             >
                               {m.email}
@@ -1038,12 +1054,20 @@ export default function AdminPage() {
                             {m.user_id ? ' (signed-in user)' : ''} · {new Date(m.created_at).toLocaleString()}
                           </p>
                         </div>
-                        <button
-                          onClick={() => setMessageResolved(m, !m.resolved)}
-                          className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-white border text-gray-600 hover:bg-gray-50"
-                        >
-                          {m.resolved ? 'Reopen' : 'Mark Resolved'}
-                        </button>
+                        <div className="shrink-0 flex gap-2">
+                          <a
+                            href={replyLink(m)}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                          >
+                            <Mail className="w-3.5 h-3.5" aria-hidden="true" /> Reply
+                          </a>
+                          <button
+                            onClick={() => setMessageResolved(m, !m.resolved)}
+                            className="px-3 py-2 rounded-xl text-xs font-bold bg-white border text-gray-600 hover:bg-gray-50"
+                          >
+                            {m.resolved ? 'Reopen' : 'Mark Resolved'}
+                          </button>
+                        </div>
                       </div>
                       <p className="mt-2 text-gray-700 whitespace-pre-wrap break-words">{m.message}</p>
                     </div>
