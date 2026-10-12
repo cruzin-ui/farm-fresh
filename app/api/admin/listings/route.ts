@@ -5,6 +5,7 @@ import { refundOrderQuantity } from '@/lib/orderActions';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { alertAdmin } from '@/lib/alerts';
 import { logAdminAction } from '@/lib/adminLog';
+import { suspendedSellerIds } from '@/lib/accountBlocks';
 import { PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 
 export const dynamic = 'force-dynamic';
@@ -131,9 +132,24 @@ export async function POST(request: Request) {
     const farmerIds = [...new Set((listings || []).map((l) => l.farmer_id).filter(Boolean))];
 
     const { data: profiles } = farmerIds.length
-      ? await supabaseAdmin.from('seller_profiles').select('id, farm_name').in('id', farmerIds)
+      ? await supabaseAdmin.from('seller_profiles').select('id, farm_name, stripe_onboarding_complete').in('id', farmerIds)
       : { data: [] as any[] };
     const farmNames = new Map((profiles || []).map((p: any) => [p.id, p.farm_name]));
+
+    // Why buyers can't see a listing that is otherwise on sale: its seller is
+    // suspended, or hasn't finished connecting their payouts.
+    const payoutsReady = new Set((profiles || []).filter((p: any) => p.stripe_onboarding_complete).map((p: any) => p.id));
+    const suspended = await suspendedSellerIds(farmerIds as string[]);
+    const hiddenReason = (l: any): 'suspended' | 'payouts' | null =>
+      l.status === 'removed' ? null : suspended.has(l.farmer_id) ? 'suspended' : !payoutsReady.has(l.farmer_id) ? 'payouts' : null;
+
+    // The email addresses of those sellers, so an admin can get in touch.
+    const hiddenFarmerIds = [...new Set((listings || []).filter((l) => hiddenReason(l)).map((l) => l.farmer_id as string))];
+    const sellerEmails = new Map<string, string>();
+    for (const farmerId of hiddenFarmerIds.slice(0, 50)) {
+      const { data: sellerUser } = await supabaseAdmin.auth.admin.getUserById(farmerId);
+      if (sellerUser?.user?.email) sellerEmails.set(farmerId, sellerUser.user.email);
+    }
 
     const { data: openOrders } = listingIds.length
       ? await supabaseAdmin
@@ -161,6 +177,8 @@ export async function POST(request: Request) {
         farmer_id: l.farmer_id,
         farm_name: farmNames.get(l.farmer_id) || 'Unknown farm',
         removed: l.status === 'removed',
+        hidden_reason: hiddenReason(l),
+        seller_email: sellerEmails.get(l.farmer_id) || null,
         open_orders: openOrderCount.get(l.id) || 0,
       })),
     });

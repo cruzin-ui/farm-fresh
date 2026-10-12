@@ -169,6 +169,9 @@ type AdminListing = {
   farmer_id: string;
   farm_name: string;
   removed: boolean;
+  // Why buyers can't see it, when it would otherwise be on sale.
+  hidden_reason: 'suspended' | 'payouts' | null;
+  seller_email: string | null;
   open_orders: number;
 };
 
@@ -251,6 +254,7 @@ export default function AdminPage() {
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [listings, setListings] = useState<AdminListing[]>([]);
   const [listingSearch, setListingSearch] = useState('');
+  const [onlyHiddenListings, setOnlyHiddenListings] = useState(false);
   const [sellers, setSellers] = useState<AdminSeller[]>([]);
   const [sellerSearch, setSellerSearch] = useState('');
   const [busyListingId, setBusyListingId] = useState<string | null>(null);
@@ -997,7 +1001,8 @@ export default function AdminPage() {
           {/* LISTINGS */}
           {section === 'listings' && (() => {
             const term = listingSearch.trim().toLowerCase();
-            const shownListings = listings.filter((l) =>
+            const hiddenListings = listings.filter((l) => l.hidden_reason);
+            const shownListings = (onlyHiddenListings ? hiddenListings : listings).filter((l) =>
               [l.title, l.variety || '', l.category, l.farm_name, l.location_name].join(' ').toLowerCase().includes(term)
             );
 
@@ -1010,6 +1015,22 @@ export default function AdminPage() {
                     off sale for good, its open orders are cancelled and refunded, and the seller is emailed.
                   </p>
                 </div>
+
+                <label className="flex items-start gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 w-4 h-4 shrink-0"
+                    checked={onlyHiddenListings}
+                    onChange={(e) => setOnlyHiddenListings(e.target.checked)}
+                  />
+                  <span>
+                    Only show listings buyers can't see ({hiddenListings.length})
+                    <span className="block text-xs text-gray-500">
+                      Posted by a seller who hasn't finished connecting payouts, or who is suspended. A seller who
+                      has posted but not set up payouts is worth a nudge.
+                    </span>
+                  </span>
+                </label>
 
                 <div className="relative max-w-sm">
                   <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
@@ -1025,7 +1046,11 @@ export default function AdminPage() {
 
                 {shownListings.length === 0 ? (
                   <p className="text-sm text-gray-500 py-2 text-center">
-                    {listings.length === 0 ? 'No listings yet.' : `No listing matches "${listingSearch}".`}
+                    {listings.length === 0
+                      ? 'No listings yet.'
+                      : onlyHiddenListings && !term
+                        ? 'Every listing is visible to buyers.'
+                        : `No listing matches "${listingSearch}".`}
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -1050,6 +1075,22 @@ export default function AdminPage() {
                             </a>
                             {listing.location_name ? ` · ${listing.location_name}` : ''}
                           </p>
+                          {listing.hidden_reason && (
+                            <p className="text-xs">
+                              <span className="font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900">
+                                Hidden from buyers:{' '}
+                                {listing.hidden_reason === 'suspended' ? 'seller suspended' : 'payouts not set up'}
+                              </span>
+                              {listing.seller_email && (
+                                <>
+                                  {' '}
+                                  <a href={`mailto:${listing.seller_email}`} className="font-semibold text-emerald-700 underline break-all">
+                                    {listing.seller_email}
+                                  </a>
+                                </>
+                              )}
+                            </p>
+                          )}
                           <p className="text-xs text-gray-600">
                             ${listing.price_per_unit.toFixed(2)} per {listing.unit_type} · {listing.available_quantity}{' '}
                             available · posted {new Date(listing.created_at).toLocaleDateString()}
