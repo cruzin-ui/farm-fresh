@@ -18,6 +18,7 @@ import {
   X,
   ShoppingBag,
   CircleHelp,
+  Store,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import Photo from '@/components/Photo';
@@ -31,6 +32,8 @@ const SUMMARY_REFRESH_MS = 2 * 60 * 1000;
 type AccountSummary = {
   isSeller: boolean;
   farmPhotoUrl: string | null;
+  // The seller's public farm page, for sellers who have one.
+  farmPagePath?: string | null;
   ordersToReview: number;
   // Unopened messages: from buyers (to this user as a seller) and from
   // farmers (to this user as a buyer).
@@ -336,6 +339,15 @@ export default function AccountMenu() {
             )}
           </Link>
           {sellerWaiting > 0 && <p className="px-3 pb-1 -mt-1 text-xs text-gray-500">{sellerWaitingText}</p>}
+          {summary?.farmPagePath && (
+            <Link
+              href={summary.farmPagePath}
+              role="menuitem"
+              className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              <Store className="w-4 h-4" /> My Farm
+            </Link>
+          )}
           <Link
             href="/account"
             role="menuitem"
