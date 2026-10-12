@@ -83,7 +83,7 @@ function ConfirmationContent() {
           href="/orders"
           className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-semibold rounded-xl text-sm"
         >
-          My Orders
+          My Purchases
         </Link>
       </div>
     );
@@ -173,7 +173,7 @@ function ConfirmationContent() {
             href="/orders"
             className="flex-1 py-3 border bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-xl text-sm flex items-center justify-center gap-2 text-center shadow-sm"
           >
-            View My Orders
+            View My Purchases
           </Link>
         )}
         <Link

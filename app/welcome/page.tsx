@@ -55,7 +55,7 @@ function WelcomeContent() {
     {
       href: '/orders',
       icon: Receipt,
-      title: 'Check my orders',
+      title: 'Check my purchases',
       detail: 'Your reservations, pickup details and pickup codes.',
     },
     {

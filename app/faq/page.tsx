@@ -17,7 +17,7 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'Do I need an account to buy?',
     answer:
-      "No. You can check out as a guest with just an email address, which is where we send your confirmation and pickup code. Creating an account adds a My Orders page where you can see all your orders in one place.",
+      "No. You can check out as a guest with just an email address, which is where we send your confirmation and pickup code. Creating an account adds a My Purchases page where you can see all your orders in one place.",
   },
   {
     question: 'How do I pay?',
@@ -71,7 +71,7 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'The farmer marked my order as picked up, but I never got it. What do I do?',
     answer:
-      "Open the order (in My Orders, or the link in your confirmation email) and tap Trouble with this order? at the bottom. It opens Contact Us with your order's details already filled in. Tell us what happened; it comes straight to us, and we'll look into it with you and the farmer.",
+      "Open the order (in My Purchases, or the link in your confirmation email) and tap Trouble with this order? at the bottom. It opens Contact Us with your order's details already filled in. Tell us what happened; it comes straight to us, and we'll look into it with you and the farmer.",
   },
   {
     question: 'How long do I have to pick up?',
@@ -86,7 +86,7 @@ const BUYER_FAQS: Faq[] = [
     answer: (
       <>
         It's in your order confirmation email, and in the "ready for pickup" email. If you have an account, it's
-        also on your My Orders page. Guests can use the link in their confirmation email. If you ordered as a guest
+        also on your My Purchases page. Guests can use the link in their confirmation email. If you ordered as a guest
         and can't find that email,{' '}
         <Link href="/orders/find" className="font-semibold text-emerald-800 underline">
           have your order links sent again
@@ -108,7 +108,7 @@ const BUYER_FAQS: Faq[] = [
     question: "What if I can't make the pickup?",
     answer: (
       <>
-        Cancel the order as early as you can: open the order (in My Orders, or the link in your confirmation
+        Cancel the order as early as you can: open the order (in My Purchases, or the link in your confirmation
         email), tap <strong>More options</strong> and choose <strong>Cancel</strong>. You're refunded what you paid for
         the produce; the service fee isn't refunded. Cancel within {FREE_CANCELLATION_HOURS} hours of ordering and that's all. After
         {FREE_CANCELLATION_HOURS} hours the farmer also keeps a {NO_SHOW_FEE} restocking fee. If you can't cancel it yourself,{' '}

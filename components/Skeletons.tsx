@@ -80,7 +80,7 @@ export function FarmPageSkeleton() {
   );
 }
 
-// A stack of plain cards, for My Orders and Favorite Farms.
+// A stack of plain cards, for My Purchases and Favorite Farms.
 export function CardListSkeleton({ label, count = 3 }: { label: string; count?: number }) {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">

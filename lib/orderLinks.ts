@@ -100,7 +100,7 @@ export async function sendGuestOrderLinks(email: string, siteUrl: string) {
         }
         ${
           hasAccountOrders
-            ? `<p>${entries.length > 0 ? 'You also have orders' : 'Your orders are'} on your Farm Fresh Direct account. <a href="${siteUrl}/login?redirect=/orders">Sign in</a> to see them under My Orders.</p>`
+            ? `<p>${entries.length > 0 ? 'You also have orders' : 'Your orders are'} on your Farm Fresh Direct account. <a href="${siteUrl}/login?redirect=/orders">Sign in</a> to see them under My Purchases.</p>`
             : ''
         }
         <p style="font-size: 12px; color: #6b7280;">

@@ -125,7 +125,7 @@ async function handle(request: Request, record: { admin?: string; action?: strin
     if (action === 'resend_guest_link') {
       if (order.buyer_id) {
         return NextResponse.json(
-          { error: 'This buyer has an account. They can sign in and see the order under My Orders.' },
+          { error: 'This buyer has an account. They can sign in and see the order under My Purchases.' },
           { status: 400 }
         );
       }

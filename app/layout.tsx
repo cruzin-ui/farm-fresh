@@ -70,7 +70,7 @@ export default function RootLayout({
             </Link>
 
             <div className="flex items-center gap-1.5 md:gap-3">
-            {/* Browse is the one link kept beside the account menu; My Orders
+            {/* Browse is the one link kept beside the account menu; My Purchases
                 and the Seller Dashboard are inside that menu. On phones it is
                 all in the menu button, with the bottom tab bar as a shortcut. */}
             <nav className="hidden md:flex items-center gap-3">

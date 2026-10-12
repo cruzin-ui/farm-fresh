@@ -132,7 +132,7 @@ export default function FindMyOrderPage() {
               <Link href="/login?redirect=/orders" className="font-semibold text-emerald-800 underline">
                 Sign in
               </Link>{' '}
-              to see your orders under My Orders.
+              to see your orders under My Purchases.
             </p>
           </form>
         )}

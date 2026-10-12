@@ -1,6 +1,6 @@
 // A buyer's orders, arranged the way they are picked up: everything bought
 // from one farm in one checkout is collected together and shares one pickup
-// code. Used by My Orders and the order confirmation page.
+// code. Used by My Purchases and the order confirmation page.
 
 export type BuyerOrder = {
   id: string;

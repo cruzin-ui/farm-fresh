@@ -75,7 +75,7 @@ export default function MyOrdersPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ShoppingBag className="w-6 h-6 text-emerald-600" /> My Orders
+            <ShoppingBag className="w-6 h-6 text-emerald-600" /> My Purchases
           </h1>
           <p className="text-xs text-gray-500 mt-0.5">
             Your reservations, pickup details and pickup codes. Each farm you bought from has its own code.

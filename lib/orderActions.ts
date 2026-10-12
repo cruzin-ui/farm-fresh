@@ -146,7 +146,7 @@ async function sendBuyerThankYouEmail(order: any, farmerId: string, siteUrl?: st
     .maybeSingle();
 
   // Where this buyer can leave a review: their order page for a guest (who
-  // gets there through the secret link), My Orders for an account holder.
+  // gets there through the secret link), My Purchases for an account holder.
   const guestToken = order.buyer_id ? null : (await getPickupCodeRecord(order.id))?.guestToken;
   const reviewLink = !siteUrl
     ? null
