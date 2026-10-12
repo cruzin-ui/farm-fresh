@@ -47,6 +47,11 @@ export default function SellerTermsPage() {
             other prepared foods vary by state; it is your responsibility to check them before you list.
           </p>
           <p className="mt-2">
+            <strong>Your farm&apos;s web address.</strong> You may choose a short web address for your farm
+            page. It must reflect your own farm and must not use someone else&apos;s name or brand. You can set
+            it once; we may change or remove an address that is misleading or that we need for the site.
+          </p>
+          <p className="mt-2">
             <strong>Local produce only.</strong> Farm Fresh Direct is for locally grown produce. You may only
             list items that belong in one of our categories ({LISTING_CATEGORIES.join(', ')}), and that you
             grew, raised or made yourself. Seeds, plants, meat, dairy, baked goods, crafts and anything that is

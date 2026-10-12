@@ -35,7 +35,7 @@ const FOR_SELLERS = [
   {
     icon: Store,
     title: 'A storefront of your own',
-    body: 'Your farm gets its own page with your photo, your story, how you grow, what you have for sale and your reviews. Share the link anywhere: it is an online farm stand that is open when you are not.',
+    body: 'Your farm gets its own page with your photo, your story, how you grow, what you have for sale and your reviews. Choose your own short address, like farmfreshdirect.online/your-farm, and share it anywhere: it is an online farm stand that is open when you are not.',
   },
   {
     icon: Heart,

@@ -5,6 +5,7 @@ import { listBlocks } from '@/lib/accountBlocks';
 import { logAdminAction } from '@/lib/adminLog';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { alertAdmin } from '@/lib/alerts';
+import { tidyFarmAddress, farmAddressProblem } from '@/lib/farmAddress';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,8 @@ const looksLikeEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valu
 //   block_buyer      — stop a buyer (by email, and their account if they
 //                      have one) from checking out
 //   lift             — remove a suspension or block
+//   set_farm_address — change a farm's web address, or clear it (the seller
+//                      can only set theirs once; fixing a mistake is for us)
 export async function POST(request: Request) {
   try {
     const admin = await getRequestAdmin(request);
@@ -72,6 +75,53 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         message: `${farmName} is suspended. Their listings are hidden and they can't post new ones. Open orders were left as they are.`,
+      });
+    }
+
+    if (action === 'set_farm_address') {
+      const sellerId = typeof body.sellerId === 'string' ? body.sellerId : '';
+      const { data: profile } = await supabaseAdmin
+        .from('seller_profiles')
+        .select('id, farm_name, slug')
+        .eq('id', sellerId)
+        .maybeSingle();
+      if (!profile) return NextResponse.json({ error: 'Seller not found.' }, { status: 404 });
+
+      const farmName = profile.farm_name || 'Unnamed farm';
+      const typed = typeof body.address === 'string' ? body.address : '';
+      const address = tidyFarmAddress(typed);
+
+      // Left empty: take the address away, so the seller can choose again.
+      if (!typed.trim()) {
+        const { error } = await supabaseAdmin.from('seller_profiles').update({ slug: null }).eq('id', profile.id);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        await logAdminAction(admin.email || 'admin', "Cleared a farm's web address", farmName, `Was /${profile.slug || '(none)'}`);
+        return NextResponse.json({
+          success: true,
+          message: `${farmName} no longer has a web address of its own. They can choose a new one from Farm Profile.`,
+        });
+      }
+
+      const problem = farmAddressProblem(address);
+      if (problem) return NextResponse.json({ error: problem }, { status: 400 });
+
+      const { error } = await supabaseAdmin.from('seller_profiles').update({ slug: address }).eq('id', profile.id);
+      if (error) {
+        if (error.code === '23505') {
+          return NextResponse.json({ error: 'Another farm already has that address.' }, { status: 409 });
+        }
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      await logAdminAction(
+        admin.email || 'admin',
+        "Changed a farm's web address",
+        farmName,
+        `/${profile.slug || '(none)'} to /${address}`
+      );
+      return NextResponse.json({
+        success: true,
+        message: `${farmName} is now at /${address}.${profile.slug ? ` The old address, /${profile.slug}, no longer works.` : ''}`,
       });
     }
 

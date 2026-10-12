@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     const { data: profiles } = await supabaseAdmin
       .from('seller_profiles')
-      .select('id, farm_name, stripe_onboarding_complete');
+      .select('*');
 
     type Row = {
       farmer_id: string;
@@ -43,6 +43,8 @@ export async function POST(request: Request) {
       // Set when an admin has suspended this seller.
       suspension_id: string | null;
       suspension_reason: string | null;
+      // The farm's own web address (/<slug>), if it has chosen one.
+      farm_address: string | null;
       // The reasons this seller has given for cancelling or reducing orders.
       change_reasons: { label: string; count: number }[];
       listings: number;
@@ -75,6 +77,7 @@ export async function POST(request: Request) {
         payouts_set_up: Boolean(profile.stripe_onboarding_complete),
         suspension_id: suspensions.get(profile.id)?.id || null,
         suspension_reason: suspensions.get(profile.id)?.reason || null,
+        farm_address: profile.slug || null,
         change_reasons: [],
         listings: 0,
         listings_removed: 0,

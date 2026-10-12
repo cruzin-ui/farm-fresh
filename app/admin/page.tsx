@@ -45,6 +45,7 @@ type AdminSeller = {
   flags: string[];
   suspension_id: string | null;
   suspension_reason: string | null;
+  farm_address: string | null;
   change_reasons: { label: string; count: number }[];
 };
 
@@ -617,6 +618,20 @@ export default function AdminPage() {
     );
     if (reason === null) return;
     changeAccount(seller.farmer_id, { action: 'suspend_seller', sellerId: seller.farmer_id, reason });
+  };
+
+  // A seller can set their farm's web address once; changing it is done here.
+  const changeFarmAddress = (seller: AdminSeller) => {
+    const entered = prompt(
+      `Web address for ${seller.farm_name}\n\n` +
+        'Letters, numbers and hyphens. Leave it empty to remove their address so they can choose again.\n\n' +
+        (seller.farm_address
+          ? `Changing it breaks the current one (/${seller.farm_address}) wherever they have shared it.`
+          : 'They have not chosen one yet.'),
+      seller.farm_address || ''
+    );
+    if (entered === null) return;
+    changeAccount(seller.farmer_id, { action: 'set_farm_address', sellerId: seller.farmer_id, address: entered });
   };
 
   const blockBuyer = (order: AdminOrder) => {
@@ -1259,9 +1274,24 @@ export default function AdminPage() {
                         {shownSellers.map((s) => (
                           <tr key={s.farmer_id} className={s.flags.length > 0 ? 'bg-red-50/60' : ''}>
                             <th scope="row" className="py-2 pr-4 font-semibold text-gray-900 align-top">
-                              <a href={`/sellers/${s.farmer_id}`} target="_blank" className="hover:underline">
+                              <a
+                                href={s.farm_address ? `/${s.farm_address}` : `/sellers/${s.farmer_id}`}
+                                target="_blank"
+                                className="hover:underline"
+                              >
                                 {s.farm_name}
                               </a>
+                              <span className="block font-normal text-gray-500">
+                                {s.farm_address ? `Web address: /${s.farm_address}` : 'No web address chosen'}{' '}
+                                <button
+                                  type="button"
+                                  disabled={busyAccount !== null}
+                                  onClick={() => changeFarmAddress(s)}
+                                  className="font-semibold text-emerald-700 underline disabled:opacity-50"
+                                >
+                                  {s.farm_address ? 'Change' : 'Set'}
+                                </button>
+                              </span>
                               <span className="block font-normal text-gray-500">
                                 {s.listings} listing{s.listings === 1 ? '' : 's'} · {s.open} open
                                 {s.no_show_reports_open > 0 ? ` · ${s.no_show_reports_open} no-show report${s.no_show_reports_open === 1 ? '' : 's'} pending` : ''}
