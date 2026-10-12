@@ -69,6 +69,15 @@ type AdminAction = {
 
 type OrderSizes = { orders: number; averageCents: number; under15: number; from15to40: number; over40: number };
 type Insights = {
+  people: {
+    accounts: number;
+    accountsThisWeek: number;
+    sellers: number;
+    sellersReady: number;
+    sellersOnSale: number;
+    buyersWithAccounts: number;
+    guestBuyers: number;
+  };
   buyers: {
     total: number;
     orderedTwice: number;
@@ -917,6 +926,44 @@ export default function AdminPage() {
           {section === 'overview' && (
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-gray-900">Overview</h2>
+
+              {/* How many people are using the site. */}
+              {insights && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {[
+                    {
+                      label: 'Accounts',
+                      value: insights.people.accounts,
+                      detail:
+                        insights.people.accountsThisWeek > 0
+                          ? `${insights.people.accountsThisWeek} new in the last 7 days`
+                          : 'None new in the last 7 days',
+                    },
+                    {
+                      label: 'Sellers',
+                      value: insights.people.sellers,
+                      detail: `${insights.people.sellersReady} with payouts connected · ${insights.people.sellersOnSale} with something on sale`,
+                    },
+                    {
+                      label: 'Buyers',
+                      value: insights.people.buyersWithAccounts + insights.people.guestBuyers,
+                      detail: 'People who have placed an order',
+                    },
+                    {
+                      label: 'Of those, guests',
+                      value: insights.people.guestBuyers,
+                      detail: `${insights.people.buyersWithAccounts} bought with an account`,
+                    },
+                  ].map((tile) => (
+                    <div key={tile.label} className="p-4 rounded-2xl border border-gray-200 bg-white shadow-sm">
+                      <p className="text-xs font-semibold text-gray-600">{tile.label}</p>
+                      <p className="text-2xl font-black text-gray-900 mt-1">{tile.value}</p>
+                      <p className="text-xs text-gray-500 mt-1">{tile.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {overviewCards.map((card) => (
                   <button
