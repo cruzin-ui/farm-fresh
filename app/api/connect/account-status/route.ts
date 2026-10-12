@@ -3,7 +3,8 @@ import { stripeAdmin } from '@/lib/stripeAdmin';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { setWeeklyPayouts } from '@/lib/payoutSchedule';
-import { alertAdmin } from '@/lib/alerts';
+import { alertAdmin, notifyAdmins } from '@/lib/alerts';
+import { escapeHtml } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('seller_profiles')
-      .select('stripe_account_id')
+      .select('stripe_account_id, stripe_onboarding_complete, farm_name')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -45,6 +46,37 @@ export async function POST(request: Request) {
       .from('seller_profiles')
       .update({ stripe_onboarding_complete: complete })
       .eq('id', user.id);
+
+    // The first time a seller is found to have finished, tell the admins: a
+    // new farm can now be bought from.
+    if (complete && !profile.stripe_onboarding_complete) {
+      const origin = new URL(request.url).origin;
+      const { count: listingCount } = await supabaseAdmin
+        .from('produce_listings')
+        .select('id', { count: 'exact', head: true })
+        .eq('farmer_id', user.id);
+      const farmName = profile.farm_name || 'A seller without a farm name yet';
+
+      await notifyAdmins(
+        `New seller ready: ${farmName}`,
+        `
+          <h2 style="color: #059669;">A seller has finished setting up payouts</h2>
+          <p>
+            <strong>${escapeHtml(farmName)}</strong> (${escapeHtml(user.email || 'no email on file')}) has
+            completed Stripe's verification and can now be paid. Their listings are visible to buyers from now on.
+          </p>
+          <p>
+            They have ${listingCount ?? 0} listing${listingCount === 1 ? '' : 's'} posted${
+              listingCount ? '' : ' so far, so a friendly nudge to post their first harvest may help'
+            }.
+          </p>
+          <p>
+            <a href="${origin}/sellers/${user.id}">View their farm page</a> ·
+            <a href="${origin}/admin">Open the admin page</a>
+          </p>
+        `
+      );
+    }
 
     return NextResponse.json({ complete, transfersStatus });
   } catch (err: any) {

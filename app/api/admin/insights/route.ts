@@ -108,6 +108,37 @@ export async function POST(request: Request) {
       sellerFeeCents += Math.max(0, subtotal - cents(row.farmer_payout_amount));
     }
 
+    // ---- how many people are there? ----
+    // Every account, a page at a time.
+    const weekAgo = now - 7 * DAY_MS;
+    let accounts = 0;
+    let accountsThisWeek = 0;
+    for (let page = 1; page <= 50; page++) {
+      const { data: batch, error: usersError } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (usersError) break;
+      accounts += batch.users.length;
+      accountsThisWeek += batch.users.filter((u) => new Date(u.created_at).getTime() >= weekAgo).length;
+      if (batch.users.length < 1000) break;
+    }
+
+    // A seller is anyone who has named a farm, started payout setup or posted.
+    const { data: profiles } = await supabaseAdmin
+      .from('seller_profiles')
+      .select('id, farm_name, stripe_account_id, stripe_onboarding_complete');
+    const sellerIds = new Set<string>((listings || []).map((l) => l.farmer_id as string).filter(Boolean));
+    for (const profile of profiles || []) {
+      if (String(profile.farm_name || '').trim() || profile.stripe_account_id) sellerIds.add(profile.id);
+    }
+    const sellersReady = (profiles || []).filter((p) => p.stripe_onboarding_complete).length;
+
+    // Buyers are counted from orders, whether they had an account or not.
+    const accountBuyers = new Set((rows || []).filter((r) => r.buyer_id).map((r) => r.buyer_id as string));
+    const guestBuyers = new Set(
+      (rows || [])
+        .filter((r) => !r.buyer_id && r.buyer_email)
+        .map((r) => String(r.buyer_email).trim().toLowerCase())
+    );
+
     // ---- how far do shoppers get through checkout? ----
     const since = new Date(now - 30 * DAY_MS).toISOString().slice(0, 10);
     const { data: counts, error: countsError } = await supabaseAdmin
@@ -117,6 +148,15 @@ export async function POST(request: Request) {
     const tally = (name: string) => (counts || []).filter((c) => c.name === name).reduce((sum, c) => sum + Number(c.count || 0), 0);
 
     return NextResponse.json({
+      people: {
+        accounts,
+        accountsThisWeek,
+        sellers: sellerIds.size,
+        sellersReady,
+        sellersOnSale: sellersWithListings.size,
+        buyersWithAccounts: accountBuyers.size,
+        guestBuyers: guestBuyers.size,
+      },
       buyers: {
         total: buyers.length,
         orderedTwice: buyers.filter((list) => list.length >= 2).length,
