@@ -5,6 +5,7 @@ import { noShowAutoApproveAt } from '@/lib/noShow';
 import { alertAdmin } from '@/lib/alerts';
 import { orderRef } from '@/lib/pickupGroups';
 import { listBlocks } from '@/lib/accountBlocks';
+import { SELLER_CHANGE_REASONS, LISTING_ACTIONS } from '@/lib/sellerChangeReasons';
 import { FAST_COMPLETION_MINUTES, hasOpenDispute } from '@/lib/orderActions';
 
 export const dynamic = 'force-dynamic';
@@ -72,6 +73,24 @@ export async function POST(request: Request) {
     const farmNameById = new Map((farmers || []).map((f) => [f.id, f.farm_name]));
     const codeByOrderId = new Map((codes || []).map((c) => [c.order_id, c]));
 
+    // Why the seller cancelled or reduced each order, if they did.
+    const { data: changes } = orderIds.length
+      ? await supabaseAdmin
+          .from('seller_order_changes')
+          .select('order_id, kind, reason, listing_action, quantity_removed, created_at')
+          .in('order_id', orderIds)
+          .order('created_at', { ascending: true })
+      : { data: [] as any[] };
+    const changesByOrder = new Map<string, string[]>();
+    for (const change of changes || []) {
+      const text = `${change.kind === 'cancelled' ? 'Cancelled' : `Reduced by ${change.quantity_removed}`} on ${new Date(
+        change.created_at
+      ).toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}: ${
+        SELLER_CHANGE_REASONS[change.reason] || change.reason
+      }. Listing: ${(LISTING_ACTIONS[change.listing_action]?.label || change.listing_action).toLowerCase()}.`;
+      changesByOrder.set(change.order_id, [...(changesByOrder.get(change.order_id) || []), text]);
+    }
+
     // Buyers an admin has blocked, by account or by email address.
     const buyerBlocks = (await listBlocks().catch(() => [])).filter((b) => b.scope === 'buyer');
     const blockFor = (o: any) =>
@@ -89,6 +108,7 @@ export async function POST(request: Request) {
         id: o.id,
         // The number buyers and farmers see and quote.
         order_ref: orderRef(o),
+        seller_changes: changesByOrder.get(o.id) || [],
         buyer_block_id: blockFor(o)?.id || null,
         created_at: o.created_at,
         status: o.status,

@@ -45,6 +45,7 @@ type AdminSeller = {
   flags: string[];
   suspension_id: string | null;
   suspension_reason: string | null;
+  change_reasons: { label: string; count: number }[];
 };
 
 type AccountBlock = {
@@ -90,6 +91,11 @@ type Insights = {
   sellers: { withListings: number; withOrdersLast30Days: number; ordersPerSellerPerWeek: number };
   share: { produceCents: number; buyerFeeCents: number; sellerFeeCents: number };
   checkout: { opened: number; started: number; completed: number } | null;
+  sellerChanges: {
+    reasons: { label: string; cancelled: number; reduced: number; last30Days: number }[];
+    listing: { label: string; count: number }[];
+    total: number;
+  } | null;
 };
 
 type ThreadMessage = { id: string; sender: string; body: string; created_at: string };
@@ -106,6 +112,8 @@ type AdminOrder = {
   buyer_problem_resolved_at: string | null;
   id: string;
   order_ref: string;
+  // What the seller said each time they cancelled or reduced this order.
+  seller_changes: string[];
   buyer_block_id: string | null;
   created_at: string;
   status: string;
@@ -1240,6 +1248,11 @@ export default function AdminPage() {
                                   Flag: {flag}
                                 </span>
                               ))}
+                              {(s.change_reasons || []).length > 0 && (
+                                <span className="block font-normal text-gray-600">
+                                  Reasons given: {s.change_reasons.map((r) => `${r.label} (${r.count})`).join('; ')}
+                                </span>
+                              )}
                               {s.suspension_id && (
                                 <span className="block font-bold text-red-800">
                                   SUSPENDED{s.suspension_reason ? `: ${s.suspension_reason}` : ''}
@@ -1562,7 +1575,7 @@ export default function AdminPage() {
                 );
               }
 
-              const { buyers, orderSize, sellers, share, checkout } = insights;
+              const { buyers, orderSize, sellers, share, checkout, sellerChanges } = insights;
               const sizeRow = (label: string, s: OrderSizes) => (
                 <tr key={label} className="border-b border-gray-100 last:border-0">
                   <th scope="row" className="py-2 pr-4 text-left font-semibold text-gray-900">{label}</th>
@@ -1683,6 +1696,56 @@ export default function AdminPage() {
                         "Before Stripe's charges"
                       )}
                     </div>
+                  </div>
+
+                  <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+                    <h3 className="text-sm font-bold text-gray-900">Why do sellers cancel or reduce orders?</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      The reason each seller chose when they changed an order, and what they did with the listing.
+                      Each seller&apos;s own reasons are in the Sellers section.
+                    </p>
+                    {!sellerChanges ? (
+                      <p className="mt-3 text-sm text-amber-800">
+                        Not set up yet: run db/seller_order_changes.sql in Supabase to start recording.
+                      </p>
+                    ) : sellerChanges.total === 0 ? (
+                      <p className="mt-3 text-sm text-gray-500">No seller has cancelled or reduced an order since this started being recorded.</p>
+                    ) : (
+                      <>
+                        <div className="overflow-x-auto mt-3">
+                          <table className="w-full text-xs text-gray-700">
+                            <thead className="text-gray-500 border-b">
+                              <tr>
+                                <th scope="col" className="py-2 pr-4 text-left font-semibold">Reason given</th>
+                                <th scope="col" className="py-2 pr-4 text-right font-semibold">Cancelled</th>
+                                <th scope="col" className="py-2 pr-4 text-right font-semibold">Reduced</th>
+                                <th scope="col" className="py-2 pr-4 text-right font-semibold">Share</th>
+                                <th scope="col" className="py-2 text-right font-semibold">Last 30 days</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sellerChanges.reasons
+                                .filter((r) => r.cancelled + r.reduced > 0)
+                                .map((r) => (
+                                  <tr key={r.label} className="border-b border-gray-100 last:border-0">
+                                    <th scope="row" className="py-2 pr-4 text-left font-semibold text-gray-900">{r.label}</th>
+                                    <td className="py-2 pr-4 text-right tabular-nums">{r.cancelled}</td>
+                                    <td className="py-2 pr-4 text-right tabular-nums">{r.reduced}</td>
+                                    <td className="py-2 pr-4 text-right tabular-nums">
+                                      {pct(r.cancelled + r.reduced, sellerChanges.total)}
+                                    </td>
+                                    <td className="py-2 text-right tabular-nums">{r.last30Days}</td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="mt-3 text-xs text-gray-600">
+                          What they did with the listing:{' '}
+                          {sellerChanges.listing.map((l) => `${l.label.toLowerCase()} ${l.count}`).join(' · ')}.
+                        </p>
+                      </>
+                    )}
                   </div>
 
                   <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
@@ -2001,6 +2064,12 @@ export default function AdminPage() {
                           {order.stripe_payment_intent_id && (
                             <p className="font-mono text-xs text-gray-400">{order.stripe_payment_intent_id}</p>
                           )}
+                          {(order.seller_changes || []).map((change) => (
+                            <p key={change} className="mt-1 p-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-950">
+                              <span className="font-bold">Seller: </span>
+                              {change}
+                            </p>
+                          ))}
                           {order.buyer_problem_at && order.buyer_problem_note && (
                             <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg text-red-950">
                               <p className="font-bold">

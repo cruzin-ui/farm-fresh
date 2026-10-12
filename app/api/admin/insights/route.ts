@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
 import { alertAdmin } from '@/lib/alerts';
+import { SELLER_CHANGE_REASONS, LISTING_ACTIONS } from '@/lib/sellerChangeReasons';
 
 export const dynamic = 'force-dynamic';
 
@@ -139,6 +140,34 @@ export async function POST(request: Request) {
         .map((r) => String(r.buyer_email).trim().toLowerCase())
     );
 
+    // ---- why do sellers cancel or reduce orders? ----
+    const { data: changes, error: changesError } = await supabaseAdmin
+      .from('seller_order_changes')
+      .select('kind, reason, listing_action, created_at')
+      .order('created_at', { ascending: false })
+      .limit(10000);
+    const monthAgo = now - 30 * DAY_MS;
+    const sellerChanges = changesError
+      ? null
+      : {
+          reasons: Object.entries(SELLER_CHANGE_REASONS)
+            .map(([code, label]) => {
+              const matching = (changes || []).filter((c) => c.reason === code);
+              return {
+                label,
+                cancelled: matching.filter((c) => c.kind === 'cancelled').length,
+                reduced: matching.filter((c) => c.kind === 'reduced').length,
+                last30Days: matching.filter((c) => new Date(c.created_at).getTime() >= monthAgo).length,
+              };
+            })
+            .sort((a, b) => b.cancelled + b.reduced - (a.cancelled + a.reduced)),
+          listing: Object.entries(LISTING_ACTIONS).map(([code, action]) => ({
+            label: action.label,
+            count: (changes || []).filter((c) => c.listing_action === code).length,
+          })),
+          total: (changes || []).length,
+        };
+
     // ---- how far do shoppers get through checkout? ----
     const since = new Date(now - 30 * DAY_MS).toISOString().slice(0, 10);
     const { data: counts, error: countsError } = await supabaseAdmin
@@ -172,6 +201,7 @@ export async function POST(request: Request) {
         ordersPerSellerPerWeek: sellersWithOrders28.size ? sellerOrders28 / sellersWithOrders28.size / 4 : 0,
       },
       share: { produceCents, buyerFeeCents, sellerFeeCents },
+      sellerChanges,
       checkout: countsError
         ? null
         : {

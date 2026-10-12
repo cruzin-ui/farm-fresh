@@ -4,6 +4,7 @@ import { getRequestAdmin } from '@/lib/apiAuth';
 import { FAST_COMPLETION_MINUTES, hasOpenDispute } from '@/lib/orderActions';
 import { alertAdmin } from '@/lib/alerts';
 import { listBlocks } from '@/lib/accountBlocks';
+import { SELLER_CHANGE_REASONS } from '@/lib/sellerChangeReasons';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,8 @@ export async function POST(request: Request) {
       // Set when an admin has suspended this seller.
       suspension_id: string | null;
       suspension_reason: string | null;
+      // The reasons this seller has given for cancelling or reducing orders.
+      change_reasons: { label: string; count: number }[];
       listings: number;
       listings_removed: number;
       orders: number;
@@ -72,6 +75,7 @@ export async function POST(request: Request) {
         payouts_set_up: Boolean(profile.stripe_onboarding_complete),
         suspension_id: suspensions.get(profile.id)?.id || null,
         suspension_reason: suspensions.get(profile.id)?.reason || null,
+        change_reasons: [],
         listings: 0,
         listings_removed: 0,
         orders: 0,
@@ -160,6 +164,24 @@ export async function POST(request: Request) {
       if (row.listings_removed >= 1) {
         row.flags.push(`${row.listings_removed} listing${row.listings_removed === 1 ? '' : 's'} removed by an admin`);
       }
+    }
+
+    // What each seller said when they cancelled or reduced an order.
+    const { data: changes } = await supabaseAdmin
+      .from('seller_order_changes')
+      .select('farmer_id, reason')
+      .order('created_at', { ascending: false })
+      .limit(5000);
+    const reasonCounts = new Map<string, Map<string, number>>();
+    for (const change of changes || []) {
+      const counts = reasonCounts.get(change.farmer_id) || new Map<string, number>();
+      counts.set(change.reason, (counts.get(change.reason) || 0) + 1);
+      reasonCounts.set(change.farmer_id, counts);
+    }
+    for (const row of rows.values()) {
+      row.change_reasons = [...(reasonCounts.get(row.farmer_id) || new Map<string, number>()).entries()]
+        .map(([code, count]) => ({ label: SELLER_CHANGE_REASONS[code] || code, count }))
+        .sort((a, b) => b.count - a.count);
     }
 
     // Flagged sellers first, then the busiest.

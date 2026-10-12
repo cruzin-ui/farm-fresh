@@ -10,6 +10,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
 import PickList from '@/components/PickList';
+import { SELLER_CHANGE_REASONS, LISTING_ACTIONS, type ListingAction } from '@/lib/sellerChangeReasons';
 import { SELLER_CANCEL_LIMIT, SELLER_CANCEL_WINDOW_DAYS } from '@/lib/sellerLimits';
 import { buildSalesCsv, downloadCsv, salesYears, sellerEarnings } from '@/lib/salesCsv';
 import SellerTour, { type TourStep } from '@/components/SellerTour';
@@ -312,7 +313,9 @@ export default function SellerDashboardPage() {
   const [adjustOrderId, setAdjustOrderId] = useState<string | null>(null);
   const [adjustQuantity, setAdjustQuantity] = useState('0');
   const [adjustNote, setAdjustNote] = useState('');
-  const [adjustRestock, setAdjustRestock] = useState(false);
+  // What to do with the listing afterwards, and why the order is being changed.
+  const [adjustListingAction, setAdjustListingAction] = useState<ListingAction | ''>('');
+  const [adjustReason, setAdjustReason] = useState('');
   const [submittingAdjust, setSubmittingAdjust] = useState(false);
 
   useEffect(() => {
@@ -834,7 +837,8 @@ export default function SellerDashboardPage() {
     setAdjustOrderId(order.id);
     setAdjustQuantity('0');
     setAdjustNote('');
-    setAdjustRestock(false);
+    setAdjustListingAction('');
+    setAdjustReason('');
   };
 
   // Reports a no-show for an admin to review. It moves no money by itself.
@@ -874,7 +878,8 @@ export default function SellerDashboardPage() {
         orderId: order.id,
         newQuantity: newQty,
         note: adjustNote,
-        restock: adjustRestock,
+        listingAction: adjustListingAction,
+        reason: adjustReason,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to adjust order.');
@@ -2601,14 +2606,53 @@ export default function SellerDashboardPage() {
                                 className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm bg-white"
                               />
                             </div>
-                            <label className="flex items-center gap-2 text-xs text-red-900">
-                              <input
-                                type="checkbox"
-                                checked={adjustRestock}
-                                onChange={(e) => setAdjustRestock(e.target.checked)}
-                              />
-                              Put the removed quantity back on the listing for other buyers
-                            </label>
+                            <fieldset className="space-y-1.5">
+                              <legend className="text-xs font-semibold text-red-900 mb-1">
+                                What should happen to the listing? *
+                              </legend>
+                              {(Object.keys(LISTING_ACTIONS) as ListingAction[]).map((action) => (
+                                <label
+                                  key={action}
+                                  className={`flex items-start gap-2 p-2.5 rounded-lg border bg-white text-xs text-red-950 cursor-pointer ${
+                                    adjustListingAction === action ? 'border-red-500' : 'border-red-200'
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`listing-action-${order.id}`}
+                                    className="mt-0.5 w-4 h-4 shrink-0"
+                                    checked={adjustListingAction === action}
+                                    onChange={() => setAdjustListingAction(action)}
+                                  />
+                                  <span>
+                                    <span className="block font-bold">{LISTING_ACTIONS[action].label}</span>
+                                    <span className="block">{LISTING_ACTIONS[action].detail}</span>
+                                  </span>
+                                </label>
+                              ))}
+                            </fieldset>
+                            <div>
+                              <label htmlFor={`change-reason-${order.id}`} className="block text-xs font-semibold text-red-900 mb-1">
+                                Why are you changing this order? *
+                              </label>
+                              <select
+                                id={`change-reason-${order.id}`}
+                                value={adjustReason}
+                                onChange={(e) => setAdjustReason(e.target.value)}
+                                className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm bg-white"
+                              >
+                                <option value="">Choose a reason...</option>
+                                {Object.entries(SELLER_CHANGE_REASONS).map(([code, label]) => (
+                                  <option key={code} value={code}>
+                                    {label}
+                                  </option>
+                                ))}
+                              </select>
+                              <p className="text-xs text-red-900 mt-1">
+                                This goes to Farm Fresh Direct, not to the buyer. Anything you want the buyer to know
+                                goes in the message above.
+                              </p>
+                            </div>
                             <p className="text-xs text-red-900">
                               Once you change an order, the buyer can cancel the rest of what they ordered from you at
                               the same time for a full refund, with no restocking fee to you.
@@ -2616,7 +2660,7 @@ export default function SellerDashboardPage() {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => confirmAdjust(order)}
-                                disabled={submittingAdjust || !validQty}
+                                disabled={submittingAdjust || !validQty || !adjustListingAction || !adjustReason}
                                 className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
                               >
                                 {submittingAdjust
@@ -2907,6 +2951,10 @@ export default function SellerDashboardPage() {
                           buyer sees it in their email.
                         </li>
                         <li>
+                          Choose what should happen to the listing, and tell us why you're changing the order. The
+                          reason comes to us, not to the buyer.
+                        </li>
+                        <li>
                           Tap <strong>Reduce Order & Refund</strong>.
                         </li>
                       </ol>
@@ -2949,8 +2997,9 @@ export default function SellerDashboardPage() {
                           full refund too, with no restocking fee to you.
                         </li>
                         <li>
-                          Tick "Put the removed quantity back on the listing" if you still have it to sell to someone
-                          else. Leave it unticked if the produce is gone.
+                          You choose what happens to the listing: put the quantity back on sale if you still have
+                          it, leave the listing as it is if the produce is gone, or take the listing down if you have
+                          nothing more to sell.
                         </li>
                       </ul>
                       <p>
