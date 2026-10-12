@@ -43,7 +43,9 @@ export async function POST(request: Request) {
         `and(checkout_id.gte.${low},checkout_id.lte.${high}),and(checkout_id.is.null,id.gte.${low},id.lte.${high})`
       );
     } else if (search) {
-      const term = search.replace(/[\\%_,()]/g, '');
+      // An underscore is a wildcard in this kind of search, so one that is
+      // part of an email address is matched as itself.
+      const term = search.replace(/[\\%,()]/g, '').replace(/_/g, '\\_');
       if (!term) return NextResponse.json({ orders: [] });
       query = query.ilike('buyer_email', `%${term}%`);
     }

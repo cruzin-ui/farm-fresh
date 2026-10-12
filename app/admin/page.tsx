@@ -18,6 +18,7 @@ import {
   Search,
   Store,
   Users,
+  ShoppingBasket,
   Ban,
   History,
   ChevronDown,
@@ -47,6 +48,29 @@ type AdminSeller = {
   suspension_reason: string | null;
   farm_address: string | null;
   change_reasons: { label: string; count: number }[];
+};
+
+type AdminBuyer = {
+  key: string;
+  email: string | null;
+  has_account: boolean;
+  ordered_as_guest: boolean;
+  block_id: string | null;
+  block_reason: string | null;
+  orders: number;
+  items: number;
+  open: number;
+  picked_up: number;
+  buyer_cancelled: number;
+  cancelled_late: number;
+  no_shows: number;
+  problems: number;
+  disputes: number;
+  spent_cents: number;
+  refunded_cents: number;
+  first_order_at: string;
+  last_order_at: string;
+  flags: string[];
 };
 
 type AccountBlock = {
@@ -167,6 +191,7 @@ type AdminSection =
   | 'messages'
   | 'listings'
   | 'sellers'
+  | 'buyers'
   | 'reviews'
   | 'fees'
   | 'reports'
@@ -289,6 +314,8 @@ export default function AdminPage() {
   const [listingSearch, setListingSearch] = useState('');
   const [onlyHiddenListings, setOnlyHiddenListings] = useState(false);
   const [sellers, setSellers] = useState<AdminSeller[]>([]);
+  const [buyers, setBuyers] = useState<AdminBuyer[]>([]);
+  const [buyerSearch, setBuyerSearch] = useState('');
   const [sellerSearch, setSellerSearch] = useState('');
   const [busyListingId, setBusyListingId] = useState<string | null>(null);
   // Fee breakdown: one month ("YYYY-MM") or every month together, and the
@@ -352,6 +379,10 @@ export default function AdminPage() {
     const sellersRes = await postWithAuth('/api/admin/sellers');
     const sellersData = await sellersRes.json();
     if (sellersRes.ok) setSellers(sellersData.sellers);
+
+    const buyersRes = await postWithAuth('/api/admin/buyers');
+    const buyersData = await buyersRes.json().catch(() => ({}));
+    if (buyersRes.ok) setBuyers(buyersData.buyers || []);
 
     const listingsRes = await postWithAuth('/api/admin/listings');
     const listingsData = await listingsRes.json();
@@ -523,6 +554,24 @@ export default function AdminPage() {
     }
   };
 
+  const showOrdersFor = async (email: string) => {
+    setSection('all');
+    setOrderSearch(email);
+    setSearching(true);
+    setErrorMsg(null);
+    try {
+      const res = await postWithAuth('/api/admin/orders', { search: email });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Search failed.');
+      setSearchedFor(email);
+      setSearchResults(data.orders || []);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Search failed.');
+    } finally {
+      setSearching(false);
+    }
+  };
+
   const clearOrderSearch = () => {
     setOrderSearch('');
     setSearchedFor('');
@@ -666,7 +715,7 @@ export default function AdminPage() {
     changeAccount(seller.farmer_id, { action: 'set_farm_address', sellerId: seller.farmer_id, address: entered });
   };
 
-  const blockBuyer = (order: AdminOrder) => {
+  const blockBuyer = (order: { buyer_email: string | null }) => {
     if (!order.buyer_email) return;
     const reason = prompt(
       `Block ${order.buyer_email} from placing orders?\n\n` +
@@ -750,6 +799,7 @@ export default function AdminPage() {
       (isOpen(o) && (o.no_show_reported_at || daysOpen(o) > STALE_AFTER_DAYS))
   );
   const flaggedSellers = sellers.filter((s) => s.flags.length > 0);
+  const flaggedBuyers = buyers.filter((b) => b.flags.length > 0 && !b.block_id);
 
   // What the current order search is for, in words: a seller's name when the
   // search is "every order for this seller".
@@ -843,6 +893,7 @@ export default function AdminPage() {
     { id: 'messages', label: 'Messages', icon: Mail, count: openMessages.length, urgent: true },
     { id: 'listings', label: 'Listings', icon: Store },
     { id: 'sellers', label: 'Sellers', icon: Users, count: flaggedSellers.length, urgent: true },
+    { id: 'buyers', label: 'Buyers', icon: ShoppingBasket, count: flaggedBuyers.length, urgent: true },
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'fees', label: 'Fee breakdown', icon: PieChart },
     { id: 'reports', label: 'Reports', icon: TrendingUp },
@@ -1395,6 +1446,151 @@ export default function AdminPage() {
               </div>
             );
           })()}
+
+          {/* BUYERS */}
+          {section === 'buyers' &&
+            (() => {
+              const term = buyerSearch.trim().toLowerCase();
+              const shownBuyers = buyers.filter((b) => (b.email || '').includes(term));
+              const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+              const cell = (value: number, warn = false) => (
+                <td className={`py-2 pr-4 text-right tabular-nums align-top ${warn && value > 0 ? 'font-bold text-red-700' : ''}`}>
+                  {value}
+                </td>
+              );
+
+              return (
+                <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">Buyers</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Everyone who has placed an order, by email address, with their track record. Flagged buyers
+                      are listed first, then the most recent.
+                    </p>
+                  </div>
+
+                  <div className="relative max-w-sm">
+                    <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+                    <input
+                      type="search"
+                      aria-label="Search buyers"
+                      placeholder="Search by email address..."
+                      value={buyerSearch}
+                      onChange={(e) => setBuyerSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 border rounded-xl text-sm"
+                    />
+                  </div>
+
+                  {shownBuyers.length === 0 ? (
+                    <p className="text-sm text-gray-500 py-2 text-center">
+                      {buyers.length === 0 ? 'No buyers yet.' : `No buyer matches "${buyerSearch}".`}
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <caption className="sr-only">Buyer track records</caption>
+                        <thead className="text-gray-500 border-b">
+                          <tr>
+                            <th scope="col" className="py-2 pr-4 font-semibold">Buyer</th>
+                            <th scope="col" className="py-2 pr-4 font-semibold text-right">Orders</th>
+                            <th scope="col" className="py-2 pr-4 font-semibold text-right">Items picked up</th>
+                            <th scope="col" className="py-2 pr-4 font-semibold text-right">Open</th>
+                            <th scope="col" className="py-2 pr-4 font-semibold text-right">They cancelled</th>
+                            <th scope="col" className="py-2 pr-4 font-semibold text-right">Not picked up</th>
+                            <th scope="col" className="py-2 pr-4 font-semibold text-right">Problems reported</th>
+                            <th scope="col" className="py-2 pr-4 font-semibold text-right">Disputes</th>
+                            <th scope="col" className="py-2 font-semibold text-right">Spent</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {shownBuyers.map((b) => (
+                            <tr key={b.key} className={b.block_id ? 'bg-gray-50' : b.flags.length > 0 ? 'bg-red-50/60' : ''}>
+                              <th scope="row" className="py-2 pr-4 font-semibold text-gray-900 align-top">
+                                {b.email ? (
+                                  <a href={`mailto:${b.email}`} className="hover:underline break-all">
+                                    {b.email}
+                                  </a>
+                                ) : (
+                                  'No email on file'
+                                )}
+                                <span className="block font-normal text-gray-500">
+                                  {b.has_account ? (b.ordered_as_guest ? 'Account, and as a guest' : 'Has an account') : 'Guest, no account'}
+                                  {' · '}first order {new Date(b.first_order_at).toLocaleDateString()}
+                                  {' · '}last {new Date(b.last_order_at).toLocaleDateString()}
+                                </span>
+                                {b.flags.map((flag) => (
+                                  <span key={flag} className="block font-bold text-red-700">
+                                    Flag: {flag}
+                                  </span>
+                                ))}
+                                {b.block_id && (
+                                  <span className="block font-bold text-red-800">
+                                    BLOCKED{b.block_reason ? `: ${b.block_reason}` : ''}
+                                  </span>
+                                )}
+                                {b.email && (
+                                  <span className="mt-1.5 flex gap-2 flex-wrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => showOrdersFor(b.email!)}
+                                      className="text-xs font-bold px-2.5 py-1 rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                                    >
+                                      See Their Orders
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={busyAccount !== null}
+                                      onClick={() =>
+                                        b.block_id
+                                          ? liftBlock(b.block_id, `Let ${b.email} place orders again`)
+                                          : blockBuyer({ buyer_email: b.email })
+                                      }
+                                      className={`text-xs font-bold px-2.5 py-1 rounded-lg border disabled:opacity-50 ${
+                                        b.block_id
+                                          ? 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                          : 'bg-white border-red-200 text-red-700 hover:bg-red-50'
+                                      }`}
+                                    >
+                                      {b.block_id ? 'Unblock' : 'Block Buyer'}
+                                    </button>
+                                  </span>
+                                )}
+                              </th>
+                              {cell(b.orders)}
+                              {cell(b.picked_up)}
+                              {cell(b.open)}
+                              <td className={`py-2 pr-4 text-right tabular-nums align-top ${b.buyer_cancelled > 0 ? 'font-bold text-red-700' : ''}`}>
+                                {b.buyer_cancelled}
+                                {b.cancelled_late > 0 && (
+                                  <span className="block font-normal text-gray-500">{b.cancelled_late} late</span>
+                                )}
+                              </td>
+                              {cell(b.no_shows, true)}
+                              {cell(b.problems, true)}
+                              {cell(b.disputes, true)}
+                              <td className="py-2 text-right tabular-nums align-top">
+                                {usd(b.spent_cents)}
+                                {b.refunded_cents > 0 && (
+                                  <span className="block font-normal text-gray-500">{usd(b.refunded_cents)} refunded</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-400">
+                    Orders counts checkouts; the other columns count items, since each item is collected, cancelled or
+                    complained about on its own. "They cancelled" leaves out cancellations that followed a farmer
+                    changing or missing the order. A buyer is flagged for: any payment dispute; 2 or more items not
+                    picked up; cancelling 3 or more items making up 30% of those closed; or reporting a problem on 2
+                    or more items making up 30% of what they bought. Blocking a guest only blocks that email address.
+                  </p>
+                </div>
+              );
+            })()}
 
           {/* REVIEWS */}
           {section === 'reviews' && (
