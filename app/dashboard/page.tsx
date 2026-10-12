@@ -10,6 +10,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
 import PickList from '@/components/PickList';
+import { tidyFarmAddress, farmAddressProblem, FARM_ADDRESS_MAX } from '@/lib/farmAddress';
 import { SELLER_CHANGE_REASONS, LISTING_ACTIONS, type ListingAction } from '@/lib/sellerChangeReasons';
 import { SELLER_CANCEL_LIMIT, SELLER_CANCEL_WINDOW_DAYS } from '@/lib/sellerLimits';
 import { buildSalesCsv, downloadCsv, salesYears, sellerEarnings } from '@/lib/salesCsv';
@@ -172,6 +173,12 @@ export default function SellerDashboardPage() {
   const openedOnOrders = useRef(false);
   // Which year of Sales History is shown and downloaded.
   const [historyYear, setHistoryYear] = useState<number | 'all'>('all');
+  // The farm's own web address (farmfreshdirect.online/<name>): the one it
+  // has, if any, and the one being typed.
+  const [farmAddress, setFarmAddress] = useState<string | null>(null);
+  const [addressDraft, setAddressDraft] = useState('');
+  const [addressCheck, setAddressCheck] = useState<{ address: string; available: boolean; error?: string } | null>(null);
+  const [claimingAddress, setClaimingAddress] = useState(false);
   // Shown briefly after the seller copies the link to their farm page.
   const [storefrontCopied, setStorefrontCopied] = useState(false);
   // The guided tour. It starts by itself the first time a seller with nothing
@@ -377,6 +384,7 @@ export default function SellerDashboardPage() {
       .maybeSingle();
 
     if (profile) {
+      setFarmAddress(profile.slug || null);
       setFarmName(profile.farm_name || '');
       setAvatarUrl(profile.avatar_url || '');
       setCoverUrl(profile.cover_image_url || '');
@@ -1267,6 +1275,49 @@ export default function SellerDashboardPage() {
     );
   }
 
+  // Where the farm's public page is: its own address once it has one.
+  const farmPagePath = farmAddress ? `/${farmAddress}` : `/sellers/${user?.id || ''}`;
+  const tidiedAddress = tidyFarmAddress(addressDraft);
+  const addressShapeProblem = tidiedAddress ? farmAddressProblem(tidiedAddress) : null;
+  const addressAvailable = addressCheck?.address === tidiedAddress && addressCheck.available;
+
+  // Asks the server whether the address typed is free.
+  const checkFarmAddress = async () => {
+    if (!tidiedAddress || addressShapeProblem) return;
+    try {
+      const res = await postWithAuth('/api/farm-address', { address: tidiedAddress, check: true });
+      const data = await res.json();
+      setAddressCheck({ address: tidiedAddress, available: Boolean(data.available), error: data.error });
+    } catch {
+      setAddressCheck({ address: tidiedAddress, available: false, error: 'Could not check that just now. Try again.' });
+    }
+  };
+
+  const claimFarmAddress = async () => {
+    if (
+      !confirm(
+        `Make this your farm's web address?\n\n${window.location.host}/${tidiedAddress}\n\nIt can't be changed once it's set, so check the spelling.`
+      )
+    ) {
+      return;
+    }
+
+    setClaimingAddress(true);
+    setErrorMsg(null);
+    try {
+      const res = await postWithAuth('/api/farm-address', { address: tidiedAddress });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not set that address.');
+      setFarmAddress(data.address);
+      setAddressDraft('');
+      setSuccessMsg(`Your farm's web address is now ${window.location.host}/${data.address}`);
+    } catch (err: any) {
+      setAddressCheck({ address: tidiedAddress, available: false, error: err.message || 'Could not set that address.' });
+    } finally {
+      setClaimingAddress(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto md:px-4 py-2 md:py-8">
       {tourOpen && (
@@ -1303,7 +1354,7 @@ export default function SellerDashboardPage() {
           {user?.id && (
             <div className="flex items-center gap-2 flex-wrap pb-3 mb-3 border-b border-gray-100 text-xs">
               <a
-                href={`/sellers/${user.id}`}
+                href={farmPagePath}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-semibold text-emerald-800 underline underline-offset-2"
@@ -1314,12 +1365,12 @@ export default function SellerDashboardPage() {
                 type="button"
                 onClick={async () => {
                   try {
-                    await navigator.clipboard.writeText(`${window.location.origin}/sellers/${user.id}`);
+                    await navigator.clipboard.writeText(`${window.location.origin}${farmPagePath}`);
                     setStorefrontCopied(true);
                     setTimeout(() => setStorefrontCopied(false), 2500);
                   } catch {
                     // Copying isn't allowed in this browser: open the page so the address can be copied from it.
-                    window.open(`/sellers/${user.id}`, '_blank');
+                    window.open(farmPagePath, '_blank');
                   }
                 }}
                 className="font-semibold text-gray-700 border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-50"
@@ -3230,6 +3281,96 @@ export default function SellerDashboardPage() {
                 <p className="text-xs text-gray-500 mt-0.5">
                   Set your farm photo and name to appear automatically on all postings.
                 </p>
+              </div>
+
+              {/* The farm's own web address. Chosen once; a button, not part of
+                  the form below, so saving the profile doesn't touch it. */}
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+                <p className="text-sm font-bold text-emerald-950">Your farm&apos;s web address</p>
+                {farmAddress ? (
+                  <>
+                    <p className="text-sm text-emerald-950 break-all">
+                      <a href={`/${farmAddress}`} target="_blank" rel="noopener noreferrer" className="font-bold underline">
+                        farmfreshdirect.online/{farmAddress}
+                      </a>
+                    </p>
+                    <p className="text-xs text-emerald-900">
+                      This is your storefront. Put it on a sign, a card or your social pages. It can&apos;t be changed
+                      from here; if it needs to change, contact us.
+                    </p>
+                  </>
+                ) : !farmName.trim() ? (
+                  <p className="text-xs text-emerald-900">
+                    Save your farm name below first. Then you can choose a short address of your own, like
+                    farmfreshdirect.online/your-farm.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs text-emerald-900">
+                      Choose a short address of your own to put on a sign, a card or your social pages. Letters,
+                      numbers and hyphens, with no spaces.{' '}
+                      <strong>It can&apos;t be changed once it&apos;s set, so check the spelling.</strong>
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <label htmlFor="dash-farm-address" className="text-sm text-emerald-950 font-semibold">
+                        farmfreshdirect.online/
+                      </label>
+                      <input
+                        id="dash-farm-address"
+                        type="text"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        maxLength={FARM_ADDRESS_MAX + 10}
+                        placeholder={tidyFarmAddress(farmName) || 'your-farm'}
+                        value={addressDraft}
+                        onChange={(e) => {
+                          setAddressDraft(e.target.value);
+                          setAddressCheck(null);
+                        }}
+                        onBlur={checkFarmAddress}
+                        className="flex-1 min-w-[10rem] px-3 py-2 border rounded-lg text-sm bg-white"
+                      />
+                    </div>
+                    {tidiedAddress && (
+                      <p role="status" className="text-xs">
+                        {addressShapeProblem ? (
+                          <span className="font-semibold text-red-700">{addressShapeProblem}</span>
+                        ) : addressCheck?.address === tidiedAddress ? (
+                          addressCheck.available ? (
+                            <span className="font-semibold text-emerald-800">
+                              farmfreshdirect.online/{tidiedAddress} is available.
+                            </span>
+                          ) : (
+                            <span className="font-semibold text-red-700">{addressCheck.error || 'That one is not available.'}</span>
+                          )
+                        ) : (
+                          <span className="text-emerald-900">
+                            Your address would be farmfreshdirect.online/<strong>{tidiedAddress}</strong>
+                          </span>
+                        )}
+                      </p>
+                    )}
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={checkFarmAddress}
+                        disabled={!tidiedAddress || Boolean(addressShapeProblem)}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+                      >
+                        Check if it&apos;s available
+                      </button>
+                      <button
+                        type="button"
+                        onClick={claimFarmAddress}
+                        disabled={!addressAvailable || claimingAddress}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white disabled:bg-gray-300"
+                      >
+                        {claimingAddress ? 'Saving...' : 'Make This My Address'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100 flex-wrap">
