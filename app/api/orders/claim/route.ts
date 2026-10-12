@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   } catch (err: any) {
     console.error('order claim error:', err);
     await alertAdmin('order claim error', err);
-    // My Orders still loads without this, so the page isn't held up by it.
+    // My Purchases still loads without this, so the page isn't held up by it.
     return NextResponse.json({ claimed: 0 });
   }
 }

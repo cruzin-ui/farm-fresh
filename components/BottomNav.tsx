@@ -8,7 +8,7 @@ import { useCart } from '@/lib/cart';
 const TABS = [
   { href: '/browse', label: 'Browse', icon: ShoppingBag, match: ['/browse', '/listings', '/sellers'] },
   { href: '/checkout', label: 'Cart', icon: ShoppingCart, match: ['/checkout'] },
-  { href: '/orders', label: 'My Orders', icon: Receipt, match: ['/orders'] },
+  { href: '/orders', label: 'My Purchases', icon: Receipt, match: ['/orders'] },
   { href: '/dashboard', label: 'Sell', icon: LayoutDashboard, match: ['/dashboard', '/sell'] },
 ];
 

@@ -197,7 +197,7 @@ export async function POST(request: Request) {
             }
             <p>Show or give this code to the farmer only when you collect your produce — it releases their payment.</p>
             <p>
-              <a href="${ordersLink}" style="display: inline-block; background: #047857; color: #ffffff; text-decoration: none; font-weight: bold; padding: 10px 18px; border-radius: 8px;">${guestToken ? 'View My Order' : 'View My Orders'}</a>
+              <a href="${ordersLink}" style="display: inline-block; background: #047857; color: #ffffff; text-decoration: none; font-weight: bold; padding: 10px 18px; border-radius: 8px;">${guestToken ? 'View My Purchase' : 'View My Purchases'}</a>
             </p>
             ${buyerGuidanceEmailHtml(origin)}
           </div>

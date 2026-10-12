@@ -317,7 +317,7 @@ export default function AccountMenu() {
             className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
           >
             <Receipt className="w-4 h-4" />
-            <span className="flex-1">My Orders</span>
+            <span className="flex-1">My Purchases</span>
             {buyerWaiting > 0 && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800" title={buyerWaitingText}>
                 {buyerWaiting}
