@@ -36,6 +36,7 @@ export async function POST(request: Request) {
   const empty = {
     isSeller: false,
     farmPhotoUrl: null as string | null,
+    farmPagePath: null as string | null,
     ordersToReview: 0,
     unreadFromBuyers: 0,
     unreadFromSellers: 0,
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
     // As a seller.
     const { data: profile } = await supabaseAdmin
       .from('seller_profiles')
-      .select('avatar_url')
+      .select('*')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -78,6 +79,14 @@ export async function POST(request: Request) {
     return NextResponse.json({
       isSeller: Boolean(profile) || listingIds.length > 0,
       farmPhotoUrl: profile?.avatar_url || null,
+      // Where this seller's public farm page is: its own web address if it
+      // has chosen one. Only for someone who has a farm to show.
+      farmPagePath:
+        String(profile?.farm_name || '').trim() || listingIds.length > 0
+          ? profile?.slug
+            ? `/${profile.slug}`
+            : `/sellers/${user.id}`
+          : null,
       ordersToReview: (sellerOrders || []).filter((o) => o.status === 'pending_pickup').length,
       unreadFromBuyers: fromBuyers.count,
       unreadFromSellers: fromSellers.count,
