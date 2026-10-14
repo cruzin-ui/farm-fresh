@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
 import { alertAdmin } from '@/lib/alerts';
+import { PAGE_GROUPS } from '@/lib/pageGroups';
 import { SELLER_CHANGE_REASONS, LISTING_ACTIONS } from '@/lib/sellerChangeReasons';
 
 export const dynamic = 'force-dynamic';
@@ -172,11 +173,43 @@ export async function POST(request: Request) {
     const since = new Date(now - 30 * DAY_MS).toISOString().slice(0, 10);
     const { data: counts, error: countsError } = await supabaseAdmin
       .from('daily_counts')
-      .select('name, count')
+      .select('day, name, count')
       .gte('day', since);
     const tally = (name: string) => (counts || []).filter((c) => c.name === name).reduce((sum, c) => sum + Number(c.count || 0), 0);
 
+    // ---- how much is the site being visited? ----
+    // Days are Arizona's, the same as the counts are kept in.
+    const arizonaDay = (offsetDays: number) =>
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Phoenix' }).format(new Date(now - offsetDays * DAY_MS));
+    const dayTotal = (day: string, match: (name: string) => boolean) =>
+      (counts || []).filter((c) => c.day === day && match(c.name)).reduce((sum, c) => sum + Number(c.count || 0), 0);
+    const isPage = (name: string) => name.startsWith('page:');
+    const isVisit = (name: string) => name === 'visit';
+
+    const days = Array.from({ length: 14 }, (_, i) => {
+      const day = arizonaDay(i);
+      return { day, visits: dayTotal(day, isVisit), pageViews: dayTotal(day, isPage) };
+    });
+    const lastDays = (n: number, key: 'visits' | 'pageViews') => days.slice(0, n).reduce((sum, d) => sum + d[key], 0);
+
+    const traffic = countsError
+      ? null
+      : {
+          today: days[0],
+          last7Days: { visits: lastDays(7, 'visits'), pageViews: lastDays(7, 'pageViews') },
+          last30Days: {
+            visits: tally('visit'),
+            pageViews: (counts || []).filter((c) => isPage(c.name)).reduce((sum, c) => sum + Number(c.count || 0), 0),
+          },
+          days,
+          pages: Object.entries(PAGE_GROUPS)
+            .map(([key, label]) => ({ label, views: tally(`page:${key}`) }))
+            .filter((p) => p.views > 0)
+            .sort((a, b) => b.views - a.views),
+        };
+
     return NextResponse.json({
+      traffic,
       people: {
         accounts,
         accountsThisWeek,
