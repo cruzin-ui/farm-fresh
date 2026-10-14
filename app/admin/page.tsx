@@ -95,6 +95,13 @@ type AdminAction = {
 
 type OrderSizes = { orders: number; averageCents: number; under15: number; from15to40: number; over40: number };
 type Insights = {
+  traffic: {
+    today: { day: string; visits: number; pageViews: number };
+    last7Days: { visits: number; pageViews: number };
+    last30Days: { visits: number; pageViews: number };
+    days: { day: string; visits: number; pageViews: number }[];
+    pages: { label: string; views: number }[];
+  } | null;
   people: {
     accounts: number;
     accountsThisWeek: number;
@@ -1055,6 +1062,35 @@ export default function AdminPage() {
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-gray-900">Overview</h2>
 
+              {/* How much the site is being visited. */}
+              {insights?.traffic && (
+                <button
+                  type="button"
+                  onClick={() => setSection('insights')}
+                  className="w-full p-4 rounded-2xl border border-gray-200 bg-white shadow-sm text-left hover:border-emerald-400 transition-colors"
+                >
+                  <p className="text-xs font-semibold text-gray-600">Site visits</p>
+                  <div className="mt-1 grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Today', value: insights.traffic.today.visits, pages: insights.traffic.today.pageViews },
+                      { label: 'Last 7 days', value: insights.traffic.last7Days.visits, pages: insights.traffic.last7Days.pageViews },
+                      { label: 'Last 30 days', value: insights.traffic.last30Days.visits, pages: insights.traffic.last30Days.pageViews },
+                    ].map((period) => (
+                      <div key={period.label}>
+                        <p className="text-2xl font-black text-gray-900 tabular-nums">{period.value}</p>
+                        <p className="text-xs text-gray-600">{period.label}</p>
+                        <p className="text-xs text-gray-500">{period.pages} pages viewed</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    {insights.traffic.pages[0]
+                      ? `Most visited in 30 days: ${insights.traffic.pages[0].label}. See the breakdown in Insights.`
+                      : 'Counting has just started. See the breakdown in Insights.'}
+                  </p>
+                </button>
+              )}
+
               {/* How many people are using the site. */}
               {insights && (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1864,7 +1900,7 @@ export default function AdminPage() {
                 );
               }
 
-              const { buyers, orderSize, sellers, share, checkout, sellerChanges } = insights;
+              const { buyers, orderSize, sellers, share, checkout, sellerChanges, traffic } = insights;
               const sizeRow = (label: string, s: OrderSizes) => (
                 <tr key={label} className="border-b border-gray-100 last:border-0">
                   <th scope="row" className="py-2 pr-4 text-left font-semibold text-gray-900">{label}</th>
@@ -1891,6 +1927,86 @@ export default function AdminPage() {
                       checkout that was cancelled entirely isn&apos;t counted. Test orders are included until they
                       are cleared.
                     </p>
+                  </div>
+
+                  <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+                    <h3 className="text-sm font-bold text-gray-900">How much is the site being visited?</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      A visit is one browser session; a page view is each page opened during it. Your own time on
+                      this admin page isn&apos;t counted. For where visitors come from and what devices they use,
+                      see Web Analytics in your Vercel project.
+                    </p>
+                    {!traffic ? (
+                      <p className="mt-3 text-sm text-amber-800">
+                        Not set up yet: run db/insights.sql in Supabase to start counting.
+                      </p>
+                    ) : (
+                      <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs text-gray-700">
+                            <caption className="text-left text-xs font-bold text-gray-900 pb-1">The last 14 days</caption>
+                            <thead className="text-gray-500 border-b">
+                              <tr>
+                                <th scope="col" className="py-1.5 pr-4 text-left font-semibold">Day</th>
+                                <th scope="col" className="py-1.5 pr-4 text-right font-semibold">Visits</th>
+                                <th scope="col" className="py-1.5 text-right font-semibold">Pages viewed</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {traffic.days.map((d, i) => (
+                                <tr key={d.day} className="border-b border-gray-100 last:border-0">
+                                  <th scope="row" className="py-1.5 pr-4 text-left font-normal">
+                                    {i === 0
+                                      ? 'Today'
+                                      : new Date(`${d.day}T12:00:00`).toLocaleDateString('en-US', {
+                                          weekday: 'short',
+                                          month: 'short',
+                                          day: 'numeric',
+                                        })}
+                                  </th>
+                                  <td className="py-1.5 pr-4 text-right tabular-nums font-semibold text-gray-900">{d.visits}</td>
+                                  <td className="py-1.5 text-right tabular-nums">{d.pageViews}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs text-gray-700">
+                            <caption className="text-left text-xs font-bold text-gray-900 pb-1">
+                              Which pages, over the last 30 days
+                            </caption>
+                            <thead className="text-gray-500 border-b">
+                              <tr>
+                                <th scope="col" className="py-1.5 pr-4 text-left font-semibold">Page</th>
+                                <th scope="col" className="py-1.5 pr-4 text-right font-semibold">Views</th>
+                                <th scope="col" className="py-1.5 text-right font-semibold">Share</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {traffic.pages.length === 0 ? (
+                                <tr>
+                                  <td colSpan={3} className="py-2 text-gray-500">
+                                    Nothing counted yet.
+                                  </td>
+                                </tr>
+                              ) : (
+                                traffic.pages.map((p) => (
+                                  <tr key={p.label} className="border-b border-gray-100 last:border-0">
+                                    <th scope="row" className="py-1.5 pr-4 text-left font-normal">{p.label}</th>
+                                    <td className="py-1.5 pr-4 text-right tabular-nums font-semibold text-gray-900">{p.views}</td>
+                                    <td className="py-1.5 text-right tabular-nums">{pct(p.views, traffic.last30Days.pageViews)}</td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                          <p className="mt-2 text-xs text-gray-500">
+                            Every listing counts as "A listing" and every farm as "A farm&apos;s page".
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div>

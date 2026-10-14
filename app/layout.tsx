@@ -6,6 +6,7 @@ import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
+import PageViewCounter from "@/components/PageViewCounter";
 import { Sprout, ShoppingBag } from "lucide-react";
 
 // Body text: a clean, friendly sans-serif. Headings: a soft serif with a
@@ -128,6 +129,9 @@ export default function RootLayout({
             used. It does nothing until Web Analytics is switched on for the
             project in Vercel. */}
         <Analytics />
+
+        {/* Our own count of visits and page views, shown in the admin page. */}
+        <PageViewCounter />
       </body>
     </html>
   );
