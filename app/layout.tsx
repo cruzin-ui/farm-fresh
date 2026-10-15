@@ -28,13 +28,13 @@ export const metadata: Metadata = {
     default: "Farm Fresh Direct | Your Online Farm Stand",
     template: "%s | Farm Fresh Direct",
   },
-  description: "Connect local growers and buyers for fresh farm produce.",
+  description: "Local produce, plants, and more from growers near you.",
   // The image and text shown when a link to the site is shared by text
   // message or on social media.
   metadataBase: new URL("https://www.farmfreshdirect.online"),
   openGraph: {
     title: "Farm Fresh Direct — Your Online Farm Stand",
-    description: "Buy fresh produce directly from neighbor gardens and small local farms.",
+    description: "Buy local produce, plants and more directly from neighbor gardens and small farms.",
     siteName: "Farm Fresh Direct",
     type: "website",
     images: [{ url: "/share-preview.jpg", width: 1200, height: 630, alt: "Crates of fresh fruit and vegetables at a market stall" }],

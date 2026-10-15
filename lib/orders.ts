@@ -86,7 +86,7 @@ async function sendSellerNotification(params: {
   csaSingle?: boolean;
 }) {
   const { sellerEmail, items, orderNumber, csaBoxDate, csaSingle } = params;
-  const produceTotal = items.reduce((sum, item) => sum + item.subtotalCents, 0) / 100;
+  const itemTotal = items.reduce((sum, item) => sum + item.subtotalCents, 0) / 100;
 
   await sendEmail({
     to: sellerEmail,
@@ -101,7 +101,7 @@ async function sendSellerNotification(params: {
         <p>Order number: <strong style="font-family: monospace; font-size: 16px;">${orderNumber}</strong> (the buyer has the same number, so you can match them to their bag at pickup)</p>
         <ul>${items.map((item) => `<li><strong>${itemText(item)}</strong> — mark it ready by <strong>${item.readyBy}</strong></li>`).join('')}</ul>
         <p>Need to reach the buyer? Use <strong>Message Buyer</strong> on the order in your Seller Dashboard.</p>
-        <p>Produce total: $${produceTotal.toFixed(2)}</p>
+        <p>Item total: $${itemTotal.toFixed(2)}</p>
         <p>
           At pickup, ask the buyer for their pickup code and enter it in your Seller Dashboard
           to complete the order and release your payout.${

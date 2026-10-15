@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { checkListingAllowed } from '@/lib/listingRules';
 import { cleanListingTags } from '@/lib/listingTags';
+import { cleanPlantFields } from '@/lib/plantFields';
+import { getFarmPickup } from '@/lib/farmPickupAddress';
 import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { alertAdmin } from '@/lib/alerts';
 
@@ -74,7 +76,7 @@ export async function POST(request: Request) {
     }
 
     if (!title) {
-      return NextResponse.json({ error: 'Crop name is required.' }, { status: 400 });
+      return NextResponse.json({ error: 'A name is required.' }, { status: 400 });
     }
 
     const identity: Record<(typeof IDENTITY_FIELDS)[number], unknown> = {
@@ -128,6 +130,17 @@ export async function POST(request: Request) {
     if (typeof fields.image_url === 'string' && fields.image_url) update.image_url = fields.image_url;
     if (Array.isArray(fields.tags)) {
       update.tags = cleanListingTags(fields.tags);
+    }
+
+    // Pot size, sun, water and native: set for Plants & Seedlings, cleared if
+    // a listing moves to another category.
+    const plantKeys = ['pot_size', 'sun_needs', 'water_needs', 'is_native'];
+    if (plantKeys.some((key) => key in fields) || category !== listing.category) {
+      const plant = await cleanPlantFields(fields, category, (await getFarmPickup(user.id))?.zip);
+      if ('error' in plant) {
+        return NextResponse.json({ error: plant.error }, { status: 400 });
+      }
+      Object.assign(update, plant.values);
     }
 
     if (Object.keys(update).length === 0) {

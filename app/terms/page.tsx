@@ -40,9 +40,9 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-bold text-gray-900 mb-1">1. What Farm Fresh Direct is</h2>
           <p>
-            Farm Fresh Direct is a marketplace for locally grown produce. It connects buyers with local
-            gardeners and small farms and processes payment between them. Listings for anything other than
-            local produce and the few farm foods in our categories are not allowed and will be removed. The
+            Farm Fresh Direct is a marketplace for locally grown produce, plants and a few farm foods. It
+            connects buyers with local gardeners and small farms and processes payment between them. Listings
+            for anything outside our categories are not allowed and will be removed. The
             seller, not Farm Fresh Direct, is the seller of every product listed. We do not grow, handle,
             store, inspect, test, certify or approve any product.
           </p>
@@ -191,7 +191,8 @@ export default function TermsPage() {
             Products are grown, produced and described by the sellers. We do not guarantee their quality,
             safety, legality or fitness for any purpose, or that a listing is accurate. Produce and other foods
             sold here are not inspected by us. Wash produce before eating it, and handle, store and cook foods
-            such as eggs safely.
+            such as eggs safely. Plants are not inspected by us for pests or disease, and we do not check that
+            a plant suits your garden or climate.
           </p>
         </section>
 

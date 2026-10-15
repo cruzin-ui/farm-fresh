@@ -162,7 +162,7 @@ const SELLER_FAQS: Faq[] = [
   },
   {
     question: 'What can I list?',
-    answer: `${PRODUCE_ONLY_NOTICE} That also rules out things like meat, dairy, baked goods, crafts and anything that isn't food. If you're not sure whether something fits, contact us before listing it.`,
+    answer: `${PRODUCE_ONLY_NOTICE} That also rules out things like meat, dairy, baked goods and crafts. If you're not sure whether something fits, contact us before listing it.`,
   },
   {
     question: 'Are there rules about what I can sell?',
@@ -181,6 +181,11 @@ const SELLER_FAQS: Faq[] = [
             <strong>Honey, jam and other prepared foods:</strong> these usually fall under your state's
             "cottage food" laws, which decide what may be made in a home kitchen and how it must be labeled.
             Some states don't allow items like pickles, salsa or other canned goods at all.
+          </li>
+          <li>
+            <strong>Plants:</strong> many states require a license or inspection to sell plants, ban certain
+            invasive species, and protect some native plants, which can only be sold with a permit or tag.
+            Check your state's agriculture department regulations before listing plants.
           </li>
         </ul>
         <p className="mt-2">

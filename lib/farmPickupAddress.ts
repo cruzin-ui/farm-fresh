@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { geocodeZip } from '@/lib/geo';
+import { stateForZip } from '@/lib/plants';
 
 // SERVER-ONLY. A farm's pickup address: entered once on the Farm Profile, and
 // used for every listing the farm posts (see db/farm_pickup_address.sql).
@@ -54,6 +55,17 @@ export async function saveFarmPickup(farmerId: string, pickup: FarmPickup) {
     .eq('farmer_id', farmerId)
     .select('id');
   if (listingsError) throw listingsError;
+
+  // Plants marked native are native to wherever the farm is, so they follow
+  // it to its new state. (If the state can't be looked up, they keep the old.)
+  const state = await stateForZip(pickup.zip);
+  if (state) {
+    await supabaseAdmin
+      .from('produce_listings')
+      .update({ native_state: state.name })
+      .eq('farmer_id', farmerId)
+      .not('native_state', 'is', null);
+  }
 
   const copies = (listings || []).map((l) => ({ listing_id: l.id, farmer_id: farmerId, address: pickup.address }));
   if (copies.length > 0) {

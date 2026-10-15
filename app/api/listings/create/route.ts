@@ -8,6 +8,7 @@ import { getFarmPickup } from '@/lib/farmPickupAddress';
 import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { geocodeZip } from '@/lib/geo';
+import { cleanPlantFields } from '@/lib/plantFields';
 import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     const farmPickup = await getFarmPickup(user.id);
 
     if (!title) {
-      return NextResponse.json({ error: 'Crop name is required.' }, { status: 400 });
+      return NextResponse.json({ error: 'A name is required.' }, { status: 400 });
     }
     if (!variety) {
       return NextResponse.json(
@@ -64,6 +65,12 @@ export async function POST(request: Request) {
     }
     if (!isAllowedCategory(fields.category)) {
       return NextResponse.json({ error: `Choose one of the listed categories. ${PRODUCE_ONLY_NOTICE}` }, { status: 400 });
+    }
+
+    // Pot size, sun, water and native, for Plants & Seedlings only.
+    const plant = await cleanPlantFields(fields, fields.category, farmPickup.zip);
+    if ('error' in plant) {
+      return NextResponse.json({ error: plant.error }, { status: 400 });
     }
 
     if (await isSellerSuspended(user.id)) {
@@ -135,6 +142,7 @@ export async function POST(request: Request) {
           pickup_instructions: typeof fields.pickup_instructions === 'string' ? fields.pickup_instructions : '',
           tags: cleanListingTags(fields.tags),
           image_url: typeof fields.image_url === 'string' && fields.image_url ? fields.image_url : null,
+          ...plant.values,
           status: 'active',
         },
       ])

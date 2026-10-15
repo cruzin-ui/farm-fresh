@@ -17,7 +17,7 @@ const HOW_IT_WORKS = [
     heading: 'If you want to sell',
     steps: [
       ['Set up your farm profile', 'Add your farm name, photo and pickup address, and connect a payout account.'],
-      ['Post your harvest', 'List the crop, price and quantity. Posting is free.'],
+      ['Post your harvest', 'List what you grew, its price and quantity. Posting is free.'],
       ['Mark orders ready', 'When the produce is ready, tick the days and times the buyer can come.'],
       ['Scan the pickup code to get paid', "Scan the buyer's QR code at pickup, or type their code. That releases your payment."],
     ],
@@ -88,7 +88,7 @@ export default function SplashLandingPage() {
           <p className="mt-3 text-2xl sm:text-4xl font-bold tracking-tight">Your Online Farm Stand</p>
 
           <p className="mt-5 text-lg sm:text-xl font-medium max-w-2xl mx-auto">
-            Connect directly with Neighbor Gardens &amp; Small Local Farms in your neighborhood
+            Local produce, plants, and more from growers near you
           </p>
 
           {/* A plain form, so it works even before the page's scripts load:
@@ -118,7 +118,7 @@ export default function SplashLandingPage() {
               type="submit"
               className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-5 rounded-xl shadow-md transition-colors whitespace-nowrap"
             >
-              Find Local Produce
+              Find Local Growers
             </button>
           </form>
 
@@ -137,7 +137,7 @@ export default function SplashLandingPage() {
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-xl font-bold text-gray-900">I Want to Buy</h2>
-            <p className="text-sm text-gray-500">Fresh produce, eggs, honey and Farm Boxes for pickup near you.</p>
+            <p className="text-sm text-gray-500">Fresh produce, plants, eggs, honey and Farm Boxes for pickup near you.</p>
           </div>
           <span className="shrink-0 inline-flex items-center gap-1.5 bg-emerald-600 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap">
             Browse

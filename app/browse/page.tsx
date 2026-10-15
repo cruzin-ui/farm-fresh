@@ -13,6 +13,7 @@ import { ListingGridSkeleton } from '@/components/Skeletons';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import { geocodeZip, milesBetween, describeDrive, type Coordinates } from '@/lib/geo';
 import FarmBoxCard, { type BrowseFarmBox } from '@/components/FarmBoxCard';
+import { PLANTS_CATEGORY, plantDetailLabels, nativeLabel } from '@/lib/plants';
 
 // The Browse chip for Farm Boxes, shown beside the produce categories.
 const FARM_BOXES = 'Farm Boxes';
@@ -26,7 +27,7 @@ const ZIP_STORAGE_KEY = 'ffd-near-zip';
 // "Shop by vegetable" tiles. Listings have free-text crop names, so a listing
 // belongs to a tile when its title or variety contains one of the keywords (and none of
 // the excluded phrases — e.g. sweet potatoes aren't potatoes).
-const VEGETABLE_TYPES: { name: string; emoji: string; keywords: string[]; exclude?: string[] }[] = [
+const VEGETABLE_TYPES: { name: string; emoji: string; keywords: string[]; exclude?: string[]; native?: boolean }[] = [
   { name: 'Potatoes', emoji: '🥔', keywords: ['potato', 'russet', 'yukon'], exclude: ['sweet potato'] },
   { name: 'Tomatoes', emoji: '🍅', keywords: ['tomato'] },
   { name: 'Onions', emoji: '🧅', keywords: ['onion', 'shallot', 'scallion', 'leek'] },
@@ -101,6 +102,19 @@ const EGG_TYPES: typeof VEGETABLE_TYPES = [
   { name: 'Other Eggs', emoji: '🥚', keywords: ['goose', 'turkey'] },
 ];
 
+const PLANT_TYPES: typeof VEGETABLE_TYPES = [
+  {
+    name: 'Vegetable Starts',
+    emoji: '🌱',
+    keywords: ['start', 'seedling', 'transplant', 'tomato', 'pepper', 'squash', 'cucumber', 'eggplant', 'lettuce', 'kale'],
+  },
+  { name: 'Herb Plants', emoji: '🌿', keywords: ['basil', 'rosemary', 'thyme', 'mint', 'sage', 'oregano', 'parsley', 'cilantro', 'herb', 'lavender'] },
+  { name: 'Succulents & Cactus', emoji: '🌵', keywords: ['succulent', 'cactus', 'cacti', 'aloe', 'agave', 'echeveria', 'jade', 'yucca'] },
+  { name: 'Flowering Plants', emoji: '🌸', keywords: ['flower', 'marigold', 'petunia', 'zinnia', 'salvia', 'geranium', 'rose', 'bloom', 'lantana'] },
+  { name: 'Trees & Shrubs', emoji: '🌳', keywords: ['tree', 'shrub', 'bush', 'citrus', 'fig', 'pomegranate', 'olive', 'mesquite', 'palo verde', 'hedge'] },
+  { name: 'Native Plants', emoji: '🏜️', keywords: [], native: true },
+];
+
 // Which tiles to show under each category button. "All" shows none — the
 // entry here is only a fallback so lookups always succeed.
 const TILE_GROUPS: Record<string, { heading: string; types: typeof VEGETABLE_TYPES }> = {
@@ -112,9 +126,21 @@ const TILE_GROUPS: Record<string, { heading: string; types: typeof VEGETABLE_TYP
   'Fresh Eggs': { heading: 'Shop Fresh Eggs', types: EGG_TYPES },
   Mushrooms: { heading: 'Shop Mushrooms', types: MUSHROOM_TYPES },
   'Cut Flowers': { heading: 'Shop Cut Flowers', types: FLOWER_TYPES },
+  [PLANTS_CATEGORY]: { heading: 'Shop Plants & Seedlings', types: PLANT_TYPES },
 };
 
-function matchesProduceType(item: { title?: string | null; variety?: string | null }, type: (typeof VEGETABLE_TYPES)[number]) {
+// Each chip's name in the page address, e.g. /browse?category=plants, so a
+// filtered view can be shared.
+function categorySlug(category: string) {
+  if (category === PLANTS_CATEGORY) return 'plants';
+  return category.toLowerCase().replace(/&/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function matchesProduceType(
+  item: { title?: string | null; variety?: string | null; native_state?: string | null },
+  type: (typeof VEGETABLE_TYPES)[number]
+) {
+  if (type.native) return Boolean(item.native_state);
   const text = `${item.title || ''} ${item.variety || ''}`.toLowerCase();
   if (type.exclude?.some((phrase) => text.includes(phrase))) return false;
   return type.keywords.some((keyword) => text.includes(keyword));
@@ -249,6 +275,25 @@ export default function BrowsePage() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
 
   useEffect(() => {
+    const fromLink = new URLSearchParams(window.location.search).get('category');
+    if (!fromLink) return;
+    const match = [FARM_BOXES, ...LISTING_CATEGORIES].find((cat) => categorySlug(cat) === fromLink);
+    if (match) setSelectedCategory(match);
+  }, []);
+
+  // Changes the chip, and the address to match, without reloading the page.
+  const chooseCategory = (category: string) => {
+    setSelectedCategory(category);
+    setSelectedType(null);
+    try {
+      const url = new URL(window.location.href);
+      if (category === 'All') url.searchParams.delete('category');
+      else url.searchParams.set('category', categorySlug(category));
+      window.history.replaceState(null, '', url.toString());
+    } catch {}
+  };
+
+  useEffect(() => {
     fetchListings();
   }, []);
 
@@ -380,8 +425,8 @@ export default function BrowsePage() {
           <Search className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            aria-label="Search produce by crop, farm name or location"
-            placeholder="Search fresh crops, farm name, or location..."
+            aria-label="Search by crop, plant, farm name or location"
+            placeholder="Search crops, plants, farm name, or location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -443,10 +488,7 @@ export default function BrowsePage() {
             (cat) => (
               <button
                 key={cat}
-                onClick={() => {
-                  setSelectedCategory(cat);
-                  setSelectedType(null);
-                }}
+                onClick={() => chooseCategory(cat)}
                 className={`px-4 py-3 md:py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
                   selectedCategory === cat
                     ? 'bg-emerald-600 text-white shadow-sm'
@@ -533,7 +575,7 @@ export default function BrowsePage() {
             <h2 className="text-lg font-extrabold text-gray-900">Farm Boxes</h2>
             {filteredBoxes.length > BOXES_UNDER_ALL && (
               <button
-                onClick={() => setSelectedCategory(FARM_BOXES)}
+                onClick={() => chooseCategory(FARM_BOXES)}
                 className="text-xs font-semibold text-emerald-700 hover:underline"
               >
                 See all {filteredBoxes.length} Farm Boxes
@@ -550,14 +592,18 @@ export default function BrowsePage() {
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-extrabold text-gray-900">
-          {selectedType ? `${selectedType} Available Now` : 'Fresh Harvest Available Now'}
+          {selectedType
+            ? `${selectedType} Available Now`
+            : selectedCategory === 'All'
+              ? 'Available Now from Local Growers'
+              : `${selectedCategory} Available Now`}
         </h2>
         {selectedType && (
           <button
             onClick={() => setSelectedType(null)}
             className="text-xs font-semibold text-emerald-700 hover:underline"
           >
-            Show all produce
+            Show all {selectedCategory === 'All' ? 'listings' : selectedCategory}
           </button>
         )}
       </div>
@@ -568,9 +614,9 @@ export default function BrowsePage() {
       ) : filteredListings.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
           <Sprout className="mx-auto h-12 w-12 text-emerald-400 mb-2" />
-          <h3 className="text-base font-bold text-gray-800">No Produce Found</h3>
+          <h3 className="text-base font-bold text-gray-800">Nothing Found</h3>
           <p className="text-xs text-gray-500 mt-1">
-            Check back soon or post a harvest listing from your seller dashboard.
+            Check back soon, or try another category or a wider distance.
           </p>
         </div>
       ) : (
@@ -597,11 +643,11 @@ export default function BrowsePage() {
                   ) : (
                     <div className="text-center text-emerald-700/60 font-semibold text-sm p-4">
                       <Sprout className="w-10 h-10 mx-auto mb-1 opacity-50" />
-                      Fresh Local Yield
+                      {item.category === PLANTS_CATEGORY ? 'Locally Grown Plant' : 'Fresh Local Yield'}
                     </div>
                   )}
                   <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-md text-emerald-900 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
-                    {item.category || 'Produce'}
+                    {item.category || 'Local'}
                   </span>
                   <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-emerald-900 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
                     {availableQty} {item.unit_type || 'lbs'} left
@@ -652,6 +698,17 @@ export default function BrowsePage() {
                           </span>
                         ))}
                       </div>
+                    )}
+
+                    {item.category === PLANTS_CATEGORY && (plantDetailLabels(item).length > 0 || item.native_state) && (
+                      <p className="text-xs text-gray-700 mt-2">
+                        {plantDetailLabels(item).join(' · ')}
+                        {item.native_state && (
+                          <span className="ml-1 inline-block text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full">
+                            {nativeLabel(item)}
+                          </span>
+                        )}
+                      </p>
                     )}
 
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">

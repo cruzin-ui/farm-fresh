@@ -15,6 +15,7 @@ import FollowFarmButton from '@/components/FollowFarmButton';
 import DistanceFromYou from '@/components/DistanceFromYou';
 import Photo from '@/components/Photo';
 import { ListingPageSkeleton } from '@/components/Skeletons';
+import { PLANTS_CATEGORY, SUN_NEEDS, WATER_NEEDS, nativeLabel } from '@/lib/plants';
 
 // Public listing detail page — no sign-in needed to view, or to buy: items go
 // into the cart, and checkout works for guests as well as signed-in buyers.
@@ -188,7 +189,7 @@ export default function ListingDetailPage() {
         <div className="space-y-5">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full">
-              {listing.category || 'Produce'}
+              {listing.category || 'Local'}
             </span>
             <h1 className="text-3xl font-extrabold text-gray-900 mt-3">{listing.title}</h1>
             {listing.variety && (
@@ -218,9 +219,41 @@ export default function ListingDetailPage() {
             </div>
           )}
 
+          {listing.category === PLANTS_CATEGORY &&
+            (listing.pot_size || listing.sun_needs || listing.water_needs || listing.native_state) && (
+              <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
+                <dl className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Pot size</dt>
+                    <dd className="text-sm font-bold text-gray-900 mt-0.5">{listing.pot_size || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Sun</dt>
+                    <dd className="text-sm font-bold text-gray-900 mt-0.5">
+                      {SUN_NEEDS[listing.sun_needs as keyof typeof SUN_NEEDS] || '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Water</dt>
+                    <dd className="text-sm font-bold text-gray-900 mt-0.5">
+                      {WATER_NEEDS[listing.water_needs as keyof typeof WATER_NEEDS] || '—'}
+                    </dd>
+                  </div>
+                </dl>
+                {listing.native_state && (
+                  <p className="text-xs text-amber-950 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+                    <strong>{nativeLabel(listing)}.</strong> Native plants are adapted to the local climate and
+                    usually need less water once established.
+                  </p>
+                )}
+              </div>
+            )}
+
           {listing.description && (
             <div>
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">About this harvest</h2>
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+                {listing.category === PLANTS_CATEGORY ? 'About this plant' : 'About this harvest'}
+              </h2>
               <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{listing.description}</p>
             </div>
           )}
@@ -239,7 +272,7 @@ export default function ListingDetailPage() {
                 <dd className="text-xs text-gray-500 mt-1.5">
                   {availability.availableNow
                     ? `The farmer has up to ${SELLER_READY_DAYS} days after you order to get it ready, and emails you when it is.`
-                    : `Harvest date: ${friendlyDate(listing.harvest_ready_date)}. You can order now, and the farmer emails you when it is ready.`}
+                    : `${listing.category === PLANTS_CATEGORY ? 'Ready date' : 'Harvest date'}: ${friendlyDate(listing.harvest_ready_date)}. You can order now, and the farmer emails you when it is ready.`}
                   {listing.harvest_end_date ? ` On sale until ${friendlyDate(listing.harvest_end_date)}.` : ''}
                 </dd>
               </div>

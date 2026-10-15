@@ -29,6 +29,13 @@ import { orderRef } from '@/lib/pickupGroups';
 import { announceAccountChange } from '@/lib/accountEvents';
 import { LISTING_CATEGORIES, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import {
+  PLANTS_CATEGORY,
+  SUN_NEEDS,
+  WATER_NEEDS,
+  POT_SIZE_MAX,
+  stateForZip,
+} from '@/lib/plants';
+import {
   isSellerLate,
   canReportNoShow,
   autoCancelAt,
@@ -103,6 +110,8 @@ const UNIT_TYPE_OPTIONS = [
   { value: 'oz', label: 'oz (Ounces)' },
   { value: 'kg', label: 'kg (Kilograms)' },
   { value: 'units', label: 'Units (each, e.g. per pumpkin)' },
+  { value: 'plants', label: 'Plants (each)' },
+  { value: 'pots', label: 'Pots' },
   { value: 'dozen', label: 'Dozen' },
   { value: 'bunches', label: 'Bunches' },
   { value: 'bouquets', label: 'Bouquets' },
@@ -243,6 +252,13 @@ export default function SellerDashboardPage() {
   const [defaultPickupAddress, setDefaultPickupAddress] = useState('');
   const [title, setTitle] = useState('');
   const [variety, setVariety] = useState('');
+  // Plants & Seedlings only: pot size, sun, water, and whether it's native to
+  // the farm's state (looked up from the pickup zip code).
+  const [potSize, setPotSize] = useState('');
+  const [sunNeeds, setSunNeeds] = useState('');
+  const [waterNeeds, setWaterNeeds] = useState('');
+  const [isNative, setIsNative] = useState(false);
+  const [farmState, setFarmState] = useState<{ name: string; code: string } | null>(null);
   const [category, setCategory] = useState('Vegetables');
   const [description, setDescription] = useState('');
   const [unitType, setUnitType] = useState('lbs');
@@ -342,6 +358,16 @@ export default function SellerDashboardPage() {
   useEffect(() => {
     fetchDashboardData();
   }, [router]);
+
+  useEffect(() => {
+    let cancelled = false;
+    stateForZip(farmPickup?.zip).then((state) => {
+      if (!cancelled) setFarmState(state);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [farmPickup?.zip]);
 
   const fetchDashboardData = async () => {
     const {
@@ -573,6 +599,10 @@ export default function SellerDashboardPage() {
     setImagePreviewUrl(null);
     setZipCode(profileZip);
     setLocationName(profileLocation);
+    setPotSize('');
+    setSunNeeds('');
+    setWaterNeeds('');
+    setIsNative(false);
   };
 
   const startNewListing = () => {
@@ -600,6 +630,10 @@ export default function SellerDashboardPage() {
     setLocationName(item.location_name || '');
     setImageFile(null);
     setImagePreviewUrl(item.image_url || null);
+    setPotSize(item.pot_size || '');
+    setSunNeeds(item.sun_needs || '');
+    setWaterNeeds(item.water_needs || '');
+    setIsNative(Boolean(item.native_state));
     setSuccessMsg(null);
     setErrorMsg(null);
     setActiveTab('new');
@@ -1149,6 +1183,7 @@ export default function SellerDashboardPage() {
             harvest_ready_date: harvestReadyDate,
             harvest_end_date: harvestEndDate || null,
             tags: listingTags,
+            ...plantPayload,
             ...(cropImageUrl ? { image_url: cropImageUrl } : {}),
           },
         });
@@ -1177,6 +1212,7 @@ export default function SellerDashboardPage() {
           harvest_ready_date: harvestReadyDate,
           harvest_end_date: harvestEndDate || null,
           tags: listingTags,
+          ...plantPayload,
           image_url: cropImageUrl,
         },
       });
@@ -1195,6 +1231,10 @@ export default function SellerDashboardPage() {
       setListingTags([]);
       setImageFile(null);
       setImagePreviewUrl(null);
+      setPotSize('');
+      setSunNeeds('');
+      setWaterNeeds('');
+      setIsNative(false);
 
       await fetchDashboardData();
       setActiveTab('listings');
@@ -1203,6 +1243,14 @@ export default function SellerDashboardPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const isPlant = category === PLANTS_CATEGORY;
+  const plantPayload = {
+    pot_size: potSize,
+    sun_needs: sunNeeds || null,
+    water_needs: waterNeeds || null,
+    is_native: isPlant && isNative,
   };
 
   // Crop names from this farmer's existing posts, most recent first, offered
@@ -1228,6 +1276,10 @@ export default function SellerDashboardPage() {
     setListingTags(Array.isArray(previous.tags) ? previous.tags.slice(0, MAX_LISTING_TAGS) : []);
     if (previous.zip_code) setZipCode(previous.zip_code);
     if (previous.location_name) setLocationName(previous.location_name);
+    setPotSize(previous.pot_size || '');
+    setSunNeeds(previous.sun_needs || '');
+    setWaterNeeds(previous.water_needs || '');
+    setIsNative(Boolean(previous.native_state));
   };
 
   const toggleListingTag = (tag: string) => {
@@ -1859,12 +1911,12 @@ export default function SellerDashboardPage() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="md:col-span-2">
                       <label htmlFor="dash-crop-name" className="block text-xs font-semibold text-gray-700 mb-1">
-                        Crop Name *
+                        {isPlant ? 'Plant Name *' : 'Crop Name *'}
                       </label>
                       <input id="dash-crop-name"
                         type="text"
                         required
-                        placeholder="e.g., Organic Heirloom Tomatoes"
+                        placeholder={isPlant ? 'e.g., Tomato Starts' : 'e.g., Organic Heirloom Tomatoes'}
                         list="previous-crop-names"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
@@ -1900,7 +1952,7 @@ export default function SellerDashboardPage() {
                         type="text"
                         required
                         maxLength={60}
-                        placeholder="e.g., Yukon Gold"
+                        placeholder={isPlant ? 'e.g., Cherokee Purple' : 'e.g., Yukon Gold'}
                         value={variety}
                         onChange={(e) => setVariety(e.target.value)}
                         disabled={identityLocked}
@@ -1923,6 +1975,7 @@ export default function SellerDashboardPage() {
                           // Start from the unit these are usually sold in, if the unit hasn't been chosen yet.
                           if (unitType === 'lbs' && next === 'Fresh Eggs') setUnitType('dozen');
                           if (unitType === 'lbs' && next === 'Cut Flowers') setUnitType('bunches');
+                          if (unitType === 'lbs' && next === PLANTS_CATEGORY) setUnitType('plants');
                         }}
                         disabled={identityLocked}
                         className="w-full px-4 py-2 border rounded-lg text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500"
@@ -1953,10 +2006,105 @@ export default function SellerDashboardPage() {
                     <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">
                       <p className="font-bold text-sm">Cut flowers you grew</p>
                       <p className="mt-0.5">
-                        Stems, bunches and bouquets from your own garden or farm. Potted plants, seedlings and bulbs
-                        can&apos;t be listed. Because flowers aren&apos;t food, sales tax is added to them at
+                        Stems, bunches and bouquets from your own garden or farm. For potted plants and seedlings,
+                        choose Plants &amp; Seedlings instead. Because flowers aren&apos;t food, sales tax is added to them at
                         checkout where it applies; you don&apos;t need to do anything about it.
                       </p>
+                    </div>
+                  )}
+
+                  {isPlant && (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">
+                        <p className="font-bold text-sm">Check your state&apos;s plant rules before listing</p>
+                        <p className="mt-0.5">
+                          States regulate selling plants. Depending on where you are, you may need a nursery licence or
+                          inspection, some plants (such as invasive species) can&apos;t be sold at all, and protected native
+                          plants need permits or tags. List only plants you grew or propagated yourself, never ones dug up
+                          from the wild. You&apos;re responsible for following the rules where you sell.
+                        </p>
+                        <p className="mt-1.5 font-semibold">
+                          Check your state&apos;s agriculture department regulations before listing plants.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                          <label htmlFor="dash-pot-size" className="block text-xs font-semibold text-gray-700 mb-1">
+                            Pot size
+                          </label>
+                          <input
+                            id="dash-pot-size"
+                            type="text"
+                            maxLength={POT_SIZE_MAX}
+                            placeholder="e.g., 4-inch, 1 gallon"
+                            value={potSize}
+                            onChange={(e) => setPotSize(e.target.value)}
+                            className="w-full px-4 py-2 border rounded-lg text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="dash-sun" className="block text-xs font-semibold text-gray-700 mb-1">
+                            Sun
+                          </label>
+                          <select
+                            id="dash-sun"
+                            value={sunNeeds}
+                            onChange={(e) => setSunNeeds(e.target.value)}
+                            className="w-full px-4 py-2 border rounded-lg text-sm bg-white"
+                          >
+                            <option value="">Not specified</option>
+                            {Object.entries(SUN_NEEDS).map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label htmlFor="dash-water" className="block text-xs font-semibold text-gray-700 mb-1">
+                            Water
+                          </label>
+                          <select
+                            id="dash-water"
+                            value={waterNeeds}
+                            onChange={(e) => setWaterNeeds(e.target.value)}
+                            className="w-full px-4 py-2 border rounded-lg text-sm bg-white"
+                          >
+                            <option value="">Not specified</option>
+                            {Object.entries(WATER_NEEDS).map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="flex items-start gap-2 text-sm text-gray-800">
+                          <input
+                            type="checkbox"
+                            checked={isNative}
+                            onChange={(e) => setIsNative(e.target.checked)}
+                            className="mt-0.5 w-4 h-4 shrink-0"
+                          />
+                          <span>
+                            <strong>Native to {farmState?.name || 'my state'}</strong>
+                            <span className="block text-xs text-gray-500">
+                              Buyers see a &quot;Native to {farmState?.name || 'your state'}&quot; label. The state comes
+                              from your pickup address.
+                            </span>
+                          </span>
+                        </label>
+                        {isNative && (
+                          <p className="mt-2 p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">
+                            Some native plants are protected and need state permits or tags to sell. You&apos;re
+                            responsible for having any permit or tag your plant needs. Check your state&apos;s agriculture
+                            department regulations.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -1982,7 +2130,11 @@ export default function SellerDashboardPage() {
                     </label>
                     <textarea id="dash-description"
                       rows={2}
-                      placeholder="Tell buyers what makes this crop special..."
+                      placeholder={
+                        isPlant
+                          ? 'Tell buyers about this plant: how big it is, when it fruits or flowers, how to care for it...'
+                          : 'Tell buyers what makes this crop special...'
+                      }
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       className="w-full px-4 py-2 border rounded-lg text-sm"
@@ -2149,7 +2301,7 @@ export default function SellerDashboardPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="dash-harvest-date" className="block text-xs font-semibold text-gray-700 mb-1">
-                        Harvest Date *
+                        {isPlant ? 'Ready Date *' : 'Harvest Date *'}
                       </label>
                       <input id="dash-harvest-date"
                         type="date"
