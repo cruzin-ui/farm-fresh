@@ -102,6 +102,8 @@ const UNIT_TYPE_OPTIONS = [
   { value: 'units', label: 'Units (each, e.g. per pumpkin)' },
   { value: 'dozen', label: 'Dozen' },
   { value: 'bunches', label: 'Bunches' },
+  { value: 'bouquets', label: 'Bouquets' },
+  { value: 'stems', label: 'Stems' },
   { value: 'bags', label: 'Bags' },
   { value: 'flats', label: 'Flats' },
   { value: 'pints', label: 'Pints' },
@@ -1869,6 +1871,7 @@ export default function SellerDashboardPage() {
                           setCategory(next);
                           // Start from the unit these are usually sold in, if the unit hasn't been chosen yet.
                           if (unitType === 'lbs' && next === 'Fresh Eggs') setUnitType('dozen');
+                          if (unitType === 'lbs' && next === 'Cut Flowers') setUnitType('bunches');
                         }}
                         disabled={identityLocked}
                         className="w-full px-4 py-2 border rounded-lg text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500"
@@ -1883,6 +1886,28 @@ export default function SellerDashboardPage() {
                   <p className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-xl p-3">
                     {PRODUCE_ONLY_NOTICE}
                   </p>
+
+                  {category === 'Mushrooms' && (
+                    <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">
+                      <p className="font-bold text-sm">Cultivated mushrooms only</p>
+                      <p className="mt-0.5">
+                        List only mushrooms you grew yourself, such as on logs, blocks or in a grow room. Mushrooms
+                        gathered from the wild can&apos;t be sold here, because some poisonous kinds look like edible
+                        ones. Keep them cool and sell them fresh.
+                      </p>
+                    </div>
+                  )}
+
+                  {category === 'Cut Flowers' && (
+                    <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">
+                      <p className="font-bold text-sm">Cut flowers you grew</p>
+                      <p className="mt-0.5">
+                        Stems, bunches and bouquets from your own garden or farm. Potted plants, seedlings and bulbs
+                        can&apos;t be listed. Because flowers aren&apos;t food, sales tax is added to them at
+                        checkout where it applies; you don&apos;t need to do anything about it.
+                      </p>
+                    </div>
+                  )}
 
                   {['Fresh Eggs', 'Honey & Jam'].includes(category) && (
                     <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">

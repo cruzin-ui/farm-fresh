@@ -54,8 +54,9 @@ export default function SellerTermsPage() {
           <p className="mt-2">
             <strong>Local produce only.</strong> Farm Fresh Direct is for locally grown produce. You may only
             list items that belong in one of our categories ({LISTING_CATEGORIES.join(', ')}), and that you
-            grew, raised or made yourself. Seeds, plants, meat, dairy, baked goods, crafts and anything that is
-            not food may not be listed. We may remove any listing that does not belong, without notice, and
+            grew, raised or made yourself. Mushrooms must be ones you cultivated; mushrooms gathered from the
+            wild may not be listed. Cut flowers are the one category that is not food. Seeds, potted plants,
+            meat, dairy, baked goods, crafts and anything else that is not food may not be listed. We may remove any listing that does not belong, without notice, and
             cancel and refund any open orders for it.
           </p>
         </section>

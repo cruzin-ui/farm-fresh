@@ -70,6 +70,23 @@ const PANTRY_TYPES: typeof VEGETABLE_TYPES = [
   { name: 'Syrup', emoji: '🥞', keywords: ['syrup', 'agave'] },
 ];
 
+const MUSHROOM_TYPES: typeof VEGETABLE_TYPES = [
+  { name: 'Oyster', emoji: '🍄', keywords: ['oyster'] },
+  { name: 'Shiitake', emoji: '🍄', keywords: ['shiitake'] },
+  { name: "Lion's Mane", emoji: '🍄', keywords: ['lion'] },
+  { name: 'Button & Cremini', emoji: '🍄', keywords: ['button', 'cremini', 'crimini', 'portobello', 'portabella', 'white mushroom'] },
+  { name: 'Other Mushrooms', emoji: '🍄', keywords: ['maitake', 'enoki', 'chestnut', 'king', 'pioppino', 'reishi', 'mix'] },
+];
+
+const FLOWER_TYPES: typeof VEGETABLE_TYPES = [
+  { name: 'Bouquets', emoji: '💐', keywords: ['bouquet', 'arrangement', 'mixed', 'mix'] },
+  { name: 'Sunflowers', emoji: '🌻', keywords: ['sunflower'] },
+  { name: 'Roses', emoji: '🌹', keywords: ['rose'] },
+  { name: 'Tulips', emoji: '🌷', keywords: ['tulip'] },
+  { name: 'Zinnias & Dahlias', emoji: '🌸', keywords: ['zinnia', 'dahlia', 'cosmos', 'aster'] },
+  { name: 'Other Flowers', emoji: '🌼', keywords: ['flower', 'daisy', 'lily', 'snapdragon', 'stock', 'larkspur', 'marigold'] },
+];
+
 const EGG_TYPES: typeof VEGETABLE_TYPES = [
   // Plain "eggs" are assumed to be chicken eggs unless another bird is named.
   { name: 'Chicken Eggs', emoji: '🐔', keywords: ['chicken', 'hen', 'egg'], exclude: ['duck', 'quail', 'goose', 'turkey'] },
@@ -87,6 +104,8 @@ const TILE_GROUPS: Record<string, { heading: string; types: typeof VEGETABLE_TYP
   'Herbs & Spices': { heading: 'Shop by Herb', types: HERB_TYPES },
   'Honey & Jam': { heading: 'Shop Honey, Jam & More', types: PANTRY_TYPES },
   'Fresh Eggs': { heading: 'Shop Fresh Eggs', types: EGG_TYPES },
+  Mushrooms: { heading: 'Shop Mushrooms', types: MUSHROOM_TYPES },
+  'Cut Flowers': { heading: 'Shop Cut Flowers', types: FLOWER_TYPES },
 };
 
 function matchesProduceType(item: { title?: string | null; variety?: string | null }, type: (typeof VEGETABLE_TYPES)[number]) {
