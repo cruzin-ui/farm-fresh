@@ -24,6 +24,9 @@ export const CATEGORY_TAX_CODES: Record<string, string> = {
   'Herbs & Spices': FOOD_FOR_HOME,
   'Honey & Jam': FOOD_FOR_HOME,
   'Fresh Eggs': FOOD_FOR_HOME,
+  Mushrooms: FOOD_FOR_HOME,
+  // Not food, so not covered by the grocery or producer exemptions.
+  'Cut Flowers': GENERAL_GOODS,
 };
 
 // Used for a category that isn't listed above.
