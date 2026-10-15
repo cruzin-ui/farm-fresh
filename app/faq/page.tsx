@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { HelpCircle } from 'lucide-react';
-import { BUYER_FEE_LABEL, SELLER_FEE_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
+import { BUYER_FEE_LABEL, SELLER_KEEPS_PERCENT, PLATFORM_KEEPS_CENTS_PER_DOLLAR, SELLER_FEE_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
 
@@ -31,7 +31,7 @@ const BUYER_FAQS: Faq[] = [
   },
   {
     question: 'Are there any fees?',
-    answer: `Buyers pay a service fee of ${BUYER_FEE_LABEL} on top of the produce price. The fee is charged once per checkout, however many items are in your cart. Where sales tax applies, it is added too. You'll see the exact amounts at checkout before you pay.`,
+    answer: `Buyers pay a service fee of ${BUYER_FEE_LABEL} on top of the produce price. It includes card processing, which is paid out of it; after processing, Farm Fresh Direct keeps about ${PLATFORM_KEEPS_CENTS_PER_DOLLAR} cents of every dollar of produce sold, from the buyer's and seller's fees together. The fee is charged once per checkout, however many items are in your cart. Where sales tax applies, it is added too. You'll see the exact amounts at checkout before you pay.`,
   },
   {
     question: 'Can I buy from more than one farm at once?',
@@ -229,7 +229,7 @@ const SELLER_FAQS: Faq[] = [
   },
   {
     question: 'What does it cost to sell?',
-    answer: `Posting is free. We keep a ${SELLER_FEE} seller fee from each completed sale, taken out of your payout. There are no monthly or listing fees.`,
+    answer: `Posting is free, and you keep ${SELLER_KEEPS_PERCENT}% of every sale. We keep a ${SELLER_FEE} seller fee from each completed sale, taken out of your payout, and card processing is paid out of our fees, not yours. There are no monthly or listing fees.`,
   },
   {
     question: 'What do I need to get started?',

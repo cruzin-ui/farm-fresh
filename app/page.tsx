@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Sprout, ShoppingBag, ArrowRight, ShieldCheck, HeartHandshake, Store, Banknote, Tag } from 'lucide-react';
 import FreshListingsWheel from '@/components/FreshListingsWheel';
+import { SELLER_KEEPS_PERCENT } from '@/lib/pricing';
 
 const HOW_IT_WORKS = [
   {
@@ -59,7 +60,7 @@ const SELLING_POINTS = [
   {
     icon: Tag,
     title: 'Simple, Low Fees',
-    body: 'Free to list, and every fee is shown before you pay.',
+    body: `Free to list, sellers keep ${SELLER_KEEPS_PERCENT}% of every sale, and every fee is shown before you pay.`,
     href: '/faq',
   },
 ];
