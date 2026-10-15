@@ -8,6 +8,8 @@ import { alertAdmin } from '@/lib/alerts';
 import { verifyCaptcha, allowCheckoutAttempt, requestIp } from '@/lib/checkoutGuard';
 import { isBuyerBlocked } from '@/lib/accountBlocks';
 import { bumpDailyCount } from '@/lib/dailyCounts';
+import { BUYER_NAME_KEY, cleanBuyerName } from '@/lib/buyerName';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +38,22 @@ export async function POST(request: Request) {
     }
 
     const buyerEmail = user ? user.email || '' : guestEmail;
+
+    // A signed-in buyer's name for the farmer, if they gave one. A change is
+    // remembered on their account for next time.
+    let buyerName = '';
+    if (user) {
+      const nameResult = cleanBuyerName(body.buyerName ?? user.user_metadata?.[BUYER_NAME_KEY]);
+      if ('error' in nameResult) {
+        return NextResponse.json({ error: nameResult.error }, { status: 400 });
+      }
+      buyerName = nameResult.name;
+      if (buyerName !== (user.user_metadata?.[BUYER_NAME_KEY] || '')) {
+        await supabaseAdmin.auth.admin.updateUserById(user.id, {
+          user_metadata: { ...user.user_metadata, [BUYER_NAME_KEY]: buyerName || null },
+        });
+      }
+    }
 
     if (await isBuyerBlocked({ userId: user?.id, email: buyerEmail })) {
       return NextResponse.json(
@@ -120,6 +138,8 @@ export async function POST(request: Request) {
         // Empty for guest checkouts, which are identified by email alone.
         buyer_id: user?.id || '',
         buyer_email: buyerEmail,
+        // Shown to the farmer on the order, to label the bag.
+        buyer_name: buyerName,
         // The platform's cut of each farmer's share, fixed at the time of purchase.
         seller_fee_rate: String(SELLER_FEE_RATE),
         item_count: String(cart.lines.length),

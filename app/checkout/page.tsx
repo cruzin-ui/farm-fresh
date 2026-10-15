@@ -25,6 +25,7 @@ import TurnstileBox from '@/components/TurnstileBox';
 import DistanceFromYou from '@/components/DistanceFromYou';
 import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
 import { BUYER_FEE_LABEL, MIN_CHARGE_CENTS } from '@/lib/pricing';
+import { BUYER_NAME_KEY, BUYER_NAME_MAX } from '@/lib/buyerName';
 import { useCart, addToCart, setCartQuantity, removeFromCart, clearCart, type CartItem } from '@/lib/cart';
 
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
@@ -125,12 +126,15 @@ function PaymentForm({
   grandTotal,
   signedIn,
   guestEmail,
+  buyerName,
   onCartRejected,
 }: {
   items: CartItem[];
   grandTotal: number;
   signedIn: boolean;
   guestEmail: string;
+  // A signed-in buyer's name for the farmer (optional).
+  buyerName: string;
   // Called when the server turns the cart down (something sold out in the
   // meantime), so the page can look the cart up again and show what changed.
   onCartRejected: () => void;
@@ -162,7 +166,7 @@ function PaymentForm({
 
       const intentRes = await postWithAuth('/api/checkout', {
         items,
-        ...(signedIn ? {} : { guestEmail }),
+        ...(signedIn ? { buyerName } : { guestEmail }),
         ...(captchaSiteKey ? { captchaToken } : {}),
       });
       const intentData = await intentRes.json();
@@ -284,6 +288,7 @@ function CheckoutContent() {
   const [authChecked, setAuthChecked] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [guestEmail, setGuestEmail] = useState('');
+  const [buyerName, setBuyerName] = useState('');
 
   useEffect(() => {
     async function checkAuth() {
@@ -291,6 +296,7 @@ function CheckoutContent() {
       // guest with just an email address.
       const { data: { user } } = await supabase.auth.getUser();
       setSignedIn(Boolean(user));
+      setBuyerName((user?.user_metadata?.[BUYER_NAME_KEY] as string) || '');
       setAuthChecked(true);
     }
     checkAuth();
@@ -576,6 +582,28 @@ function CheckoutContent() {
           </div>
         )}
 
+        {signedIn && (
+          <div className="bg-white border rounded-xl p-5 shadow-sm">
+            <label htmlFor="checkout-buyer-name" className="font-bold text-gray-900 text-base">
+              Name for your order <span className="text-sm font-normal text-gray-500">(optional)</span>
+            </label>
+            <p className="text-sm text-gray-600 mt-1 mb-3">
+              The farmer sees it on your order, so they can label your bag. We&apos;ll remember it for next time.
+            </p>
+            <input
+              id="checkout-buyer-name"
+              form={PAYMENT_FORM_ID}
+              type="text"
+              autoComplete="name"
+              maxLength={BUYER_NAME_MAX}
+              placeholder="e.g., Jane Smith"
+              value={buyerName}
+              onChange={(e) => setBuyerName(e.target.value)}
+              className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+        )}
+
         {!stripePromise ? (
           <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-red-500 text-center">
             Payment configuration is missing. Please contact support.
@@ -610,6 +638,7 @@ function CheckoutContent() {
               items={items}
               signedIn={signedIn}
               guestEmail={guestEmail}
+              buyerName={buyerName}
               grandTotal={totalCents / 100}
               onCartRejected={() => setRefreshCount((count) => count + 1)}
             />

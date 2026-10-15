@@ -16,6 +16,8 @@ type PickListOrder = {
   ready_by?: string | null;
   pickup_by?: string | null;
   no_show_reported_at?: string | null;
+  // The buyer's name, if they gave one, to write on the bag.
+  buyer_name?: string | null;
 };
 
 type PickListListing = { id: string; variety?: string | null };
@@ -142,7 +144,10 @@ export default function PickList({
               <li key={bag[0].id} className={row}>
                 <TickBox />
                 <span className="font-mono font-bold text-gray-900 w-20 shrink-0">{orderRef(bag[0])}</span>
-                <span className="flex-1 min-w-0 text-gray-800">{bag.map(itemText).join(', ')}</span>
+                <span className="flex-1 min-w-0 text-gray-800">
+                  {bag[0].buyer_name && <span className="block font-bold text-gray-900">{bag[0].buyer_name}</span>}
+                  {bag.map(itemText).join(', ')}
+                </span>
               </li>
             ))}
           </ul>
@@ -160,7 +165,10 @@ export default function PickList({
               return (
                 <li key={bag[0].id} className={row}>
                   <span className="font-mono font-bold text-gray-900 w-20 shrink-0">{orderRef(bag[0])}</span>
-                  <span className="flex-1 min-w-0 text-gray-800">{bag.map(itemText).join(', ')}</span>
+                  <span className="flex-1 min-w-0 text-gray-800">
+                    {bag[0].buyer_name && <span className="block font-bold text-gray-900">{bag[0].buyer_name}</span>}
+                    {bag.map(itemText).join(', ')}
+                  </span>
                   <span className={`text-sm whitespace-nowrap ${timeUp ? 'font-bold text-amber-800' : 'text-gray-600'}`}>
                     {reported ? 'No-show reported' : pickupBy ? `${timeUp ? 'Ended' : 'Until'} ${shortDate(pickupBy)}` : ''}
                   </span>
