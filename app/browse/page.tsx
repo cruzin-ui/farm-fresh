@@ -12,6 +12,12 @@ import Photo from '@/components/Photo';
 import { ListingGridSkeleton } from '@/components/Skeletons';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import { geocodeZip, milesBetween, describeDrive, type Coordinates } from '@/lib/geo';
+import FarmBoxCard, { type BrowseFarmBox } from '@/components/FarmBoxCard';
+
+// The Browse chip for Farm Boxes, shown beside the produce categories.
+const FARM_BOXES = 'Farm Boxes';
+// How many Farm Boxes "All" shows above the listings before "See all".
+const BOXES_UNDER_ALL = 3;
 
 const RADIUS_OPTIONS = [10, 25, 50, 100];
 // Where the buyer's zip code is remembered between visits (this browser only).
@@ -153,6 +159,7 @@ function orderFairly(listings: any[]) {
 
 export default function BrowsePage() {
   const [listings, setListings] = useState<any[]>([]);
+  const [farmBoxes, setFarmBoxes] = useState<BrowseFarmBox[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -214,7 +221,7 @@ export default function BrowsePage() {
 
     const missing = [
       ...new Set(
-        listings
+        [...listings, ...farmBoxes]
           .filter((l) => l.latitude == null && /^\d{5}/.test(l.zip_code || ''))
           .map((l) => String(l.zip_code).slice(0, 5))
       ),
@@ -225,7 +232,7 @@ export default function BrowsePage() {
     Promise.all(missing.map(async (zip) => [zip, await geocodeZip(zip)] as const)).then((results) => {
       setZipCoords((current) => ({ ...current, ...Object.fromEntries(results) }));
     });
-  }, [origin, listings, zipCoords]);
+  }, [origin, listings, farmBoxes, zipCoords]);
 
   // Roughly how many miles the buyer would drive to a listing, from their zip
   // code to the listing's, or null if either is unknown. The "within" filter
@@ -247,6 +254,18 @@ export default function BrowsePage() {
 
   const fetchListings = async () => {
     setLoading(true);
+
+    // Farm Boxes come from the server, which knows which ones can be joined.
+    fetch('/api/csa/plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true }),
+    })
+      .then((res) => res.json())
+      .then((json) =>
+        setFarmBoxes((json.plans || []).map((p: any) => ({ ...p, zip_code: p.zipCode || '' })))
+      )
+      .catch(() => setFarmBoxes([]));
 
     // Only fetch listings with at least one whole unit left (buyers can't
     // order less than one), so sold-out posts
@@ -330,6 +349,24 @@ export default function BrowsePage() {
     return matchesSearch && matchesCategory && matchesVegetable && matchesDistance;
   });
 
+  // Farm Boxes follow the same search and distance as listings.
+  const query = searchQuery.toLowerCase();
+  const filteredBoxes = farmBoxes
+    .filter((box) => {
+      const matchesSearch =
+        !query ||
+        box.name.toLowerCase().includes(query) ||
+        box.description.toLowerCase().includes(query) ||
+        box.farmName.toLowerCase().includes(query) ||
+        box.farmLocation.toLowerCase().includes(query) ||
+        'farm box'.includes(query);
+      const distance = distanceTo(box);
+      const matchesDistance = !origin || radius === 0 || distance === null || distance <= radius;
+      return matchesSearch && matchesDistance;
+    })
+    .sort((a, b) => (origin ? (distanceTo(a) ?? Infinity) - (distanceTo(b) ?? Infinity) : 0));
+  const showingBoxes = selectedCategory === FARM_BOXES;
+
   // Closest first when searching by location; otherwise the take-turns order.
   const displayedListings = origin
     ? [...filteredListings].sort((a, b) => (distanceTo(a) ?? Infinity) - (distanceTo(b) ?? Infinity))
@@ -402,7 +439,7 @@ export default function BrowsePage() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {['All', ...LISTING_CATEGORIES].map(
+          {['All', FARM_BOXES, ...LISTING_CATEGORIES].map(
             (cat) => (
               <button
                 key={cat}
@@ -425,7 +462,7 @@ export default function BrowsePage() {
 
       {/* SHOP BY TYPE — only once a category is chosen. With "All" selected the
           page goes straight to the listings. */}
-      {selectedCategory !== 'All' && (
+      {selectedCategory !== 'All' && !showingBoxes && (
       <div>
         <h2 className="text-lg font-extrabold text-gray-900 mb-3">{tileGroup.heading}</h2>
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -458,6 +495,57 @@ export default function BrowsePage() {
           })}
         </div>
       </div>
+      )}
+
+      {showingBoxes ? (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-extrabold text-gray-900">Farm Boxes</h2>
+            <p className="text-sm text-gray-600 mt-1 max-w-2xl">
+              <strong className="text-gray-800">What is a Farm Box?</strong> A box of whatever a local farm is harvesting
+              that week, picked up on a set day. Sign up and pay per box, skipping or pausing whenever you like, or buy
+              just one to try it. Regular orders give small growers steady sales they can plan around.
+            </p>
+          </div>
+          {loading ? (
+            <ListingGridSkeleton />
+          ) : filteredBoxes.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+              <Sprout className="mx-auto h-12 w-12 text-emerald-400 mb-2" />
+              <h3 className="text-base font-bold text-gray-800">No Farm Boxes Found</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {origin && radius !== 0 ? 'Try a wider distance, or check back soon.' : 'Check back soon as farms add them.'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredBoxes.map((box) => (
+                <FarmBoxCard key={box.id} box={box} milesAway={distanceTo(box)} />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+      <>
+      {selectedCategory === 'All' && !loading && filteredBoxes.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-extrabold text-gray-900">Farm Boxes</h2>
+            {filteredBoxes.length > BOXES_UNDER_ALL && (
+              <button
+                onClick={() => setSelectedCategory(FARM_BOXES)}
+                className="text-xs font-semibold text-emerald-700 hover:underline"
+              >
+                See all {filteredBoxes.length} Farm Boxes
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredBoxes.slice(0, BOXES_UNDER_ALL).map((box) => (
+              <FarmBoxCard key={box.id} box={box} milesAway={distanceTo(box)} />
+            ))}
+          </div>
+        </div>
       )}
 
       <div className="flex items-center justify-between gap-3">
@@ -607,6 +695,8 @@ export default function BrowsePage() {
             );
           })}
         </div>
+      )}
+      </>
       )}
     </div>
   );

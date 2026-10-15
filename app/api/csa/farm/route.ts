@@ -165,7 +165,15 @@ type PlanInput = {
   seasonEnd?: string;
   maxMembers?: number | string | null;
   status?: string;
+  // A photo already uploaded to our storage, or empty for none.
+  imageUrl?: string | null;
 };
+
+// Only photos uploaded to the site's own storage are accepted.
+const PHOTO_PREFIX = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/produce-images/`;
+function cleanPhoto(value: unknown) {
+  return typeof value === 'string' && value.startsWith(PHOTO_PREFIX) && value.length < 500 ? value : null;
+}
 
 async function savePlan(farmerId: string, input: PlanInput, acceptTerms: boolean, today: string, siteUrl: string) {
   const name = String(input.name || '').trim().slice(0, 80);
@@ -179,6 +187,7 @@ async function savePlan(farmerId: string, input: PlanInput, acceptTerms: boolean
   const maxRaw = input.maxMembers;
   const maxMembers = maxRaw === null || maxRaw === undefined || maxRaw === '' ? null : Math.floor(Number(maxRaw));
   const status = input.status === 'closed' ? 'closed' : 'open';
+  const imageUrl = cleanPhoto(input.imageUrl);
 
   if (name.length < 3) return { error: 'Give your Farm Box a name, e.g. "Weekly Veggie Box".' };
   if (description.length < 10) return { error: 'Describe what members can expect in a typical box.' };
@@ -252,7 +261,7 @@ async function savePlan(farmerId: string, input: PlanInput, acceptTerms: boolean
     if (error) throw error;
     await supabaseAdmin
       .from('produce_listings')
-      .update({ title: name, description, price_per_unit: priceCents / 100, pickup_instructions: pickupWindow })
+      .update({ title: name, description, price_per_unit: priceCents / 100, pickup_instructions: pickupWindow, image_url: imageUrl })
       .eq('id', existing.listing_id);
 
     if (seasonEnd !== existing.season_end && everJoined) {
@@ -299,7 +308,7 @@ async function savePlan(farmerId: string, input: PlanInput, acceptTerms: boolean
       longitude: coordinates?.longitude ?? null,
       pickup_instructions: pickupWindow,
       tags: [],
-      image_url: null,
+      image_url: imageUrl,
       status: 'csa',
     })
     .select('id')
@@ -344,6 +353,11 @@ async function farmOverview(farmerId: string, today: string) {
     .order('created_at', { ascending: false });
   const plans = (planRows || []) as CsaPlan[];
   const payoutsProblem = await farmCantSell(farmerId);
+  // Each Farm Box's photo is kept on its hidden listing.
+  const { data: photoRows } = plans.length
+    ? await supabaseAdmin.from('produce_listings').select('id, image_url').in('id', plans.map((p) => p.listing_id))
+    : { data: [] as any[] };
+  const photoByListing = new Map((photoRows || []).map((l) => [l.id, l.image_url as string | null]));
 
   const result = [];
   for (const plan of plans) {
@@ -401,6 +415,7 @@ async function farmOverview(farmerId: string, today: string) {
       seasonEnd: plan.season_end,
       maxMembers: plan.max_members,
       status: plan.status,
+      imageUrl: photoByListing.get(plan.listing_id) || null,
       everJoined: members.length > 0,
       counts: {
         active: members.filter((m) => m.status === 'active').length,

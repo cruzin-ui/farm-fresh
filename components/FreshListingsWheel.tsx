@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Sprout, Pause, Play } from 'lucide-react';
+import { Sprout, Pause, Play, Package } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchSuspendedSellerIds } from '@/lib/suspendedSellers';
 import { LISTING_CATEGORIES } from '@/lib/categories';
@@ -32,6 +32,23 @@ function takeTurns(listings: any[]) {
     }
   }
   return ordered.slice(0, MAX_LISTINGS);
+}
+
+// At most this many Farm Boxes in the strip, one after every few listings.
+const MAX_BOXES = 4;
+const LISTINGS_PER_BOX = 3;
+
+// Mixes Farm Boxes in among the listings: one after every few listings, and
+// any left over at the end. Each farm's boxes take turns too.
+function mixInBoxes(listings: any[], boxes: any[]) {
+  const chosenBoxes = takeTurns(boxes).slice(0, MAX_BOXES);
+  const mixed: any[] = [];
+  let next = 0;
+  listings.forEach((item, index) => {
+    mixed.push(item);
+    if ((index + 1) % LISTINGS_PER_BOX === 0 && next < chosenBoxes.length) mixed.push(chosenBoxes[next++]);
+  });
+  return [...mixed, ...chosenBoxes.slice(next)].slice(0, MAX_LISTINGS + MAX_BOXES);
 }
 
 // A strip of current listings on the home page that drifts from right to left
@@ -86,7 +103,31 @@ export default function FreshListingsWheel() {
       );
       const chosen = takeTurns((listingsData || []).filter((l) => payoutsReady.has(l.farmer_id)));
 
-      setListings(chosen.map((l) => ({ ...l, farm_name: farmNameById.get(l.farmer_id) || 'Local Farm' })));
+      // Farm Boxes that can be joined right now, from the server.
+      let boxes: any[] = [];
+      try {
+        const res = await fetch('/api/csa/plans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ all: true }),
+        });
+        boxes = ((await res.json()).plans || []).map((p: any) => ({
+          kind: 'box',
+          id: p.id,
+          farmer_id: p.farmerId,
+          title: p.name,
+          image_url: p.imageUrl,
+          farm_name: p.farmName,
+          priceCents: p.cost?.priceCents || 0,
+        }));
+      } catch {}
+
+      setListings(
+        mixInBoxes(
+          chosen.map((l) => ({ ...l, kind: 'listing', farm_name: farmNameById.get(l.farmer_id) || 'Local Farm' })),
+          boxes
+        )
+      );
       setLoaded(true);
     }
 
@@ -198,18 +239,25 @@ export default function FreshListingsWheel() {
   const renderCard = (item: any, key: string, hidden: boolean) => (
     <Link
       key={key}
-      href={`/listings/${item.id}`}
+      href={item.kind === 'box' ? `/csa/${item.id}` : `/listings/${item.id}`}
       draggable={false}
       // The repeated copies exist only to make the loop seamless.
       aria-hidden={hidden || undefined}
       tabIndex={hidden ? -1 : undefined}
       className="mr-4 w-56 shrink-0 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden text-left hover:shadow-md transition-shadow select-none"
     >
-      <div className="h-36 bg-emerald-50 flex items-center justify-center overflow-hidden">
+      <div className="h-36 bg-emerald-50 flex items-center justify-center overflow-hidden relative">
         {item.image_url ? (
           <Photo src={item.image_url} alt="" sizes="240px" draggable={false} className="w-full h-full object-cover" />
+        ) : item.kind === 'box' ? (
+          <Package className="w-10 h-10 text-emerald-700/40" aria-hidden="true" />
         ) : (
           <Sprout className="w-10 h-10 text-emerald-700/40" aria-hidden="true" />
+        )}
+        {item.kind === 'box' && (
+          <span className="absolute top-2 left-2 bg-emerald-700 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+            Farm Box
+          </span>
         )}
       </div>
       <div className="p-3">
@@ -219,8 +267,8 @@ export default function FreshListingsWheel() {
         </p>
         <p className="text-xs text-gray-600 truncate">{item.farm_name}</p>
         <p className="text-sm font-black text-emerald-800 mt-1">
-          ${Number(item.price_per_unit || 0).toFixed(2)}
-          <span className="text-xs font-medium text-gray-500"> / {item.unit_type || 'lb'}</span>
+          ${item.kind === 'box' ? (item.priceCents / 100).toFixed(2) : Number(item.price_per_unit || 0).toFixed(2)}
+          <span className="text-xs font-medium text-gray-500"> / {item.kind === 'box' ? 'box' : item.unit_type || 'lb'}</span>
         </p>
       </div>
     </Link>

@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Package, Plus, AlertCircle, CheckCircle2, Users, ChevronDown } from 'lucide-react';
+import { Package, Plus, AlertCircle, CheckCircle2, Users, ChevronDown, Camera, ImageIcon, X } from 'lucide-react';
 import { postWithAuth } from '@/lib/authedFetch';
+import { supabase } from '@/lib/supabaseClient';
+import { resizeImage } from '@/lib/resizeImage';
+import Photo from '@/components/Photo';
 import { boxCostCents } from '@/lib/csaTerms';
 import { describeFrequency, formatBoxDate, todayInArizona, WEEKDAYS, CHARGE_DAYS_BEFORE } from '@/lib/csaSchedule';
 import { SELLER_FEE_RATE } from '@/lib/pricing';
@@ -36,6 +39,7 @@ type Plan = {
   maxMembers: number | null;
   status: 'open' | 'closed' | 'ended';
   everJoined: boolean;
+  imageUrl: string | null;
   counts: { active: number; paused: number; cancelled: number };
   members: { id: string; who: string; status: string; joined: string; priceDollars: string; cancelledAt: string | null }[];
   weeks: Week[];
@@ -53,6 +57,8 @@ type Form = {
   seasonEnd: string;
   maxMembers: string;
   status: string;
+  // The saved photo, or '' for none.
+  imageUrl: string;
 };
 
 const EMPTY_FORM: Form = {
@@ -66,6 +72,7 @@ const EMPTY_FORM: Form = {
   seasonEnd: '',
   maxMembers: '',
   status: 'open',
+  imageUrl: '',
 };
 
 const STATUS_PILL: Record<Plan['status'], string> = {
@@ -96,6 +103,34 @@ export default function SellerCsa({
   const [payoutsProblem, setPayoutsProblem] = useState<string | null>(null);
   const [form, setForm] = useState<Form | null>(null);
   const [acceptTerms, setAcceptTerms] = useState(false);
+  // A new photo picked in the form, uploaded when it is saved.
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const pickPhoto = (file: File | null) => {
+    setPhotoFile(file);
+    setPhotoPreview(file ? URL.createObjectURL(file) : null);
+  };
+
+  // Opens the form, forgetting any photo picked for a previous one.
+  const openForm = (next: Form | null) => {
+    pickPhoto(null);
+    setForm(next);
+  };
+
+  // Uploads the new photo, if there is one, and returns the photo to save.
+  const photoToSave = async () => {
+    if (!photoFile) return form?.imageUrl || '';
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) throw new Error('Please sign in again.');
+    const upload = await resizeImage(photoFile);
+    const fileName = `crops/${data.session.user.id}-farmbox-${Date.now()}.${upload.name.split('.').pop()}`;
+    const { error } = await supabase.storage.from('produce-images').upload(fileName, upload);
+    if (error) throw error;
+    return supabase.storage.from('produce-images').getPublicUrl(fileName).data.publicUrl;
+  };
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -165,7 +200,7 @@ export default function SellerCsa({
         {!form && (
           <button
             onClick={() => {
-              setForm({ ...EMPTY_FORM, seasonStart: todayInArizona() });
+              openForm({ ...EMPTY_FORM, seasonStart: todayInArizona() });
               setError(null);
             }}
             className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm"
@@ -200,12 +235,21 @@ export default function SellerCsa({
         <form
           onSubmit={async (e) => {
             e.preventDefault();
+            let imageUrl = '';
+            try {
+              setBusy('save');
+              imageUrl = await photoToSave();
+            } catch (err: any) {
+              setBusy(null);
+              setError(err.message || 'Your photo could not be uploaded.');
+              return;
+            }
             const json = await call(
-              { action: 'save_plan', plan: form, acceptTerms },
+              { action: 'save_plan', plan: { ...form, imageUrl }, acceptTerms },
               'save',
               form.id ? 'Farm Box updated.' : 'Farm Box created. It now shows on your farm page.'
             );
-            if (json) setForm(null);
+            if (json) openForm(null);
           }}
           className="border border-emerald-200 bg-emerald-50/40 rounded-2xl p-5 space-y-4"
         >
@@ -224,6 +268,64 @@ export default function SellerCsa({
             <div className="sm:col-span-2">
               <label htmlFor="csa-name" className="block text-xs font-semibold text-gray-700 mb-1">Name *</label>
               <input id="csa-name" required maxLength={80} placeholder='e.g., "Weekly Veggie Box"' {...field('name')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
+            </div>
+            <div className="sm:col-span-2">
+              <p id="csa-photo-label" className="block text-xs font-semibold text-gray-700 mb-1">
+                Photo (optional, but boxes with a photo stand out)
+              </p>
+              <div role="group" aria-labelledby="csa-photo-label" className="flex flex-wrap items-center gap-3">
+                {photoPreview || form.imageUrl ? (
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photoPreview || form.imageUrl} alt="Farm Box photo" className="w-20 h-20 rounded-lg object-cover border" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        pickPhoto(null);
+                        setForm((current) => (current ? { ...current, imageUrl: '' } : current));
+                      }}
+                      aria-label="Remove photo"
+                      className="absolute -top-2 -right-2 bg-white border rounded-full p-0.5 shadow-sm"
+                    >
+                      <X className="w-3.5 h-3.5 text-gray-500" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-lg bg-white flex items-center justify-center border border-dashed">
+                    <ImageIcon className="w-6 h-6 text-gray-300" />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <Camera className="w-3.5 h-3.5" /> Take Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <ImageIcon className="w-3.5 h-3.5" /> Choose Photo
+                </button>
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => pickPhoto(e.target.files?.[0] || null)}
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => pickPhoto(e.target.files?.[0] || null)}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">A typical week's box works well, so members can see what they get.</p>
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="csa-description" className="block text-xs font-semibold text-gray-700 mb-1">
@@ -313,7 +415,7 @@ export default function SellerCsa({
             <button type="submit" disabled={busy !== null} className="px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-sm disabled:opacity-50">
               {busy === 'save' ? 'Saving…' : form.id ? 'Save changes' : 'Create Farm Box'}
             </button>
-            <button type="button" onClick={() => setForm(null)} className="px-4 py-2.5 text-sm font-semibold text-gray-700">
+            <button type="button" onClick={() => openForm(null)} className="px-4 py-2.5 text-sm font-semibold text-gray-700">
               Cancel
             </button>
           </div>
@@ -332,7 +434,11 @@ export default function SellerCsa({
       {running.map((plan) => (
         <section key={plan.id} className="border rounded-2xl p-5 space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
+            <div className="flex items-start gap-3">
+              {plan.imageUrl && (
+                <Photo src={plan.imageUrl} alt={plan.name} sizes="64px" className="w-16 h-16 rounded-lg object-cover border shrink-0" />
+              )}
+              <div>
               <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
               <p className="text-sm text-gray-600">
                 ${plan.priceDollars} a box ·{' '}
@@ -345,12 +451,13 @@ export default function SellerCsa({
                 {plan.counts.paused > 0 && `, ${plan.counts.paused} paused`}
                 {plan.maxMembers != null && ` · limit ${plan.maxMembers}`}
               </p>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className={`text-[11px] font-bold rounded-full px-2.5 py-1 ${STATUS_PILL[plan.status]}`}>{STATUS_TEXT[plan.status]}</span>
               <button
                 onClick={() =>
-                  setForm({
+                  openForm({
                     id: plan.id,
                     name: plan.name,
                     description: plan.description,
@@ -362,6 +469,7 @@ export default function SellerCsa({
                     seasonEnd: plan.seasonEnd,
                     maxMembers: plan.maxMembers == null ? '' : String(plan.maxMembers),
                     status: plan.status,
+                    imageUrl: plan.imageUrl || '',
                   })
                 }
                 className="text-xs font-semibold border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50"

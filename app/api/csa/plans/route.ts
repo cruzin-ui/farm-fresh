@@ -7,9 +7,10 @@ import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
-// What anyone can see of a farm's CSA plans, for its farm page and the join
-// page: { farmId } for all of a farm's plans still running, or { planId } for
-// one. Members, notes and anything private stay out.
+// What anyone can see of Farm Boxes: { farmId } for all of a farm's Farm
+// Boxes still running (its farm page), { planId } for one (the join page), or
+// { all: true } for every Farm Box someone can sign up for right now (Browse
+// and the home page strip). Members, notes and anything private stay out.
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
     let query = supabaseAdmin.from('csa_plans').select('*').neq('status', 'ended');
     if (typeof body.planId === 'string' && UUID.test(body.planId)) query = query.eq('id', body.planId);
     else if (typeof body.farmId === 'string' && UUID.test(body.farmId)) query = query.eq('farmer_id', body.farmId);
+    else if (body.all === true) query = query.eq('status', 'open');
     else return NextResponse.json({ plans: [] });
 
     const today = todayInArizona();
@@ -31,6 +33,14 @@ export async function POST(request: Request) {
       .select('id, farm_name, slug, location, avatar_url')
       .in('id', farmIds);
     const farmById = new Map((farms || []).map((f) => [f.id, f]));
+    const { data: photoRows } = await supabaseAdmin
+      .from('produce_listings')
+      .select('id, image_url, zip_code, location_name, latitude, longitude')
+      .in('id', plans.map((p) => p.listing_id));
+    const photoByListing = new Map((photoRows || []).map((l) => [l.id, l.image_url as string | null]));
+    // Where each Farm Box is picked up: its hidden listing moves with the
+    // farm's pickup address, so it has the zip code and map position.
+    const placeByListing = new Map((photoRows || []).map((l) => [l.id, l]));
 
     const result = [];
     for (const plan of plans) {
@@ -49,9 +59,14 @@ export async function POST(request: Request) {
         farmerId: plan.farmer_id,
         farmName: farm?.farm_name || 'Local Farm',
         farmSlug: farm?.slug || null,
-        farmLocation: farm?.location || '',
+        farmLocation: placeByListing.get(plan.listing_id)?.location_name || farm?.location || '',
+        farmAvatar: farm?.avatar_url || null,
+        zipCode: String(placeByListing.get(plan.listing_id)?.zip_code || '').slice(0, 5),
+        latitude: placeByListing.get(plan.listing_id)?.latitude ?? null,
+        longitude: placeByListing.get(plan.listing_id)?.longitude ?? null,
         name: plan.name,
         description: plan.description,
+        imageUrl: photoByListing.get(plan.listing_id) || null,
         priceCents: plan.price_cents,
         cost: boxCostCents(plan.price_cents),
         frequency: plan.frequency,
@@ -76,7 +91,7 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.json({ plans: result });
+    return NextResponse.json({ plans: body.all === true ? result.filter((p) => !p.closedReason) : result });
   } catch (err: any) {
     console.error('csa plans error:', err);
     await alertAdmin('CSA plans', err);
