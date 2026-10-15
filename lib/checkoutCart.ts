@@ -23,6 +23,8 @@ export type PricedLine = {
   farmerId: string | null;
   farmName: string;
   locationName: string;
+  // The listing's zip code, for showing the buyer how far away it is.
+  zipCode: string;
   // When the farm is usually available for pickup, in words; empty if the
   // farm hasn't said.
   usualPickup: string;
@@ -127,6 +129,7 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
       farmerId: listing?.farmer_id || null,
       farmName: seller?.farm_name || 'Local Farm',
       locationName: listing?.location_name || '',
+      zipCode: String(listing?.zip_code || '').slice(0, 5),
       usualPickup: describeUsualPickup(seller?.pickup_days, seller?.pickup_times) || '',
       subtotalCents: 0,
       feeCents: 0,

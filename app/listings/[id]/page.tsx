@@ -12,6 +12,7 @@ import { BUYER_FEE_LABEL } from '@/lib/pricing';
 import { addToCart, useCart } from '@/lib/cart';
 import { describeUsualPickup } from '@/lib/pickupRules';
 import FollowFarmButton from '@/components/FollowFarmButton';
+import DistanceFromYou from '@/components/DistanceFromYou';
 import Photo from '@/components/Photo';
 import { ListingPageSkeleton } from '@/components/Skeletons';
 
@@ -253,6 +254,16 @@ export default function ListingDetailPage() {
                 </dd>
                 <dd className="text-xs text-gray-500 mt-0.5">
                   You get the exact address when your order is ready.
+                </dd>
+                <dd className="mt-2">
+                  <DistanceFromYou
+                    farmZip={listing.zip_code}
+                    farmCoordinates={
+                      listing.latitude != null && listing.longitude != null
+                        ? { latitude: Number(listing.latitude), longitude: Number(listing.longitude) }
+                        : null
+                    }
+                  />
                 </dd>
               </div>
             </div>

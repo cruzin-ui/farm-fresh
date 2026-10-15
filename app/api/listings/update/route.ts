@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
-import { checkListingAllowed, saveListingPickupAddress } from '@/lib/listingRules';
+import { checkListingAllowed } from '@/lib/listingRules';
 import { cleanListingTags } from '@/lib/listingTags';
 import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
-import { geocodeZip } from '@/lib/geo';
 import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
@@ -120,20 +119,8 @@ export async function POST(request: Request) {
 
     if (typeof fields.description === 'string') update.description = fields.description;
     if (typeof fields.pickup_instructions === 'string') update.pickup_instructions = fields.pickup_instructions;
-    if (typeof fields.location_name === 'string' && fields.location_name.trim()) {
-      update.location_name = fields.location_name.trim();
-    }
-    if (typeof fields.zip_code === 'string') {
-      update.zip_code = fields.zip_code.trim();
-
-      // Keep the listing's location in step with its zip code (and fill it in
-      // for listings posted before locations were stored).
-      if (update.zip_code !== listing.zip_code || listing.latitude == null) {
-        const coordinates = await geocodeZip(update.zip_code as string);
-        update.latitude = coordinates?.latitude ?? null;
-        update.longitude = coordinates?.longitude ?? null;
-      }
-    }
+    // Where a listing is picked up isn't edited here: every listing is at the
+    // farm's address, changed on the Farm Profile (see lib/farmPickupAddress.ts).
     if (typeof fields.harvest_ready_date === 'string' && fields.harvest_ready_date) {
       update.harvest_ready_date = fields.harvest_ready_date;
     }
@@ -141,12 +128,6 @@ export async function POST(request: Request) {
     if (typeof fields.image_url === 'string' && fields.image_url) update.image_url = fields.image_url;
     if (Array.isArray(fields.tags)) {
       update.tags = cleanListingTags(fields.tags);
-    }
-
-    // Stored separately from the listing row; applies to orders placed from now on.
-    const pickupAddress = typeof fields.pickup_address === 'string' ? fields.pickup_address.trim() : '';
-    if (pickupAddress) {
-      await saveListingPickupAddress(listingId, user.id, pickupAddress);
     }
 
     if (Object.keys(update).length === 0) {

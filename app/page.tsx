@@ -16,8 +16,8 @@ const HOW_IT_WORKS = [
   {
     heading: 'If you want to sell',
     steps: [
-      ['Set up your farm profile', 'Add your farm name and photo, and connect a payout account.'],
-      ['Post your harvest', 'List the crop, price, quantity and pickup address. Posting is free.'],
+      ['Set up your farm profile', 'Add your farm name, photo and pickup address, and connect a payout account.'],
+      ['Post your harvest', 'List the crop, price and quantity. Posting is free.'],
       ['Mark orders ready', 'When the produce is ready, tick the days and times the buyer can come.'],
       ['Scan the pickup code to get paid', "Scan the buyer's QR code at pickup, or type their code. That releases your payment."],
     ],

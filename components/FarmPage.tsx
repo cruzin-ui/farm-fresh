@@ -13,6 +13,7 @@ import { LISTING_CATEGORIES } from '@/lib/categories';
 import { describeUsualPickup } from '@/lib/pickupRules';
 import FollowFarmButton from '@/components/FollowFarmButton';
 import FarmAdminPanel from '@/components/FarmAdminPanel';
+import DistanceFromYou from '@/components/DistanceFromYou';
 
 // A farm's public page: its photo, story, what it has for sale and its reviews.
 // Shown at the farm's own web address (/night-owl-produce) and at its original
@@ -125,6 +126,11 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
                 <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
                   <MapPin className="w-4 h-4 text-green-600" /> {profile.location} {profile.zip_code ? `(${profile.zip_code})` : ''}
                 </p>
+              )}
+              {profile?.zip_code && (
+                <div className="mt-2">
+                  <DistanceFromYou farmZip={profile.zip_code} />
+                </div>
               )}
               {describeUsualPickup(profile?.pickup_days, profile?.pickup_times) && (
                 <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
