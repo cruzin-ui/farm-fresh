@@ -42,7 +42,7 @@ export default function PrivacyPolicyPage() {
             </li>
             <li>
               <strong>Seller information.</strong> If you sell: your farm name, photos, description, location,
-              zip code, the listings you post, and the pickup address for each listing.
+              zip code, the listings you post, and your farm's pickup address.
             </li>
             <li>
               <strong>Messages.</strong> What you send us through the Contact Us form, problems you report

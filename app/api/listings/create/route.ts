@@ -4,6 +4,7 @@ import { getRequestUser } from '@/lib/apiAuth';
 import { checkListingAllowed, saveListingPickupAddress } from '@/lib/listingRules';
 import { cleanListingTags } from '@/lib/listingTags';
 import { isSellerSuspended } from '@/lib/accountBlocks';
+import { getFarmPickup } from '@/lib/farmPickupAddress';
 import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { geocodeZip } from '@/lib/geo';
@@ -32,8 +33,8 @@ export async function POST(request: Request) {
     const variety = typeof fields.variety === 'string' ? fields.variety.trim() || null : null;
     const price = Number(fields.price_per_unit);
     const quantity = Number(fields.available_quantity);
-    const locationName = typeof fields.location_name === 'string' ? fields.location_name.trim() : '';
-    const pickupAddress = typeof fields.pickup_address === 'string' ? fields.pickup_address.trim() : '';
+    // Every listing is picked up at the farm's address, from the Farm Profile.
+    const farmPickup = await getFarmPickup(user.id);
 
     if (!title) {
       return NextResponse.json({ error: 'Crop name is required.' }, { status: 400 });
@@ -55,11 +56,11 @@ export async function POST(request: Request) {
     if (!fields.harvest_ready_date) {
       return NextResponse.json({ error: 'A ready date is required.' }, { status: 400 });
     }
-    if (!locationName) {
-      return NextResponse.json({ error: 'A city or area is required.' }, { status: 400 });
-    }
-    if (!pickupAddress) {
-      return NextResponse.json({ error: 'A pickup address is required.' }, { status: 400 });
+    if (!farmPickup) {
+      return NextResponse.json(
+        { error: 'Add your pickup address to your Farm Profile first. Every listing is picked up there.' },
+        { status: 409 }
+      );
     }
     if (!isAllowedCategory(fields.category)) {
       return NextResponse.json({ error: `Choose one of the listed categories. ${PRODUCE_ONLY_NOTICE}` }, { status: 400 });
@@ -108,9 +109,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // The centre of the listing's zip code, so buyers can search by distance.
+    // The centre of the farm's zip code, so buyers can search by distance.
     // A failed lookup just leaves the listing without a location.
-    const zipCode = typeof fields.zip_code === 'string' ? fields.zip_code.trim() : '';
+    const zipCode = farmPickup.zip;
     const coordinates = await geocodeZip(zipCode);
 
     const { data: listing, error: insertError } = await supabaseAdmin
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
           available_quantity: quantity,
           harvest_ready_date: fields.harvest_ready_date,
           harvest_end_date: fields.harvest_end_date || null,
-          location_name: locationName,
+          location_name: farmPickup.city,
           zip_code: zipCode,
           latitude: coordinates?.latitude ?? null,
           longitude: coordinates?.longitude ?? null,
@@ -145,7 +146,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      await saveListingPickupAddress(listing.id, user.id, pickupAddress);
+      await saveListingPickupAddress(listing.id, user.id, farmPickup.address);
     } catch (addressError) {
       await supabaseAdmin.from('produce_listings').delete().eq('id', listing.id);
       throw addressError;

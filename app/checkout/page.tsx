@@ -22,6 +22,7 @@ import Link from 'next/link';
 import { postWithAuth } from '@/lib/authedFetch';
 import BuyerGuidance from '@/components/BuyerGuidance';
 import TurnstileBox from '@/components/TurnstileBox';
+import DistanceFromYou from '@/components/DistanceFromYou';
 import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
 import { BUYER_FEE_LABEL, MIN_CHARGE_CENTS } from '@/lib/pricing';
 import { useCart, addToCart, setCartQuantity, removeFromCart, clearCart, type CartItem } from '@/lib/cart';
@@ -52,6 +53,7 @@ type QuoteLine = {
   farmerId: string | null;
   farmName: string;
   locationName: string;
+  zipCode?: string;
   usualPickup: string;
   problem: string | null;
 };
@@ -390,6 +392,7 @@ function CheckoutContent() {
     farmerId: string | null;
     farmName: string;
     locationName: string;
+    zipCode: string;
     usualPickup: string;
     lines: typeof lines;
   }[] = [];
@@ -403,6 +406,7 @@ function CheckoutContent() {
         farmerId: line.farmerId,
         farmName: line.farmName,
         locationName: line.locationName,
+        zipCode: line.zipCode || '',
         usualPickup: line.usualPickup,
         lines: [line],
       });
@@ -442,6 +446,8 @@ function CheckoutContent() {
               {farm.farmName}
               {farm.locationName && <span className="text-xs font-medium text-gray-500">· Pickup in {farm.locationName}</span>}
             </h2>
+            {/* How far the pickup is, before the buyer pays. */}
+            <DistanceFromYou farmZip={farm.zipCode} remindIfFar />
             {farm.usualPickup && (
               <p className="text-xs text-gray-700 flex items-start gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />

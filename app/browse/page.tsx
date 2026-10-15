@@ -11,7 +11,7 @@ import AddToCartButton from '@/components/AddToCartButton';
 import Photo from '@/components/Photo';
 import { ListingGridSkeleton } from '@/components/Skeletons';
 import { LISTING_CATEGORIES } from '@/lib/categories';
-import { geocodeZip, milesBetween, type Coordinates } from '@/lib/geo';
+import { geocodeZip, milesBetween, describeDrive, type Coordinates } from '@/lib/geo';
 
 const RADIUS_OPTIONS = [10, 25, 50, 100];
 // Where the buyer's zip code is remembered between visits (this browser only).
@@ -227,14 +227,16 @@ export default function BrowsePage() {
     });
   }, [origin, listings, zipCoords]);
 
-  // Miles from the buyer's zip code to a listing's, or null if either is unknown.
+  // Roughly how many miles the buyer would drive to a listing, from their zip
+  // code to the listing's, or null if either is unknown. The "within" filter
+  // and the figure on each card both use it, so they agree.
   const distanceTo = (item: any): number | null => {
     if (!origin) return null;
     const coordinates: Coordinates | null =
       item.latitude != null && item.longitude != null
         ? { latitude: Number(item.latitude), longitude: Number(item.longitude) }
         : zipCoords[String(item.zip_code || '').slice(0, 5)] || null;
-    return coordinates ? milesBetween(origin, coordinates) : null;
+    return coordinates ? describeDrive(milesBetween(origin, coordinates)).roadMiles : null;
   };
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -571,7 +573,7 @@ export default function BrowsePage() {
                         {distanceTo(item) !== null && (
                           <span className="font-semibold text-emerald-800">
                             {' '}
-                            · {distanceTo(item)! < 1 ? 'under 1' : Math.round(distanceTo(item)!)} mi away
+                            · {distanceTo(item)! < 2 ? 'under 2' : `about ${Math.round(distanceTo(item)!)}`} mi away
                           </span>
                         )}
                       </span>

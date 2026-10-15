@@ -133,7 +133,7 @@ const TOUR_STEPS: (TourStep & { tab: DashboardTab })[] = [
     tab: 'profile',
     targets: ['nav-profile', 'menu-button'],
     title: 'Start with your Farm Profile',
-    body: "Add your farm's name, a photo, and the days and times you're usually around for pickups. Buyers see all of this before they order.",
+    body: "Add your farm's name, a photo, your pickup address (where buyers collect every order, and you can change it later) and the days and times you're usually around. Buyers see all but the street address before they order.",
   },
   {
     tab: 'settings',
@@ -274,6 +274,12 @@ export default function SellerDashboardPage() {
   const [bio, setBio] = useState('');
   const [profileLocation, setProfileLocation] = useState('');
   const [profileZip, setProfileZip] = useState('');
+  // The farm's pickup address: what is saved (null until there is one) and
+  // what is in the Farm Profile form. Every listing is picked up there.
+  const [farmPickup, setFarmPickup] = useState<{ address: string; zip: string; city: string } | null>(null);
+  const [farmPickupLoaded, setFarmPickupLoaded] = useState(false);
+  const [profileAddress, setProfileAddress] = useState('');
+  const [profileAddressVerified, setProfileAddressVerified] = useState(false);
   const [growingPractices, setGrowingPractices] = useState('No Synthetic Pesticides');
 
   const avatarCameraInputRef = useRef<HTMLInputElement>(null);
@@ -385,6 +391,20 @@ export default function SellerDashboardPage() {
       .eq('id', currentUserId)
       .maybeSingle();
 
+    // The private pickup address comes from the server, not the public profile.
+    try {
+      const pickupRes = await postWithAuth('/api/farm-pickup-address', { action: 'get' });
+      if (pickupRes.ok) {
+        const { pickup } = await pickupRes.json();
+        setFarmPickup(pickup || null);
+        if (pickup) {
+          setProfileAddress((current) => current || pickup.address);
+          setProfileAddressVerified(true);
+        }
+      }
+    } catch {}
+    setFarmPickupLoaded(true);
+
     if (profile) {
       setFarmAddress(profile.slug || null);
       setFarmName(profile.farm_name || '');
@@ -492,7 +512,7 @@ export default function SellerDashboardPage() {
   const visibleListings = showInactiveListings ? [...activeListings, ...inactiveListings] : activeListings;
 
   // The getting-started steps a farmer has already done, for the guide.
-  const profileDone = Boolean(farmName.trim());
+  const profileDone = Boolean(farmName.trim()) && Boolean(farmPickup);
   const payoutsDone = stripeOnboardingComplete;
   const listingDone = myListings.length > 0;
   const setupComplete = profileDone && payoutsDone && listingDone;
@@ -1016,6 +1036,10 @@ export default function SellerDashboardPage() {
         setCoverUrl(uploadedCoverUrl);
       }
 
+      if (!profileAddress.trim()) throw new Error('Enter your pickup address. Every listing is picked up there.');
+      if (!/^\d{5}$/.test(profileZip)) throw new Error('Enter the 5-digit zip code for your pickup address.');
+      if (!profileLocation.trim()) throw new Error('Enter the city for your pickup address.');
+
       const profilePayload = {
         id: user.id,
         farm_name: farmName,
@@ -1035,7 +1059,31 @@ export default function SellerDashboardPage() {
 
       if (upsertError) throw upsertError;
 
-      setSuccessMsg('Farm profile and image successfully updated!');
+      // The pickup address is private, so it is saved through the server,
+      // which also moves every listing to it.
+      const addressChanged =
+        !farmPickup ||
+        farmPickup.address !== profileAddress.trim() ||
+        farmPickup.zip !== profileZip ||
+        farmPickup.city !== profileLocation.trim();
+      if (addressChanged) {
+        const pickupRes = await postWithAuth('/api/farm-pickup-address', {
+          action: 'save',
+          address: profileAddress.trim(),
+          zip: profileZip,
+          city: profileLocation.trim(),
+        });
+        const pickupData = await pickupRes.json();
+        if (!pickupRes.ok) throw new Error(pickupData.error || 'Could not save your pickup address.');
+        setFarmPickup(pickupData.pickup);
+        await fetchDashboardData();
+      }
+
+      setSuccessMsg(
+        addressChanged && farmPickup
+          ? 'Farm profile updated. Your listings are now picked up at your new address; orders already placed keep their original address.'
+          : 'Farm profile and image successfully updated!'
+      );
       setAvatarFile(null);
       setAvatarPreviewUrl(null);
       setCoverFile(null);
@@ -1090,9 +1138,6 @@ export default function SellerDashboardPage() {
             available_quantity: parseFloat(availableQuantity),
             harvest_ready_date: harvestReadyDate,
             harvest_end_date: harvestEndDate || null,
-            location_name: locationName,
-            zip_code: zipCode,
-            pickup_address: pickupAddress,
             tags: listingTags,
             ...(cropImageUrl ? { image_url: cropImageUrl } : {}),
           },
@@ -1121,9 +1166,6 @@ export default function SellerDashboardPage() {
           available_quantity: parseFloat(availableQuantity),
           harvest_ready_date: harvestReadyDate,
           harvest_end_date: harvestEndDate || null,
-          location_name: locationName || profileLocation,
-          zip_code: zipCode || profileZip,
-          pickup_address: pickupAddress,
           tags: listingTags,
           image_url: cropImageUrl,
         },
@@ -1160,21 +1202,6 @@ export default function SellerDashboardPage() {
     return acc;
   }, new Map<string, any>());
   const reusableListing = previousListingsByTitle.get(title.trim());
-
-  // The pickup addresses this farmer has used before, newest first, each with
-  // the public city and zip that went with it, offered as one-tap choices.
-  const pastPickupAddresses = myListings
-    .reduce((found: any[], l) => {
-      const address = (l.pickup_address || '').trim();
-      if (address && !found.some((f) => f.address.toLowerCase() === address.toLowerCase())) {
-        found.push({ address, zip_code: l.zip_code || '', location_name: l.location_name || '' });
-      }
-      return found;
-    }, [])
-    .slice(0, 4);
-  const otherPickupAddresses = pastPickupAddresses.filter(
-    (p) => p.address.toLowerCase() !== pickupAddress.trim().toLowerCase()
-  );
 
   // Copies the details of an earlier post of the same crop into the form, so
   // a repeat harvest only needs its quantity and dates.
@@ -1602,7 +1629,7 @@ export default function SellerDashboardPage() {
                       {
                         done: profileDone,
                         title: 'Fill in your farm profile',
-                        detail: 'Your farm name, photo and story are what buyers see on every listing.',
+                        detail: 'Your farm name, photo, story and pickup address. Every listing is picked up at that address.',
                         action: 'Open Farm Profile',
                         onClick: () => setActiveTab('profile'),
                       },
@@ -2121,99 +2148,27 @@ export default function SellerDashboardPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label htmlFor="dash-pickup-address" className="block text-xs font-semibold text-gray-700 mb-1">
-                      Pickup Address *
-                    </label>
-                    <AddressAutocomplete id="dash-pickup-address"
-                      required
-                      placeholder="e.g., 1234 W Farm Rd, Phoenix"
-                      value={pickupAddress}
-                      verified={pickupAddressVerified}
-                      onChange={(text) => {
-                        setPickupAddress(text);
-                        setPickupAddressVerified(false);
-                      }}
-                      onSelect={(suggestion) => {
-                        setPickupAddress(suggestion.address);
-                        setPickupAddressVerified(true);
-                        // Keep the public city and zip in step with the address.
-                        if (suggestion.zip) setZipCode(suggestion.zip.slice(0, 5));
-                        if (suggestion.city) {
-                          setLocationName([suggestion.city, suggestion.state].filter(Boolean).join(', '));
-                        }
-                      }}
-                    />
-                    {otherPickupAddresses.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-xs font-semibold text-gray-600 mb-1">
-                          {pickupAddress.trim() ? 'Or use another address from before:' : "Use an address you've used before:"}
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {otherPickupAddresses.map((past) => (
-                            <button
-                              key={past.address}
-                              type="button"
-                              onClick={() => {
-                                setPickupAddress(past.address);
-                                setPickupAddressVerified(true);
-                                // Keep the public city and zip in step with the address.
-                                if (past.zip_code) setZipCode(past.zip_code);
-                                if (past.location_name) setLocationName(past.location_name);
-                              }}
-                              className="inline-flex items-center gap-1 text-left text-xs text-gray-700 bg-white border border-gray-300 hover:border-emerald-600 hover:bg-emerald-50 px-2.5 py-1.5 rounded-lg transition-colors"
-                            >
-                              <MapPin className="w-3 h-3 text-emerald-700 shrink-0" aria-hidden="true" />
-                              {past.address}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <p className="text-xs text-gray-400 mt-1">
-                      Only shown to buyers after they've paid — your listing shows just the city and zip
-                      code below. Hours and other instructions go in the message you send when you mark an order
-                      ready.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="dash-zip-code" className="block text-xs font-semibold text-gray-700 mb-1">
-                        Zip Code *
-                      </label>
-                      <input id="dash-zip-code"
-                        type="text"
-                        inputMode="numeric"
-                        required
-                        pattern="[0-9]{5}"
-                        title="Enter a 5-digit zip code"
-                        placeholder="e.g., 85001"
-                        value={zipCode}
-                        onChange={(e) => handleZipChange(e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg text-sm"
-                      />
-                      <p className="text-xs text-gray-400 mt-1">
-                        {lookingUpZip
-                          ? 'Looking up city...'
-                          : zipNotFound
-                            ? "Couldn't find that zip code — please type the city."
-                            : 'Filled in from your pickup address. This is what buyers see, so check it is right.'}
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700">
+                    {farmPickup ? (
+                      <p>
+                        <span className="font-semibold text-gray-900">Pickup:</span> your farm&apos;s address in{' '}
+                        {farmPickup.city || 'your area'} ({farmPickup.zip}). Buyers see the city and zip; they get the
+                        full address when the order is ready.{' '}
+                        <button type="button" onClick={() => setActiveTab('profile')} className="font-semibold text-emerald-800 underline">
+                          Change it in Farm Profile
+                        </button>
                       </p>
-                    </div>
-                    <div>
-                      <label htmlFor="dash-city-area" className="block text-xs font-semibold text-gray-700 mb-1">
-                        City / Area *
-                      </label>
-                      <input id="dash-city-area"
-                        type="text"
-                        required
-                        placeholder="Filled in from your address"
-                        value={locationName}
-                        onChange={(e) => setLocationName(e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg text-sm"
-                      />
-                    </div>
+                    ) : farmPickupLoaded ? (
+                      <p className="text-amber-900">
+                        <span className="font-bold">Add your pickup address first.</span> Every listing is picked up at
+                        the address on your Farm Profile.{' '}
+                        <button type="button" onClick={() => setActiveTab('profile')} className="font-semibold underline">
+                          Open Farm Profile
+                        </button>
+                      </p>
+                    ) : (
+                      <p>Loading your pickup address...</p>
+                    )}
                   </div>
 
                   <div>
@@ -3521,19 +3476,76 @@ export default function SellerDashboardPage() {
                     className="w-full px-4 py-2 border rounded-lg text-sm"
                   />
                 </div>
+              </div>
+
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
                 <div>
-                  <label htmlFor="dash-location" className="block text-xs font-semibold text-gray-700 mb-1">
-                    Location *
+                  <label htmlFor="dash-farm-pickup-address" className="block text-sm font-bold text-gray-900">
+                    Pickup address *
                   </label>
-                  <input id="dash-location"
-                    type="text"
-                    required
-                    placeholder="e.g., Phoenix, AZ"
-                    value={profileLocation}
-                    onChange={(e) => setProfileLocation(e.target.value)}
-                    className="w-full px-4 py-2 border rounded-lg text-sm"
-                  />
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    This address is used as the pickup location for every listing you post: it&apos;s where buyers
+                    come to collect their orders. It doesn&apos;t have to be your home. Any place you&apos;re happy to
+                    meet buyers works, such as your farm, your garden or a regular spot.
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    You can change it here at any time. Buyers only see your city and zip code until their order is
+                    ready; then they get the full address.
+                  </p>
                 </div>
+                <AddressAutocomplete
+                  id="dash-farm-pickup-address"
+                  required
+                  placeholder="Start typing, then pick your address from the list"
+                  value={profileAddress}
+                  verified={profileAddressVerified}
+                  onChange={(text) => {
+                    setProfileAddress(text);
+                    setProfileAddressVerified(false);
+                  }}
+                  onSelect={(suggestion) => {
+                    setProfileAddress(suggestion.address);
+                    setProfileAddressVerified(true);
+                    if (suggestion.zip) setProfileZip(suggestion.zip.slice(0, 5));
+                    if (suggestion.city) setProfileLocation([suggestion.city, suggestion.state].filter(Boolean).join(', '));
+                  }}
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="dash-location-zip" className="block text-xs font-semibold text-gray-700 mb-1">
+                      Zip code *
+                    </label>
+                    <input id="dash-location-zip"
+                      type="text"
+                      inputMode="numeric"
+                      required
+                      pattern="[0-9]{5}"
+                      title="Enter a 5-digit zip code"
+                      placeholder="e.g., 85041"
+                      value={profileZip}
+                      onChange={(e) => setProfileZip(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                      className="w-full px-4 py-2 border rounded-lg text-sm bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="dash-location" className="block text-xs font-semibold text-gray-700 mb-1">
+                      City / area *
+                    </label>
+                    <input id="dash-location"
+                      type="text"
+                      required
+                      placeholder="e.g., Phoenix, AZ"
+                      value={profileLocation}
+                      onChange={(e) => setProfileLocation(e.target.value)}
+                      className="w-full px-4 py-2 border rounded-lg text-sm bg-white"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  The zip code and city fill in when you pick your address from the list. They are what buyers
+                  see, and the zip code is what sales tax is worked out for, so check them.
+                  {farmPickup && ' Changing your address moves all your listings; orders already placed keep their address.'}
+                </p>
               </div>
 
               <div>
