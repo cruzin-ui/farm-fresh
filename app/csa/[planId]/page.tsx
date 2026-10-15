@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import SaveCardForm from '@/components/SaveCardForm';
 import SingleBoxForm from '@/components/SingleBoxForm';
+import Photo from '@/components/Photo';
 import { csaAgreementText } from '@/lib/csaTerms';
 import {
   CHARGE_DAYS_BEFORE,
@@ -25,6 +26,7 @@ type PublicPlan = {
   farmLocation: string;
   name: string;
   description: string;
+  imageUrl: string | null;
   priceCents: number;
   cost: { priceCents: number; feeCents: number; totalCents: number };
   frequency: string;
@@ -123,6 +125,16 @@ export default function JoinCsaPage() {
           {plan.farmLocation ? ` · ${plan.farmLocation}` : ''}
         </p>
       </header>
+
+      {plan.imageUrl && (
+        <Photo
+          src={plan.imageUrl}
+          alt={plan.name}
+          sizes="(max-width: 767px) 100vw, 672px"
+          eager
+          className="w-full h-56 sm:h-72 object-cover rounded-xl border"
+        />
+      )}
 
       <section className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
         <p className="text-sm text-gray-800 whitespace-pre-line">{plan.description}</p>

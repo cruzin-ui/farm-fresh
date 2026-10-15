@@ -3,12 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Package } from 'lucide-react';
+import Photo from '@/components/Photo';
 import { describeFrequency, formatBoxDate } from '@/lib/csaSchedule';
 
 type Plan = {
   id: string;
   name: string;
   description: string;
+  imageUrl: string | null;
   cost: { totalCents: number; priceCents: number };
   frequency: string;
   pickupWeekday: number;
@@ -50,6 +52,14 @@ export default function FarmCsaPlans({ farmId }: { farmId: string }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {plans.map((plan) => (
           <div key={plan.id} className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
+            {plan.imageUrl && (
+              <Photo
+                src={plan.imageUrl}
+                alt={plan.name}
+                sizes="(max-width: 767px) 100vw, 50vw"
+                className="-mx-5 -mt-5 w-[calc(100%+2.5rem)] max-w-none h-44 object-cover rounded-t-2xl"
+              />
+            )}
             <div>
               <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
               <p className="text-sm text-gray-600">
