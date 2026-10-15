@@ -196,8 +196,8 @@ export default function SplashLandingPage() {
           When local growers meet local buyers, we all win.
         </p>
         <p className="mt-4 text-base text-emerald-50 max-w-2xl mx-auto leading-relaxed">
-          Fixing our food system starts with making local connections. We aren't here to make massive profits;
-          we're here to introduce you to a local grower you can go back to again and again.
+          Fixing our food system starts with making local connections. We&apos;re here to introduce you to a local
+          grower you can go back to again and again.
         </p>
         <Link href="/about" className="mt-5 inline-block font-semibold underline">
           Read our full mission

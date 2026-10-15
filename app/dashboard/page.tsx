@@ -11,30 +11,20 @@ import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
 import PickList from '@/components/PickList';
 import SellerCsa from '@/components/SellerCsa';
+import NewListingWizard from '@/components/NewListingWizard';
+import { CategoryNotice, PlantFields, HighlightsPicker, UNIT_TYPE_OPTIONS } from '@/components/ListingFormParts';
 import { CSA_BOX_CATEGORY } from '@/lib/csaSchedule';
 import { tidyFarmAddress, farmAddressProblem, FARM_ADDRESS_MAX } from '@/lib/farmAddress';
 import { SELLER_CHANGE_REASONS, LISTING_ACTIONS, type ListingAction } from '@/lib/sellerChangeReasons';
 import { SELLER_CANCEL_LIMIT, SELLER_CANCEL_WINDOW_DAYS } from '@/lib/sellerLimits';
 import { buildSalesCsv, downloadCsv, salesYears, sellerEarnings } from '@/lib/salesCsv';
 import SellerTour, { type TourStep } from '@/components/SellerTour';
-import {
-  LISTING_TAG_OPTIONS,
-  MAX_LISTING_TAGS,
-  MAX_LISTING_TAG_LENGTH,
-  CARD_LISTING_TAGS,
-  cleanListingTag,
-} from '@/lib/listingTags';
+import { MAX_LISTING_TAGS } from '@/lib/listingTags';
 import SellerEarnings from '@/components/SellerEarnings';
 import { orderRef } from '@/lib/pickupGroups';
 import { announceAccountChange } from '@/lib/accountEvents';
 import { LISTING_CATEGORIES, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
-import {
-  PLANTS_CATEGORY,
-  SUN_NEEDS,
-  WATER_NEEDS,
-  POT_SIZE_MAX,
-  stateForZip,
-} from '@/lib/plants';
+import { PLANTS_CATEGORY, stateForZip } from '@/lib/plants';
 import {
   isSellerLate,
   canReportNoShow,
@@ -104,26 +94,6 @@ import type { StripeConnectInstance } from '@stripe/connect-js';
 import { ConnectComponentsProvider, ConnectAccountOnboarding } from '@stripe/react-connect-js';
 
 type DashboardTab = 'listings' | 'new' | 'orders' | 'picklist' | 'csa' | 'history' | 'profile' | 'settings' | 'help';
-
-const UNIT_TYPE_OPTIONS = [
-  { value: 'lbs', label: 'lbs (Pounds)' },
-  { value: 'oz', label: 'oz (Ounces)' },
-  { value: 'kg', label: 'kg (Kilograms)' },
-  { value: 'units', label: 'Units (each, e.g. per pumpkin)' },
-  { value: 'plants', label: 'Plants (each)' },
-  { value: 'pots', label: 'Pots' },
-  { value: 'dozen', label: 'Dozen' },
-  { value: 'bunches', label: 'Bunches' },
-  { value: 'bouquets', label: 'Bouquets' },
-  { value: 'stems', label: 'Stems' },
-  { value: 'bags', label: 'Bags' },
-  { value: 'flats', label: 'Flats' },
-  { value: 'pints', label: 'Pints' },
-  { value: 'quarts', label: 'Quarts' },
-  { value: 'jars', label: 'Jars' },
-  { value: 'packets', label: 'Packets' },
-];
-
 
 // The guided tour a new seller is shown. Each step opens a section and points
 // at where it is: the entry in the side menu on a computer, or the section
@@ -273,9 +243,6 @@ export default function SellerDashboardPage() {
   // already saved), rather than typed freehand.
   const [pickupAddressVerified, setPickupAddressVerified] = useState(false);
   const [listingTags, setListingTags] = useState<string[]>([]);
-  // A highlight the farmer is typing themselves, and why it can't be added.
-  const [customTag, setCustomTag] = useState('');
-  const [customTagError, setCustomTagError] = useState<string | null>(null);
   const [lookingUpZip, setLookingUpZip] = useState(false);
   const [zipNotFound, setZipNotFound] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -1282,38 +1249,6 @@ export default function SellerDashboardPage() {
     setIsNative(Boolean(previous.native_state));
   };
 
-  const toggleListingTag = (tag: string) => {
-    setListingTags((current) =>
-      current.includes(tag)
-        ? current.filter((t) => t !== tag)
-        : current.length < MAX_LISTING_TAGS
-          ? [...current, tag]
-          : current
-    );
-  };
-
-  // Adds a highlight the farmer wrote themselves.
-  const addCustomTag = () => {
-    const result = cleanListingTag(customTag);
-    if ('error' in result) {
-      setCustomTagError(result.error);
-      return;
-    }
-    if (listingTags.some((tag) => tag.toLowerCase() === result.tag.toLowerCase())) {
-      setCustomTagError('You already have that one.');
-      return;
-    }
-    if (listingTags.length >= MAX_LISTING_TAGS) {
-      setCustomTagError(`You can have up to ${MAX_LISTING_TAGS}. Remove one first.`);
-      return;
-    }
-    // Typing a ready-made one picks it rather than making a copy.
-    const readyMade = LISTING_TAG_OPTIONS.find((option) => option.toLowerCase() === result.tag.toLowerCase());
-    setListingTags((current) => [...current, readyMade || result.tag]);
-    setCustomTag('');
-    setCustomTagError(null);
-  };
-
   // Fills in the city and state from a 5-digit US zip code. The city field
   // stays editable in case the lookup is unavailable or picks the wrong name.
   const handleZipChange = async (value: string) => {
@@ -1719,9 +1654,9 @@ export default function SellerDashboardPage() {
                       },
                       {
                         done: listingDone,
-                        title: 'Post your first harvest',
+                        title: 'Post your first listing',
                         detail:
-                          'Enter the crop, price, quantity, harvest date and pickup address. Add a photo if you can — listings with photos get noticed.',
+                          'Choose what you are selling and follow the short steps. Add a photo if you can — listings with photos get noticed.',
                         action: 'Post New Harvest',
                         onClick: startNewListing,
                       },
@@ -1768,9 +1703,9 @@ export default function SellerDashboardPage() {
             <div>
               <div className="flex items-center justify-between pb-6 mb-6 border-b border-gray-100">
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Your Harvest Listings</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">Your Listings</h1>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Manage active produce posts or publish a new crop yield.
+                    Manage what you have for sale, or post something new.
                   </p>
                 </div>
                 {activeTab === 'listings' && (
@@ -1795,7 +1730,7 @@ export default function SellerDashboardPage() {
                     className="mt-4 inline-flex items-center gap-2 bg-emerald-600 text-white font-semibold py-2.5 px-5 rounded-lg text-xs shadow-sm hover:bg-emerald-700"
                   >
                     <PlusCircle className="w-4 h-4" />{' '}
-                    {myListings.length === 0 ? 'Post Your First Produce Item' : 'Post New Harvest'}
+                    {myListings.length === 0 ? 'Post Your First Listing' : 'Post New Harvest'}
                   </button>
                 </div>
               )}
@@ -1895,7 +1830,28 @@ export default function SellerDashboardPage() {
                 </button>
               )}
 
-              {activeTab === 'new' && (
+              {activeTab === 'new' && !editingListingId && user?.id && (
+                <NewListingWizard
+                  userId={user.id}
+                  farmName={farmName}
+                  farmPickup={farmPickup}
+                  farmPickupLoaded={farmPickupLoaded}
+                  farmState={farmState}
+                  sellerTermsAccepted={sellerTermsAccepted}
+                  previousListings={myListings}
+                  onGoToProfile={() => setActiveTab('profile')}
+                  onCancel={() => setActiveTab('listings')}
+                  onPosted={async () => {
+                    setSellerTermsAccepted(true);
+                    setSuccessMsg('Your listing is posted!');
+                    setActiveTab('listings');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    await fetchDashboardData();
+                  }}
+                />
+              )}
+
+              {activeTab === 'new' && editingListingId && (
                 <form onSubmit={handleListingSubmit} className="space-y-6">
                   {editingListingId && (
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
@@ -1991,137 +1947,21 @@ export default function SellerDashboardPage() {
                     {PRODUCE_ONLY_NOTICE}
                   </p>
 
-                  {category === 'Mushrooms' && (
-                    <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">
-                      <p className="font-bold text-sm">Cultivated mushrooms only</p>
-                      <p className="mt-0.5">
-                        List only mushrooms you grew yourself, such as on logs, blocks or in a grow room. Mushrooms
-                        gathered from the wild can&apos;t be sold here, because some poisonous kinds look like edible
-                        ones. Keep them cool and sell them fresh.
-                      </p>
-                    </div>
-                  )}
-
-                  {category === 'Cut Flowers' && (
-                    <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">
-                      <p className="font-bold text-sm">Cut flowers you grew</p>
-                      <p className="mt-0.5">
-                        Stems, bunches and bouquets from your own garden or farm. For potted plants and seedlings,
-                        choose Plants &amp; Seedlings instead. Because flowers aren&apos;t food, sales tax is added to them at
-                        checkout where it applies; you don&apos;t need to do anything about it.
-                      </p>
-                    </div>
-                  )}
+                  <CategoryNotice category={category} />
 
                   {isPlant && (
-                    <div className="space-y-4">
-                      <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">
-                        <p className="font-bold text-sm">Check your state&apos;s plant rules before listing</p>
-                        <p className="mt-0.5">
-                          States regulate selling plants. Depending on where you are, you may need a nursery licence or
-                          inspection, some plants (such as invasive species) can&apos;t be sold at all, and protected native
-                          plants need permits or tags. List only plants you grew or propagated yourself, never ones dug up
-                          from the wild. You&apos;re responsible for following the rules where you sell.
-                        </p>
-                        <p className="mt-1.5 font-semibold">
-                          Check your state&apos;s agriculture department regulations before listing plants.
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                          <label htmlFor="dash-pot-size" className="block text-xs font-semibold text-gray-700 mb-1">
-                            Pot size
-                          </label>
-                          <input
-                            id="dash-pot-size"
-                            type="text"
-                            maxLength={POT_SIZE_MAX}
-                            placeholder="e.g., 4-inch, 1 gallon"
-                            value={potSize}
-                            onChange={(e) => setPotSize(e.target.value)}
-                            className="w-full px-4 py-2 border rounded-lg text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="dash-sun" className="block text-xs font-semibold text-gray-700 mb-1">
-                            Sun
-                          </label>
-                          <select
-                            id="dash-sun"
-                            value={sunNeeds}
-                            onChange={(e) => setSunNeeds(e.target.value)}
-                            className="w-full px-4 py-2 border rounded-lg text-sm bg-white"
-                          >
-                            <option value="">Not specified</option>
-                            {Object.entries(SUN_NEEDS).map(([value, label]) => (
-                              <option key={value} value={value}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label htmlFor="dash-water" className="block text-xs font-semibold text-gray-700 mb-1">
-                            Water
-                          </label>
-                          <select
-                            id="dash-water"
-                            value={waterNeeds}
-                            onChange={(e) => setWaterNeeds(e.target.value)}
-                            className="w-full px-4 py-2 border rounded-lg text-sm bg-white"
-                          >
-                            <option value="">Not specified</option>
-                            {Object.entries(WATER_NEEDS).map(([value, label]) => (
-                              <option key={value} value={value}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="flex items-start gap-2 text-sm text-gray-800">
-                          <input
-                            type="checkbox"
-                            checked={isNative}
-                            onChange={(e) => setIsNative(e.target.checked)}
-                            className="mt-0.5 w-4 h-4 shrink-0"
-                          />
-                          <span>
-                            <strong>Native to {farmState?.name || 'my state'}</strong>
-                            <span className="block text-xs text-gray-500">
-                              Buyers see a &quot;Native to {farmState?.name || 'your state'}&quot; label. The state comes
-                              from your pickup address.
-                            </span>
-                          </span>
-                        </label>
-                        {isNative && (
-                          <p className="mt-2 p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">
-                            Some native plants are protected and need state permits or tags to sell. You&apos;re
-                            responsible for having any permit or tag your plant needs. Check your state&apos;s agriculture
-                            department regulations.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {['Fresh Eggs', 'Honey & Jam'].includes(category) && (
-                    <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">
-                      <p className="font-bold text-sm">Check your state's rules before listing this</p>
-                      <p className="mt-0.5">
-                        {category === 'Fresh Eggs'
-                          ? 'States commonly have rules for selling eggs: keeping them refrigerated, how cartons are labeled, and a license above a certain number of hens or dozens.'
-                          : "Honey, jam and other prepared foods usually fall under your state's cottage food laws, which decide what may be made at home and how it must be labeled."}{' '}
-                        You're responsible for making sure it's legal to sell where you are.{' '}
-                        <a href="/faq" target="_blank" rel="noopener" className="font-semibold underline">
-                          Read more in the FAQ
-                        </a>
-                        .
-                      </p>
-                    </div>
+                    <PlantFields
+                      idPrefix="dash"
+                      potSize={potSize}
+                      setPotSize={setPotSize}
+                      sunNeeds={sunNeeds}
+                      setSunNeeds={setSunNeeds}
+                      waterNeeds={waterNeeds}
+                      setWaterNeeds={setWaterNeeds}
+                      isNative={isNative}
+                      setIsNative={setIsNative}
+                      stateName={farmState?.name || null}
+                    />
                   )}
 
                   <div>
@@ -2141,103 +1981,7 @@ export default function SellerDashboardPage() {
                     />
                   </div>
 
-                  <div>
-                    <p id="dash-highlights-label" className="block text-xs font-semibold text-gray-700 mb-1">
-                      Highlights ({listingTags.length}/{MAX_LISTING_TAGS})
-                    </p>
-                    <div role="group" aria-labelledby="dash-highlights-label" className="flex flex-wrap gap-2">
-                      {LISTING_TAG_OPTIONS.map((tag) => {
-                        const selected = listingTags.includes(tag);
-                        const atLimit = !selected && listingTags.length >= MAX_LISTING_TAGS;
-                        return (
-                          <button
-                            key={tag}
-                            type="button"
-                            onClick={() => toggleListingTag(tag)}
-                            aria-pressed={selected}
-                            disabled={atLimit}
-                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                              selected
-                                ? 'bg-emerald-600 text-white border-emerald-600'
-                                : atLimit
-                                  ? 'bg-gray-50 text-gray-300 border-gray-200 cursor-not-allowed'
-                                  : 'bg-white text-gray-600 border-gray-300 hover:border-emerald-400'
-                            }`}
-                          >
-                            {tag}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {/* Highlights the farmer wrote themselves, each with a way to remove it. */}
-                    {listingTags.some((tag) => !LISTING_TAG_OPTIONS.includes(tag)) && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {listingTags
-                          .filter((tag) => !LISTING_TAG_OPTIONS.includes(tag))
-                          .map((tag) => (
-                            <button
-                              key={tag}
-                              type="button"
-                              onClick={() => toggleListingTag(tag)}
-                              aria-label={`Remove ${tag}`}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border bg-emerald-600 text-white border-emerald-600"
-                            >
-                              {tag} <X className="w-3 h-3" aria-hidden="true" />
-                            </button>
-                          ))}
-                      </div>
-                    )}
-
-                    <div className="mt-3">
-                      <label htmlFor="dash-custom-highlight" className="block text-xs font-semibold text-gray-700 mb-1">
-                        Or write your own
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          id="dash-custom-highlight"
-                          type="text"
-                          maxLength={MAX_LISTING_TAG_LENGTH}
-                          placeholder="e.g., Grown From Seed"
-                          value={customTag}
-                          onChange={(e) => {
-                            setCustomTag(e.target.value);
-                            setCustomTagError(null);
-                          }}
-                          onKeyDown={(e) => {
-                            // Enter adds the highlight instead of submitting the whole listing.
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              addCustomTag();
-                            }
-                          }}
-                          disabled={listingTags.length >= MAX_LISTING_TAGS}
-                          className="flex-1 min-w-0 px-4 py-2 border rounded-lg text-sm disabled:bg-gray-100"
-                        />
-                        <button
-                          type="button"
-                          onClick={addCustomTag}
-                          disabled={!customTag.trim() || listingTags.length >= MAX_LISTING_TAGS}
-                          className="shrink-0 px-4 py-2 rounded-lg text-xs font-bold bg-gray-900 text-white disabled:bg-gray-300"
-                        >
-                          Add
-                        </button>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {customTag.length}/{MAX_LISTING_TAG_LENGTH} characters.
-                      </p>
-                      {customTagError && (
-                        <p role="alert" className="text-xs font-semibold text-red-700 mt-1">
-                          {customTagError}
-                        </p>
-                      )}
-                    </div>
-
-                    <p className="text-xs text-gray-400 mt-2">
-                      Pick or write up to {MAX_LISTING_TAGS}. All of them show on your listing's page, and the first{' '}
-                      {CARD_LISTING_TAGS} on its card in Browse. Only say what's true of this produce: for example,
-                      don't write "Certified Organic" unless you hold the certification.
-                    </p>
-                  </div>
+                  <HighlightsPicker idPrefix="dash" tags={listingTags} onChange={setListingTags} />
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
                     <div>
