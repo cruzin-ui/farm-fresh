@@ -353,7 +353,7 @@ export default function AccountMenu() {
             role="menuitem"
             className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
           >
-            <UserCog className="w-4 h-4" /> Profile Picture
+            <UserCog className="w-4 h-4" /> Account Settings
           </Link>
           <Link
             href="/following"

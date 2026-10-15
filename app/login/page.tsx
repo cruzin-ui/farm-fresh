@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Sprout, Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
@@ -31,6 +31,20 @@ function LoginContent() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+  // Sign in with Apple is offered once it has been switched on in Supabase,
+  // which needs an Apple Developer account. Until then the button stays hidden.
+  const [appleEnabled, setAppleEnabled] = useState(false);
+
+  useEffect(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) return;
+    fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((settings) => setAppleEnabled(Boolean(settings?.external?.apple)))
+      .catch(() => {});
+  }, []);
   const [error, setError] = useState<string | null>(LINK_ERRORS[searchParams.get('error') || ''] || null);
   // Shown after a sign-up or reset request, in place of the form.
   const [notice, setNotice] = useState<string | null>(null);
@@ -103,16 +117,20 @@ function LoginContent() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => handleOAuthLogin('google');
+  const handleAppleLogin = () => handleOAuthLogin('apple');
+
+  const handleOAuthLogin = async (provider: 'google' | 'apple') => {
+    const setProviderLoading = provider === 'apple' ? setAppleLoading : setGoogleLoading;
     setError(null);
-    setGoogleLoading(true);
+    setProviderLoading(true);
 
     try {
       const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
         redirectTarget
       )}`;
 
-      // Remembered in case Google sign-in comes back to the home page instead
+      // Remembered in case the sign-in comes back to the home page instead
       // of our callback address (which happens when that address isn't on
       // Supabase's allowed list); the account menu then finishes the trip.
       try {
@@ -120,17 +138,17 @@ function LoginContent() {
       } catch {}
 
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider,
         options: {
           redirectTo: callbackUrl,
         },
       });
 
       if (oauthError) throw oauthError;
-      // Browser will redirect to Google, then back to /auth/callback?next=...
+      // The browser goes to Google or Apple, then back to /auth/callback?next=...
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in with Google.');
-      setGoogleLoading(false);
+      setError(err.message || `Failed to sign in with ${provider === 'apple' ? 'Apple' : 'Google'}.`);
+      setProviderLoading(false);
     }
   };
 
@@ -174,9 +192,22 @@ function LoginContent() {
           <>
         {mode !== 'forgot' && (
           <>
+        {appleEnabled && (
+          <button
+            onClick={handleAppleLogin}
+            disabled={appleLoading || googleLoading || loading}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white bg-black hover:bg-gray-900 disabled:opacity-50 transition-colors mb-3"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M16.37 1.43c0 1.14-.42 2.2-1.24 3.04-.86.9-1.9 1.42-3.03 1.33-.14-1.1.4-2.24 1.2-3.04.86-.87 2.08-1.44 3.07-1.33zM20.5 17.24c-.55 1.27-.82 1.84-1.53 2.96-.99 1.57-2.39 3.52-4.12 3.54-1.54.01-1.93-1-4.02-.99-2.09.01-2.52 1.01-4.06 1-1.73-.02-3.05-1.78-4.04-3.35C-.04 16.02-.33 10.95 1.43 8.27c1.25-1.9 3.22-3.02 5.07-3.02 1.89 0 3.07 1.04 4.63 1.04 1.51 0 2.43-1.04 4.62-1.04 1.65 0 3.39.9 4.63 2.45-4.07 2.23-3.41 8.04.12 9.54z" />
+            </svg>
+            Continue with Apple
+          </button>
+        )}
+
         <button
           onClick={handleGoogleLogin}
-          disabled={googleLoading || loading}
+          disabled={googleLoading || appleLoading || loading}
           className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-300 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors mb-4"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">

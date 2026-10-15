@@ -149,9 +149,12 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2 className="text-lg font-bold text-gray-900 mb-1">7. Your choices</h2>
           <p>
-            You can ask us for a copy of the information we hold about you, ask us to correct it, or ask us to
-            delete your account. We may need to keep some order records where the law requires it. To make a
-            request,{' '}
+            You can delete your account yourself, at any time, from Account Settings in the account menu. That
+            removes your sign-in, your profile picture and your Favorite Farms, and for a seller takes your
+            listings off sale and removes your farm page&apos;s photos, story and web address. Records of orders
+            already placed are kept, without your account, because the other person to the sale and our tax and
+            accounting records depend on them. You can also ask us for a copy of the information we hold about
+            you, or ask us to correct it. To make a request,{' '}
             <Link href="/contact" className="font-semibold text-emerald-800 underline">
               contact us
             </Link>
