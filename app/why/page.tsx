@@ -19,6 +19,7 @@ import {
   ShoppingCart,
   MessageCircle,
   UserCheck,
+  Package,
 } from 'lucide-react';
 import {
   BUYER_FEE_LABEL,
@@ -38,7 +39,16 @@ export const metadata: Metadata = {
 const SELLER_FEE = `${SELLER_FEE_RATE * 100}%`;
 const RESTOCKING_FEE = `${RESTOCKING_RATE * 100}%`;
 
-const FOR_SELLERS = [
+// `wide` cards span the whole row, to stand out.
+type Reason = { icon: typeof Store; title: string; body: string; wide?: boolean };
+
+const FOR_SELLERS: Reason[] = [
+  {
+    icon: Package,
+    title: 'Hassle-free farm shares (CSA)',
+    body: `Offer a weekly or every-other-week box and let the site run it. Members join online with a saved card, and each box is charged automatically before pickup, so you know how many to pack and you are paid before you pick. Reminders, skipped weeks, pauses, cancellations and declined cards are all handled for you, and each box shows up on your Pick List like any order. No spreadsheets, no chasing payments, and the same ${SELLER_FEE} fee as everything else.`,
+    wide: true,
+  },
   {
     icon: Store,
     title: 'A storefront of your own',
@@ -81,7 +91,13 @@ const FOR_SELLERS = [
   },
 ];
 
-const FOR_BUYERS = [
+const FOR_BUYERS: Reason[] = [
+  {
+    icon: Package,
+    title: 'Farm share boxes, on your terms',
+    body: 'Some farms offer a farm share (CSA): a box of whatever is best that week, on a set day. You pay per box, only for the boxes you get, and you can skip a week, pause or cancel online in a couple of taps. We email you before every charge.',
+    wide: true,
+  },
   {
     icon: ShieldCheck,
     title: 'Your money is protected',
@@ -114,11 +130,16 @@ const FOR_BUYERS = [
   },
 ];
 
-function Reasons({ items }: { items: typeof FOR_SELLERS }) {
+function Reasons({ items }: { items: Reason[] }) {
   return (
     <ul className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {items.map(({ icon: Icon, title, body }) => (
-        <li key={title} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+      {items.map(({ icon: Icon, title, body, wide }) => (
+        <li
+          key={title}
+          className={`rounded-2xl p-5 shadow-sm border ${
+            wide ? 'sm:col-span-2 bg-emerald-50 border-emerald-200' : 'bg-white border-gray-200'
+          }`}
+        >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
               <Icon className="w-5 h-5" aria-hidden="true" />

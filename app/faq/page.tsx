@@ -239,7 +239,7 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'What do I get besides a place to list?',
     answer:
-      'Three things beyond the sale itself. A storefront: your farm has its own page with your photo, story, growing practices, current listings and reviews, and a link you can share anywhere. Regular customers: buyers can favorite your farm to see what you post next, and reviews from real pickups build trust with new ones. Records: every order, pickup, cancellation and payout is kept in your Sales History, and your dashboard charts your earnings by week and by crop.',
+      'Four things beyond the sale itself. A storefront: your farm has its own page with your photo, story, growing practices, current listings and reviews, and a link you can share anywhere. Regular customers: buyers can favorite your farm to see what you post next, and reviews from real pickups build trust with new ones. Records: every order, pickup, cancellation and payout is kept in your Sales History, and your dashboard charts your earnings by week and by crop. A hassle-free farm share (CSA): offer a regular box and the site signs members up, charges each box before pickup, sends the reminders and handles skips, pauses and cancellations for you.',
   },
   {
     question: 'Can I run a farm share (CSA)?',
