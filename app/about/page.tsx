@@ -17,7 +17,7 @@ export default function AboutPage() {
 
       <div className="prose prose-green max-w-none text-gray-700 space-y-6">
         <p className="text-lg leading-relaxed text-gray-600">
-          <strong>Farm Fresh Direct</strong> was created with a single core mission: to rebuild local food resilience by removing middlemen between small-scale growers and local food lovers.
+          <strong>Farm Fresh Direct</strong> was created with a single core mission: to rebuild local food resilience by making it easy for small-scale growers and local food lovers to find each other.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-8">
@@ -52,9 +52,8 @@ export default function AboutPage() {
             with making local connections, one neighbor at a time.
           </p>
           <p>
-            Our mission isn't to make massive profits. It's to introduce you to a local grower you can go back
-            to again and again. We want you directly connected to the people who grow your food, and we're glad
-            to be where that starts.
+            Our mission is to introduce you to a local grower you can go back to again and again. We want you to
+            know the people who grow your food, and we&apos;re glad to be where that starts.
           </p>
           <p>
             All we ask is that you think of us whenever you're looking for fresh, delicious, locally grown food.
