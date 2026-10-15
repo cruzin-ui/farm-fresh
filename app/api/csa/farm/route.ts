@@ -12,6 +12,8 @@ import {
   farmCantSell,
   maskEmail,
   siteUrlFrom,
+  singleBoxCounts,
+  refundSingleBoxes,
   type CsaMember,
   type CsaPlan,
 } from '@/lib/csa';
@@ -34,7 +36,7 @@ export const dynamic = 'force-dynamic';
 
 const WEEKS_SHOWN = 6;
 
-// A farm's own CSA farm shares, from the Seller Dashboard.
+// A farm's own CSA Farm Boxes, from the Seller Dashboard.
 //   { action: 'get' }                                   — plans, weeks, members
 //   { action: 'save_plan', plan: {...}, acceptTerms? }  — create or edit
 //   { action: 'save_week', planId, boxDate, note }      — this week's box note
@@ -66,7 +68,7 @@ export async function POST(request: Request) {
       .eq('farmer_id', user.id)
       .maybeSingle();
     const plan = planRow as CsaPlan | null;
-    if (!plan) return NextResponse.json({ error: 'Farm share not found.' }, { status: 404 });
+    if (!plan) return NextResponse.json({ error: 'Farm Box not found.' }, { status: 404 });
 
     if (body.action === 'save_week' || body.action === 'skip_week') {
       const boxDate = String(body.boxDate || '');
@@ -100,13 +102,15 @@ export async function POST(request: Request) {
           .from('csa_box_weeks')
           .upsert({ plan_id: plan.id, box_date: boxDate, note: week?.note || '', skipped, skip_reason: skipped ? reason : null, updated_at: new Date().toISOString() });
         if (error) throw error;
+        // Anyone who bought just this one box is refunded in full.
+        if (skipped && !week?.skipped) await refundSingleBoxes(plan, boxDate, reason);
         if (skipped !== Boolean(week?.skipped)) {
           await emailMembers(
             plan.id,
             skipped ? `No ${plan.name} box on ${formatBoxDate(boxDate)}` : `${plan.name} is back on for ${formatBoxDate(boxDate)}`,
             skipped
               ? `<p>The farm has called off the <strong>${escapeHtml(plan.name)}</strong> box for ${formatBoxDate(boxDate, { long: true })}: ${escapeHtml(reason)}</p><p>You won't be charged for that week. Your membership carries on as normal.</p>`
-              : `<p>Good news: the <strong>${escapeHtml(plan.name)}</strong> box for ${formatBoxDate(boxDate, { long: true })} is back on. It will be charged as usual, ${formatBoxDate(chargeDateFor(boxDate))}, unless you skip it under <a href="${siteUrl}/account/csa">My Farm Shares</a>.</p>`
+              : `<p>Good news: the <strong>${escapeHtml(plan.name)}</strong> box for ${formatBoxDate(boxDate, { long: true })} is back on. It will be charged as usual, ${formatBoxDate(chargeDateFor(boxDate))}, unless you skip it under <a href="${siteUrl}/account/csa">My Farm Boxes</a>.</p>`
           );
         }
       }
@@ -115,7 +119,7 @@ export async function POST(request: Request) {
 
     if (body.action === 'end_plan') {
       const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 300) : '';
-      if (!reason) return NextResponse.json({ error: 'Tell your members why the share is ending.' }, { status: 400 });
+      if (!reason) return NextResponse.json({ error: 'Tell your members why this Farm Box is ending.' }, { status: 400 });
       const { error } = await supabaseAdmin
         .from('csa_plans')
         .update({ status: 'ended', updated_at: new Date().toISOString() })
@@ -176,7 +180,7 @@ async function savePlan(farmerId: string, input: PlanInput, acceptTerms: boolean
   const maxMembers = maxRaw === null || maxRaw === undefined || maxRaw === '' ? null : Math.floor(Number(maxRaw));
   const status = input.status === 'closed' ? 'closed' : 'open';
 
-  if (name.length < 3) return { error: 'Give your farm share a name, e.g. "Weekly Veggie Box".' };
+  if (name.length < 3) return { error: 'Give your Farm Box a name, e.g. "Weekly Veggie Box".' };
   if (description.length < 10) return { error: 'Describe what members can expect in a typical box.' };
   if (!Number.isFinite(priceCents) || priceCents < 500 || priceCents > 50000) return { error: 'The box price must be between $5 and $500.' };
   if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) return { error: 'Choose the pickup day.' };
@@ -213,8 +217,8 @@ async function savePlan(farmerId: string, input: PlanInput, acceptTerms: boolean
       .eq('id', input.id)
       .eq('farmer_id', farmerId)
       .maybeSingle();
-    if (!existing) return { error: 'Farm share not found.' };
-    if (existing.status === 'ended') return { error: 'This farm share has ended. Start a new one instead.' };
+    if (!existing) return { error: 'Farm Box not found.' };
+    if (existing.status === 'ended') return { error: 'This Farm Box has ended. Start a new one instead.' };
 
     const { count: everJoined } = await supabaseAdmin
       .from('csa_members')
@@ -223,7 +227,7 @@ async function savePlan(farmerId: string, input: PlanInput, acceptTerms: boolean
     // Members signed up for a day and a schedule; those can't change under them.
     if (everJoined) {
       if (weekday !== existing.pickup_weekday || frequency !== existing.frequency || seasonStart !== existing.season_start) {
-        return { error: 'The pickup day, how often and the start date can’t change once members have joined. End this share and start a new one if they need to.' };
+        return { error: 'The pickup day, how often and the start date can’t change once members have joined. End this Farm Box and start a new one if they need to.' };
       }
     } else if (seasonStart < today && seasonStart !== existing.season_start) {
       return { error: 'The season can’t start in the past.' };
@@ -255,7 +259,7 @@ async function savePlan(farmerId: string, input: PlanInput, acceptTerms: boolean
       await emailMembers(
         existing.id,
         `${name}: the season now ends ${formatBoxDate(seasonEnd)}`,
-        `<p>The farm has changed the last pickup of <strong>${escapeHtml(name)}</strong> to <strong>${formatBoxDate(seasonEnd, { long: true })}</strong>. Nothing else changes, and you can skip, pause or cancel under <a href="${siteUrl}/account/csa">My Farm Shares</a>.</p>`
+        `<p>The farm has changed the last pickup of <strong>${escapeHtml(name)}</strong> to <strong>${formatBoxDate(seasonEnd, { long: true })}</strong>. Nothing else changes, and you can skip, pause or cancel under <a href="${siteUrl}/account/csa">My Farm Boxes</a>.</p>`
       );
     }
     return { planId: existing.id as string };
@@ -271,7 +275,7 @@ async function savePlan(farmerId: string, input: PlanInput, acceptTerms: boolean
     .select('id', { count: 'exact', head: true })
     .eq('farmer_id', farmerId)
     .neq('status', 'ended');
-  if ((running || 0) >= 5) return { error: 'A farm can run up to 5 farm shares at once.' };
+  if ((running || 0) >= 5) return { error: 'A farm can run up to 5 Farm Boxes at once.' };
 
   // The hidden listing each box's order is placed on. It is never shown in
   // the shop (its category isn't one of the shop's), and it moves with the
@@ -282,7 +286,7 @@ async function savePlan(farmerId: string, input: PlanInput, acceptTerms: boolean
     .insert({
       farmer_id: farmerId,
       title: name,
-      variety: 'Farm share box',
+      variety: 'Farm Box',
       category: CSA_BOX_CATEGORY,
       description,
       unit_type: 'box',
@@ -358,6 +362,8 @@ async function farmOverview(farmerId: string, today: string) {
       ? await supabaseAdmin.from('csa_box_weeks').select('*').eq('plan_id', plan.id).in('box_date', dates)
       : { data: [] as any[] };
     const weekByDate = new Map((weekRows || []).map((w) => [w.box_date, w]));
+    // Boxes bought one at a time, by people who haven't signed up.
+    const singles = await singleBoxCounts(plan, dates);
 
     const weeks = dates.map((date) => {
       const rows = (boxRows || []).filter((b) => b.box_date === date);
@@ -375,7 +381,8 @@ async function farmOverview(farmerId: string, today: string) {
         note: week?.note || '',
         skipped: Boolean(week?.skipped),
         skipReason: week?.skip_reason || '',
-        boxes: week?.skipped ? 0 : getting.length,
+        boxes: week?.skipped ? 0 : getting.length + (singles.get(date) || 0),
+        oneOff: singles.get(date) || 0,
         paid: rows.filter((b) => b.status === 'paid').length,
         failed: rows.filter((b) => b.status === 'failed').length,
         memberSkips: rows.filter((b) => b.status === 'skipped').length,

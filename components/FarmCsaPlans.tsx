@@ -19,7 +19,7 @@ type Plan = {
   closedReason: string | null;
 };
 
-// A farm's CSA farm shares, on its farm page. Shows nothing for a farm that
+// A farm's CSA Farm Boxes, on its farm page. Shows nothing for a farm that
 // doesn't run one.
 export default function FarmCsaPlans({ farmId }: { farmId: string }) {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -40,10 +40,12 @@ export default function FarmCsaPlans({ farmId }: { farmId: string }) {
   return (
     <div className="mb-12">
       <h2 className="text-2xl font-bold text-gray-900 mb-1 flex items-center gap-2">
-        <Package className="w-6 h-6 text-green-600" /> Farm Share (CSA)
+        <Package className="w-6 h-6 text-green-600" /> Farm Box
       </h2>
       <p className="text-sm text-gray-600 mb-4">
-        A box of whatever is best that week, on a regular day. Pay per box; skip, pause or cancel online any time.
+        <strong className="text-gray-800">What is a Farm Box?</strong> A box of whatever this farm is harvesting that
+        week, picked up on a set day through the season. You pay per box and can skip, pause or cancel online any time,
+        and your regular order gives a small grower steady sales they can plan their planting around.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {plans.map((plan) => (
@@ -75,6 +77,11 @@ export default function FarmCsaPlans({ farmId }: { farmId: string }) {
                 </Link>
               )}
             </div>
+            {!plan.closedReason && (
+              <Link href={`/csa/${plan.id}?one=1`} className="text-xs font-semibold text-emerald-800 underline self-end">
+                Or buy just one box to try it
+              </Link>
+            )}
             {!plan.closedReason && plan.spotsLeft != null && plan.spotsLeft <= 10 && (
               <p className="text-xs font-semibold text-amber-800">
                 {plan.spotsLeft} spot{plan.spotsLeft === 1 ? '' : 's'} left

@@ -45,8 +45,8 @@ type Reason = { icon: typeof Store; title: string; body: string; wide?: boolean 
 const FOR_SELLERS: Reason[] = [
   {
     icon: Package,
-    title: 'Hassle-free farm shares (CSA)',
-    body: `Offer a weekly or every-other-week box and let the site run it. Members join online with a saved card, and each box is charged automatically before pickup, so you know how many to pack and you are paid before you pick. Reminders, skipped weeks, pauses, cancellations and declined cards are all handled for you, and each box shows up on your Pick List like any order. No spreadsheets, no chasing payments, and the same ${SELLER_FEE} fee as everything else.`,
+    title: 'Hassle-free Farm Boxes (like a CSA)',
+    body: `A Farm Box is our take on a CSA: a weekly or every-other-week box that members sign up for. Offer one and let the site run it. Members join online with a saved card, and each box is charged automatically before pickup, so you know how many to pack and you are paid before you pick. Reminders, skipped weeks, pauses, cancellations and declined cards are all handled for you, and each box shows up on your Pick List like any order. No spreadsheets, no chasing payments, and the same ${SELLER_FEE} fee as everything else.`,
     wide: true,
   },
   {
@@ -94,8 +94,8 @@ const FOR_SELLERS: Reason[] = [
 const FOR_BUYERS: Reason[] = [
   {
     icon: Package,
-    title: 'Farm share boxes, on your terms',
-    body: 'Some farms offer a farm share (CSA): a box of whatever is best that week, on a set day. You pay per box, only for the boxes you get, and you can skip a week, pause or cancel online in a couple of taps. We email you before every charge.',
+    title: 'Farm Boxes, on your terms',
+    body: 'Some farms offer a Farm Box: a box of whatever they are harvesting that week, on a set day. Sign up and pay per box, skipping or pausing in a couple of taps, or buy just one to try it. Your regular order gives a small grower steady sales they can plan around.',
     wide: true,
   },
   {

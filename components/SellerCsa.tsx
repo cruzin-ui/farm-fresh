@@ -20,6 +20,7 @@ type Week = {
   paid: number;
   failed: number;
   memberSkips: number;
+  oneOff: number;
 };
 
 type Plan = {
@@ -78,7 +79,7 @@ const STATUS_TEXT: Record<Plan['status'], string> = {
   ended: 'Ended',
 };
 
-// The CSA section of the Seller Dashboard: set up farm shares, write each
+// The CSA section of the Seller Dashboard: set up Farm Boxes, write each
 // week's box note, call a week off, and see who is getting a box.
 export default function SellerCsa({
   sellerTermsAccepted,
@@ -147,8 +148,14 @@ export default function SellerCsa({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Package className="w-5 h-5 text-emerald-600" /> Farm Shares (CSA)
+            <Package className="w-5 h-5 text-emerald-600" /> Farm Boxes
           </h2>
+          <p className="text-sm text-gray-600 max-w-xl mb-2">
+            <strong className="text-gray-800">A Farm Box is essentially a CSA</strong> (community supported agriculture):
+            buyers sign up for a regular box from your farm through the season. You get steady, predictable sales, you
+            know how many boxes to fill before you harvest, and members become regulars. Buyers can also buy a single
+            box to try it first; those show in your weekly counts as one-off boxes and count toward any member limit.
+          </p>
           <p className="text-sm text-gray-600 max-w-xl">
             Members get a box from you on a set day, all season. Each box is charged to their saved card{' '}
             {CHARGE_DAYS_BEFORE} days before pickup and shows up in your Orders and Pick List like any order. You're paid
@@ -163,7 +170,7 @@ export default function SellerCsa({
             }}
             className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm"
           >
-            <Plus className="w-4 h-4" /> New farm share
+            <Plus className="w-4 h-4" /> New Farm Box
           </button>
         )}
       </div>
@@ -196,13 +203,13 @@ export default function SellerCsa({
             const json = await call(
               { action: 'save_plan', plan: form, acceptTerms },
               'save',
-              form.id ? 'Farm share updated.' : 'Farm share created. It now shows on your farm page.'
+              form.id ? 'Farm Box updated.' : 'Farm Box created. It now shows on your farm page.'
             );
             if (json) setForm(null);
           }}
           className="border border-emerald-200 bg-emerald-50/40 rounded-2xl p-5 space-y-4"
         >
-          <h3 className="font-bold text-gray-900">{form.id ? 'Edit farm share' : 'New farm share'}</h3>
+          <h3 className="font-bold text-gray-900">{form.id ? 'Edit Farm Box' : 'New Farm Box'}</h3>
           {!hasPickupAddress && (
             <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-3">
               Boxes are picked up at your farm's pickup address.{' '}
@@ -297,14 +304,14 @@ export default function SellerCsa({
                 <Link href="/seller-terms" target="_blank" className="font-semibold text-emerald-800 underline">
                   Seller Terms
                 </Link>
-                , including the farm share commitments.
+                , including the Farm Box commitments.
               </span>
             </label>
           )}
 
           <div className="flex gap-2">
             <button type="submit" disabled={busy !== null} className="px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-sm disabled:opacity-50">
-              {busy === 'save' ? 'Saving…' : form.id ? 'Save changes' : 'Create farm share'}
+              {busy === 'save' ? 'Saving…' : form.id ? 'Save changes' : 'Create Farm Box'}
             </button>
             <button type="button" onClick={() => setForm(null)} className="px-4 py-2.5 text-sm font-semibold text-gray-700">
               Cancel
@@ -316,7 +323,7 @@ export default function SellerCsa({
       {plans === null && <p className="text-sm text-gray-500">Loading…</p>}
       {plans && plans.length === 0 && !form && (
         <div className="border border-dashed rounded-2xl p-6 text-center text-sm text-gray-600">
-          You don't run a farm share yet. A farm share gives you regular customers and steady weekly sales you can plan
+          You don't offer a Farm Box yet. A Farm Box gives you regular customers and steady weekly sales you can plan
           your harvest around.
         </div>
       )}
@@ -380,6 +387,7 @@ export default function SellerCsa({
                       ) : (
                         <span className="text-xs text-gray-700">
                           <strong>{week.boxes}</strong> box{week.boxes === 1 ? '' : 'es'}
+                          {week.oneOff > 0 && ` · ${week.oneOff} one-off`}
                           {week.paid > 0 && ` · ${week.paid} paid`}
                           {week.failed > 0 && <span className="text-red-700"> · {week.failed} card declined</span>}
                           {week.memberSkips > 0 && ` · ${week.memberSkips} skipping`}
@@ -440,7 +448,7 @@ export default function SellerCsa({
                                   const json = await call(
                                     { action: 'skip_week', planId: plan.id, boxDate: week.date, skipped: true, reason },
                                     key,
-                                    "That week is called off. Members have been told and won't be charged."
+                                    "That week is called off. Members have been told and won't be charged, and anyone who bought just that box is refunded."
                                   );
                                   if (json) setReasonFor(null);
                                 }}
@@ -549,7 +557,7 @@ export default function SellerCsa({
             {reasonFor === `end|${plan.id}` ? (
               <div className="space-y-2">
                 <p className="text-sm text-red-900">
-                  Ending the share cancels every membership. Nobody is charged again; boxes already paid for stay in your
+                  Ending a Farm Box cancels every membership. Nobody is charged again; boxes already paid for stay in your
                   Orders.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -564,12 +572,12 @@ export default function SellerCsa({
                   <button
                     disabled={busy !== null || !reason.trim()}
                     onClick={async () => {
-                      const json = await call({ action: 'end_plan', planId: plan.id, reason }, `end${plan.id}`, 'Farm share ended. Members have been told.');
+                      const json = await call({ action: 'end_plan', planId: plan.id, reason }, `end${plan.id}`, 'Farm Box ended. Members have been told.');
                       if (json) setReasonFor(null);
                     }}
                     className="px-3 py-2 text-xs font-bold bg-red-600 text-white rounded-lg disabled:opacity-50"
                   >
-                    End farm share
+                    End Farm Box
                   </button>
                   <button onClick={() => setReasonFor(null)} className="text-xs font-semibold text-gray-600">
                     Never mind
@@ -584,7 +592,7 @@ export default function SellerCsa({
                 }}
                 className="text-xs font-semibold text-red-700 underline"
               >
-                End this farm share
+                End this Farm Box
               </button>
             )}
           </div>

@@ -126,9 +126,9 @@ export default function SellerTermsPage() {
         </section>
 
         <section id="csa">
-          <h2 className="text-lg font-bold text-gray-900 mb-1">6. Farm shares (CSA)</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">6. Farm Boxes (CSA-style subscriptions)</h2>
           <p>
-            You can offer a farm share: a box on a set day, every week or every other week, through a season you
+            You can offer a Farm Box, which works like a CSA: a box on a set day, every week or every other week, through a season you
             choose. Members pay for each box separately, charged to their saved card {CHARGE_DAYS_BEFORE} days
             before pickup. Each paid box is an ordinary order: the same {SELLER_FEE} seller fee applies, you mark it
             ready and enter the member&apos;s pickup code, and you are paid when it is collected. Everything in
@@ -145,12 +145,16 @@ export default function SellerTermsPage() {
               Orders; members are refunded in full, and it counts as a cancellation by you.
             </li>
             <li>
+              <strong>Buyers can also buy a single box</strong> for your next pickup that hasn&apos;t been charged
+              yet, without signing up. It is an ordinary order, and counts toward any member limit you set.
+            </li>
+            <li>
               <strong>Members can skip, pause or cancel</strong> at any time before a box is charged. Members who
               joined at an earlier price keep it; a new price applies to new members only. The pickup day, how
               often, and the start of the season can&apos;t be changed once anyone has joined.
             </li>
             <li>
-              <strong>Ending a farm share early</strong> cancels every membership; tell members why. Boxes already
+              <strong>Ending a Farm Box early</strong> cancels every membership; tell members why. Boxes already
               paid for must still be provided or cancelled and refunded.
             </li>
           </ul>

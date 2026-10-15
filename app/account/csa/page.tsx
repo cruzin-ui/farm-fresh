@@ -55,7 +55,7 @@ const STATE_TEXT: Record<Box['state'], { text: string; className: string }> = {
   farm_skipped: { text: 'No box this week', className: 'bg-amber-100 text-amber-900' },
 };
 
-// A member's farm shares: their upcoming boxes, skipping a week, pausing,
+// A member's Farm Boxes: their upcoming boxes, skipping a week, pausing,
 // cancelling, and the card their boxes are charged to.
 export default function MyFarmSharesPage() {
   const router = useRouter();
@@ -108,9 +108,9 @@ export default function MyFarmSharesPage() {
         <ArrowLeft className="w-4 h-4" /> Account
       </Link>
       <header>
-        <h1 className="text-2xl font-extrabold text-gray-900">My Farm Shares</h1>
+        <h1 className="text-2xl font-extrabold text-gray-900">My Farm Boxes</h1>
         <p className="text-sm text-gray-600">
-          Your CSA boxes. Skip a week, pause or cancel any time before a box is charged.
+          Skip a week, pause or cancel any time before a box is charged.
         </p>
       </header>
 
@@ -131,7 +131,9 @@ export default function MyFarmSharesPage() {
         <div className="bg-white border rounded-xl p-6 text-center space-y-2">
           <Package className="w-8 h-8 text-emerald-600 mx-auto" />
           <p className="text-sm text-gray-700">
-            You haven't joined a farm share yet. Farms that offer one show it on their farm page.
+            You haven't signed up for a Farm Box yet. A Farm Box is a box of whatever a local farm is harvesting
+            that week, picked up on a set day. You pay per box and can skip or pause any time, and your regular order
+            gives a small grower steady sales they can plan around. Farms that offer one show it on their farm page.
           </p>
           <Link href="/browse" className="text-sm font-semibold text-emerald-800 underline">
             Find local farms
@@ -162,7 +164,7 @@ export default function MyFarmSharesPage() {
           )}
           {changingCard && (
             <div className="border-t pt-3 space-y-2">
-              <p className="text-xs text-gray-600">The new card is used for all your farm shares.</p>
+              <p className="text-xs text-gray-600">The new card is used for all your Farm Boxes.</p>
               <SaveCardForm
                 submitLabel="Save this card"
                 start={async () => {
@@ -326,7 +328,7 @@ export default function MyFarmSharesPage() {
 
       {past.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-sm font-bold text-gray-700">Past farm shares</h2>
+          <h2 className="text-sm font-bold text-gray-700">Past Farm Boxes</h2>
           {past.map((m) => (
             <div key={m.id} className="bg-gray-50 border rounded-lg p-3 text-sm text-gray-600">
               {m.plan.name} · {m.farm.name} ·{' '}

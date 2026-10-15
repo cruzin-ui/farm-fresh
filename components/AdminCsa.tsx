@@ -38,7 +38,7 @@ const BOX_STATUS: Record<string, string> = {
   charging: 'bg-gray-100 text-gray-700',
 };
 
-// The admin page's CSA section: every farm share, and the last two weeks of
+// The admin page's CSA section: every Farm Box, and the last two weeks of
 // box charges with declined cards first.
 export default function AdminCsa() {
   const [data, setData] = useState<{ plans: Plan[]; boxes: Box[] } | null>(null);
@@ -48,7 +48,7 @@ export default function AdminCsa() {
     postWithAuth('/api/admin/csa')
       .then(async (res) => {
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'Could not load farm shares.');
+        if (!res.ok) throw new Error(json.error || 'Could not load Farm Boxes.');
         setData(json);
       })
       .catch((err) => setError(err.message));
@@ -63,14 +63,14 @@ export default function AdminCsa() {
   return (
     <div className="space-y-4">
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-3">
-        <h2 className="text-lg font-bold text-gray-900">Farm shares (CSA)</h2>
+        <h2 className="text-lg font-bold text-gray-900">Farm Boxes (CSA)</h2>
         <p className="text-sm text-gray-700">
           <strong>{live.length}</strong> running · <strong>{live.reduce((sum, p) => sum + p.active, 0)}</strong> active
           members · <strong>{data.boxes.filter((b) => b.status === 'paid').length}</strong> boxes paid and{' '}
           <strong className={failed.length ? 'text-red-700' : ''}>{failed.length}</strong> declined in the last two weeks
         </p>
         {data.plans.length === 0 ? (
-          <p className="text-sm text-gray-500">No farm has set up a farm share yet.</p>
+          <p className="text-sm text-gray-500">No farm has set up a Farm Box yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

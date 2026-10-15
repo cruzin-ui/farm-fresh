@@ -902,7 +902,7 @@ export default function AdminPage() {
     { id: 'all', label: 'All orders', icon: Archive },
     { id: 'messages', label: 'Messages', icon: Mail, count: openMessages.length, urgent: true },
     { id: 'listings', label: 'Listings', icon: Store },
-    { id: 'csa', label: 'Farm shares (CSA)', icon: Package },
+    { id: 'csa', label: 'Farm Boxes (CSA)', icon: Package },
     { id: 'sellers', label: 'Sellers', icon: Users, count: flaggedSellers.length, urgent: true },
     { id: 'buyers', label: 'Buyers', icon: ShoppingBasket, count: flaggedBuyers.length, urgent: true },
     { id: 'reviews', label: 'Reviews', icon: Star },
@@ -2199,7 +2199,7 @@ export default function AdminPage() {
               );
             })()}
 
-          {/* FARM SHARES */}
+          {/* FARM BOXES */}
           {section === 'csa' && <AdminCsa />}
 
           {/* SUSPENDED & BLOCKED */}

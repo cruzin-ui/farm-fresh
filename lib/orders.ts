@@ -82,20 +82,22 @@ async function sendSellerNotification(params: {
   orderNumber: string;
   // Set for a CSA box: its pickup date.
   csaBoxDate?: string | null;
+  // True for a Farm Box bought on its own rather than by a member.
+  csaSingle?: boolean;
 }) {
-  const { sellerEmail, items, orderNumber, csaBoxDate } = params;
+  const { sellerEmail, items, orderNumber, csaBoxDate, csaSingle } = params;
   const produceTotal = items.reduce((sum, item) => sum + item.subtotalCents, 0) / 100;
 
   await sendEmail({
     to: sellerEmail,
     subject: csaBoxDate
-      ? `CSA box paid: ${items[0].title} for ${formatBoxDate(csaBoxDate)}`
+      ? `Farm Box paid: ${items[0].title} for ${formatBoxDate(csaBoxDate)}`
       : items.length === 1
         ? `New order: ${items[0].quantity} ${items[0].unitType} of ${items[0].title}`
         : `New order: ${items.length} items from one buyer`,
     html: `
       <div style="font-family: sans-serif; max-width: 480px;">
-        <h2 style="color: #059669;">${csaBoxDate ? `A member's box for ${formatBoxDate(csaBoxDate, { long: true })} is paid` : "You've got a new reservation!"}</h2>
+        <h2 style="color: #059669;">${csaBoxDate ? `${csaSingle ? 'A one-off Farm Box' : "A member's box"} for ${formatBoxDate(csaBoxDate, { long: true })} is paid` : "You've got a new reservation!"}</h2>
         <p>Order number: <strong style="font-family: monospace; font-size: 16px;">${orderNumber}</strong> (the buyer has the same number, so you can match them to their bag at pickup)</p>
         <ul>${items.map((item) => `<li><strong>${itemText(item)}</strong> — mark it ready by <strong>${item.readyBy}</strong></li>`).join('')}</ul>
         <p>Need to reach the buyer? Use <strong>Message Buyer</strong> on the order in your Seller Dashboard.</p>
@@ -137,8 +139,9 @@ async function sendBuyerConfirmation(params: {
   orderLink: string | null;
   siteUrl?: string;
   csaBoxDate?: string | null;
+  csaSingle?: boolean;
 }) {
-  const { buyerEmail, totalPaid, orderNumber, farms, orderLink, siteUrl, csaBoxDate } = params;
+  const { buyerEmail, totalPaid, orderNumber, farms, orderLink, siteUrl, csaBoxDate, csaSingle } = params;
   const allItems = farms.flatMap((farm) => farm.items);
 
   const farmSections = farms
@@ -163,8 +166,8 @@ async function sendBuyerConfirmation(params: {
     html: `
       <div style="font-family: sans-serif; max-width: 520px;">
         <h2 style="color: #059669;">${csaBoxDate ? `Your box for ${formatBoxDate(csaBoxDate, { long: true })} is paid` : 'Your order is confirmed!'}</h2>
-        <p>Total paid: $${totalPaid.toFixed(2)}${csaBoxDate ? ', charged to your saved card for your farm share.' : ''}</p>
-        ${csaBoxDate && siteUrl ? `<p style="font-size: 13px;">Skip, pause or cancel future boxes under <a href="${siteUrl}/account/csa">My Farm Shares</a>.</p>` : ''}
+        <p>Total paid: $${totalPaid.toFixed(2)}${csaBoxDate && !csaSingle ? ', charged to your saved card for your Farm Box.' : ''}</p>
+        ${csaBoxDate && siteUrl && !csaSingle ? `<p style="font-size: 13px;">Skip, pause or cancel future boxes under <a href="${siteUrl}/account/csa">My Farm Boxes</a>.</p>` : ''}
         <p>Your order number: <strong style="font-family: monospace; font-size: 16px;">${orderNumber}</strong><br /><span style="font-size: 12px; color: #6b7280;">Tell the farmer this number at pickup so they can find your order. It is not your pickup code.</span></p>
         ${farmSections}
         <p>
@@ -187,7 +190,7 @@ async function sendBuyerConfirmation(params: {
 // arrives second gets the existing orders back and nothing is decremented or
 // emailed twice.
 //
-// Every item from the same farm shares one pickup code. Guest orders have no
+// Every item from the same Farm Boxes one pickup code. Guest orders have no
 // buyer account: buyer_id is null, the email comes from what the guest typed
 // at checkout, and a secret token stands in for being signed in when they view
 // the order later. `siteUrl` is used to build that link for the confirmation
@@ -196,6 +199,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
   const buyerId = paymentIntent.metadata.buyer_id || null;
   const checkoutId = paymentIntent.metadata.checkout_id || null;
   // Set when this payment is a CSA box: the date it is picked up.
+  const csaSingle = paymentIntent.metadata.csa_single === '1';
   const csaBoxDate = /^\d{4}-\d{2}-\d{2}$/.test(paymentIntent.metadata.csa_box_date || '')
     ? paymentIntent.metadata.csa_box_date
     : null;
@@ -337,7 +341,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
   // Only the caller that saved the orders gets this far, so a payment is
   // counted once however many times it is reported.
   // (CSA boxes are charged by the daily job, not through checkout.)
-  if (!csaBoxDate) await bumpDailyCount('payment_completed');
+  if (!csaBoxDate || csaSingle) await bumpDailyCount('payment_completed');
 
   // The private copies of the pickup addresses. If this fails the order still
   // stands; marking it ready falls back to the listing's current address.
@@ -452,6 +456,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
       farms,
       siteUrl,
       csaBoxDate,
+      csaSingle,
       orderLink:
         result.guestToken && siteUrl
           ? `${siteUrl}/orders/confirmation?orderId=${result.orderId}&token=${result.guestToken}`
@@ -467,7 +472,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     if (sellerLookupError) {
       console.error('Failed to look up seller email:', sellerLookupError);
     } else if (sellerUser?.user?.email) {
-      await sendSellerNotification({ sellerEmail: sellerUser.user.email, items: farm.items, buyerEmail, orderNumber, csaBoxDate });
+      await sendSellerNotification({ sellerEmail: sellerUser.user.email, items: farm.items, buyerEmail, orderNumber, csaBoxDate, csaSingle });
     }
 
     // Tells an admin when a seller who has only just joined gets a large

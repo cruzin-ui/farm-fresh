@@ -6,7 +6,7 @@ import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
-// The CSA overview on the admin page: every farm share with its members, and
+// The CSA overview on the admin page: every Farm Box with its members, and
 // the last two weeks' charges, failed ones first.
 export async function POST(request: Request) {
   try {
@@ -63,6 +63,6 @@ export async function POST(request: Request) {
   } catch (err: any) {
     console.error('admin csa error:', err);
     await alertAdmin('admin CSA overview', err);
-    return NextResponse.json({ error: 'Could not load farm shares.' }, { status: 500 });
+    return NextResponse.json({ error: 'Could not load Farm Boxes.' }, { status: 500 });
   }
 }

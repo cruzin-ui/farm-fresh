@@ -31,7 +31,7 @@ export const dynamic = 'force-dynamic';
 
 const UPCOMING = 8;
 
-// A signed-in member's own farm shares.
+// A signed-in member's own Farm Boxes.
 //   { action: 'list' }                          — memberships and upcoming boxes
 //   { action: 'skip' | 'unskip', memberId, boxDate }
 //   { action: 'pause' | 'resume', memberId }
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
 
     if (body.action === 'skip' || body.action === 'unskip') {
       const boxDate = String(body.boxDate || '');
-      if (!isBoxDate(plan, boxDate)) return NextResponse.json({ error: "That isn't one of this share's pickup dates." }, { status: 400 });
+      if (!isBoxDate(plan, boxDate)) return NextResponse.json({ error: "That isn't one of this Farm Box's pickup dates." }, { status: 400 });
       if (!canStillSkip(boxDate, today)) {
         return NextResponse.json(
           { error: 'This box has already been charged. You can cancel it under My Purchases instead.' },

@@ -1437,7 +1437,7 @@ export default function SellerDashboardPage() {
                   new: 'Your Listings',
                   orders: 'Orders',
                   picklist: 'Pick List',
-                  csa: 'Farm Shares (CSA)',
+                  csa: 'Farm Boxes',
                   history: 'Sales History',
                   profile: 'Farm Profile & Photo',
                   settings: 'Payouts & Settings',
@@ -1536,7 +1536,7 @@ export default function SellerDashboardPage() {
                 activeTab === 'csa' ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
-              <Package className="w-4 h-4" /> Farm Shares (CSA)
+              <Package className="w-4 h-4" /> Farm Boxes
             </button>
 
             <button

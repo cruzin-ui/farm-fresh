@@ -21,7 +21,7 @@ import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
 
-// Joining a CSA farm share. Members must be signed in.
+// Joining a CSA Farm Box. Members must be signed in.
 //   { action: 'start', planId, captchaToken }
 //       checks they can join and starts saving their card with Stripe;
 //       returns the secret the browser needs to finish that.
@@ -31,13 +31,13 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   try {
     const user = await getRequestUser(request);
-    if (!user) return NextResponse.json({ error: 'Please sign in to join a farm share.' }, { status: 401 });
+    if (!user) return NextResponse.json({ error: 'Please sign in to join a Farm Box.' }, { status: 401 });
 
     const body = await request.json().catch(() => ({}));
     const planId = typeof body.planId === 'string' ? body.planId : '';
     const { data: planRow } = await supabaseAdmin.from('csa_plans').select('*').eq('id', planId).maybeSingle();
     const plan = planRow as CsaPlan | null;
-    if (!plan) return NextResponse.json({ error: 'This farm share could not be found.' }, { status: 404 });
+    if (!plan) return NextResponse.json({ error: 'This Farm Box could not be found.' }, { status: 404 });
 
     // Everything that would stop someone joining.
     const problem = await joinProblem(plan, user);
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
               <h2 style="color: #059669;">You've joined ${escapeHtml(plan.name)}!</h2>
               <p><strong>${escapeHtml(describeFrequency(plan))}</strong>${plan.pickup_window ? `, ${escapeHtml(plan.pickup_window)}` : ''}, from <strong>${formatBoxDate(firstBox, { long: true })}</strong>.</p>
               <p>Each box is charged to ${escapeHtml(saved.cardLabel)} ${CHARGE_DAYS_BEFORE} days before pickup: <strong>$${(cost.totalCents / 100).toFixed(2)}</strong> plus any sales tax. We'll email you the day before every charge, and send your pickup code once it's paid.</p>
-              <p>You can skip a week, pause or cancel at any time before a box is charged, under <a href="${siteUrl}/account/csa">My Farm Shares</a>.</p>
+              <p>You can skip a week, pause or cancel at any time before a box is charged, under <a href="${siteUrl}/account/csa">My Farm Boxes</a>.</p>
               <p style="font-size: 12px; color: #6b7280;">What you agreed to: ${escapeHtml(agreedText)}</p>
             </div>`,
         });
@@ -141,13 +141,13 @@ export async function POST(request: Request) {
   } catch (err: any) {
     console.error('csa join error:', err);
     await alertAdmin('CSA join', err);
-    return NextResponse.json({ error: 'Something went wrong joining this farm share. Please try again.' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong joining this Farm Box. Please try again.' }, { status: 500 });
   }
 }
 
 async function joinProblem(plan: CsaPlan, user: { id: string; email?: string | null }) {
-  if (plan.status !== 'open') return 'This farm share isn’t taking new members right now.';
-  if (plan.farmer_id === user.id) return "This is your own farm share, so you can't join it.";
+  if (plan.status !== 'open') return 'This Farm Box isn’t taking new members right now.';
+  if (plan.farmer_id === user.id) return "This is your own Farm Box, so you can't join it.";
   if (!firstBoxForNewMember(plan)) return 'There are no pickups left this season.';
   if (await isBuyerBlocked({ userId: user.id, email: user.email })) {
     return "We can't take orders from this account at the moment. Please contact us if you think this is a mistake.";
@@ -161,7 +161,7 @@ async function joinProblem(plan: CsaPlan, user: { id: string; email?: string | n
     .eq('buyer_id', user.id)
     .neq('status', 'cancelled')
     .maybeSingle();
-  if (existing) return "You're already a member of this farm share. Manage it under My Farm Shares.";
+  if (existing) return "You're already a member of this Farm Box. Manage it under My Farm Boxes.";
 
   if (plan.max_members != null) {
     const { count } = await supabaseAdmin
@@ -169,7 +169,7 @@ async function joinProblem(plan: CsaPlan, user: { id: string; email?: string | n
       .select('id', { count: 'exact', head: true })
       .eq('plan_id', plan.id)
       .neq('status', 'cancelled');
-    if ((count || 0) >= plan.max_members) return 'This farm share is full.';
+    if ((count || 0) >= plan.max_members) return 'This Farm Box is full.';
   }
   return null;
 }

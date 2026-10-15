@@ -138,9 +138,9 @@ export default function TermsPage() {
         </section>
 
         <section id="csa">
-          <h2 className="text-lg font-bold text-gray-900 mb-1">6. Farm shares (CSA) and repeat charges</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">6. Farm Boxes and repeat charges</h2>
           <p>
-            Some sellers offer a farm share: a box of their produce on a set day, every week or every other week,
+            Some sellers offer a Farm Box: a box of their produce on a set day, every week or every other week,
             through a season. You need an account to join one. When you join, you save a card, and you authorize
             us to charge it for each box, without asking you again each time, until you cancel or the season
             ends. The amount, how often and when you will be charged are shown before you agree, and we email
@@ -157,7 +157,7 @@ export default function TermsPage() {
               the box and a link to skip it.
             </li>
             <li>
-              <strong>Skipping, pausing and cancelling.</strong> Under My Farm Shares you can skip any week,
+              <strong>Skipping, pausing and cancelling.</strong> Under My Farm Boxes you can skip any week,
               pause, or cancel your membership at any time before a box is charged, at no cost. Cancelling stops
               all future charges.
             </li>
@@ -174,8 +174,12 @@ export default function TermsPage() {
               replaced or expired card for us automatically.
             </li>
             <li>
+              <strong>Buying just one box.</strong> You can also buy a single Farm Box without signing up. It is
+              paid for when you buy it, is an ordinary order covered by section 5, and nothing is charged again.
+            </li>
+            <li>
               <strong>Your card</strong> is stored by our payment processor, Stripe, not by us. You can change it
-              under My Farm Shares at any time. If the seller ends the farm share, or removes you from it, we
+              under My Farm Boxes at any time. If the seller ends the Farm Box, or removes you from it, we
               email you and no further charges are made.
             </li>
           </ul>

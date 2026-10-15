@@ -137,7 +137,7 @@ export default function SplashLandingPage() {
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-xl font-bold text-gray-900">I Want to Buy</h2>
-            <p className="text-sm text-gray-500">Fresh produce, eggs, honey and farm share boxes for pickup near you.</p>
+            <p className="text-sm text-gray-500">Fresh produce, eggs, honey and Farm Boxes for pickup near you.</p>
           </div>
           <span className="shrink-0 inline-flex items-center gap-1.5 bg-emerald-600 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap">
             Browse
@@ -154,7 +154,7 @@ export default function SplashLandingPage() {
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-xl font-bold text-gray-900">I Want to Sell</h2>
-            <p className="text-sm text-gray-500">Your own online farm stand: get paid up front, build regulars and run a hassle-free CSA.</p>
+            <p className="text-sm text-gray-500">Your own online farm stand: get paid up front, build regulars and offer hassle-free Farm Boxes.</p>
           </div>
           <span className="shrink-0 inline-flex items-center gap-1.5 bg-gray-900 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap">
             Sell
