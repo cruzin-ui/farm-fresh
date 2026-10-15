@@ -20,7 +20,14 @@ import {
   MessageCircle,
   UserCheck,
 } from 'lucide-react';
-import { BUYER_FEE_LABEL, SELLER_FEE_RATE, RESTOCKING_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
+import {
+  BUYER_FEE_LABEL,
+  SELLER_FEE_RATE,
+  RESTOCKING_RATE,
+  FREE_CANCELLATION_HOURS,
+  SELLER_KEEPS_PERCENT,
+  PLATFORM_KEEPS_CENTS_PER_DOLLAR,
+} from '@/lib/pricing';
 
 export const metadata: Metadata = {
   title: 'Why Farm Fresh Direct',
@@ -65,7 +72,7 @@ const FOR_SELLERS = [
   {
     icon: Tag,
     title: 'Free to list',
-    body: `Posting is free. We take ${SELLER_FEE} of what you sell and nothing when you sell nothing. There is no stall fee and no monthly charge.`,
+    body: `Posting is free, and you keep ${SELLER_KEEPS_PERCENT}% of every sale. We take ${SELLER_FEE} of what you sell and nothing when you sell nothing. There is no stall fee and no monthly charge.`,
   },
   {
     icon: SlidersHorizontal,
@@ -180,8 +187,10 @@ export default function WhyPage() {
         <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
             <dt className="text-sm font-semibold text-emerald-200">Growers</dt>
-            <dd className="mt-1 text-2xl font-bold">{SELLER_FEE} of what you sell</dd>
-            <dd className="mt-1 text-sm text-emerald-100">Nothing to list, nothing per month.</dd>
+            <dd className="mt-1 text-2xl font-bold">You keep {SELLER_KEEPS_PERCENT}%</dd>
+            <dd className="mt-1 text-sm text-emerald-100">
+              A {SELLER_FEE} fee on what you sell. Nothing to list, nothing per month.
+            </dd>
           </div>
           <div>
             <dt className="text-sm font-semibold text-emerald-200">Buyers</dt>
@@ -190,8 +199,10 @@ export default function WhyPage() {
           </div>
         </dl>
         <p className="mt-6 text-sm text-emerald-100 leading-relaxed">
-          Those fees pay for holding payments safely, refunds when something goes wrong, and keeping the site
-          running. The rest goes to the person who grew your food.{' '}
+          The fees include card processing, which is paid out of them. After processing costs, Farm Fresh
+          Direct keeps about {PLATFORM_KEEPS_CENTS_PER_DOLLAR} cents of every dollar of produce sold, from both
+          fees together. That pays for holding payments safely, refunds when something goes wrong, and keeping
+          the site running. The rest goes to the person who grew your food.{' '}
           <Link href="/faq" className="font-semibold text-white underline underline-offset-2">
             Read the full details in the FAQ
           </Link>

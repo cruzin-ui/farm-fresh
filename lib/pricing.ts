@@ -15,6 +15,16 @@ export const BUYER_FEE_LABEL = `${BUYER_FEE_RATE * 100}% + $${(BUYER_FEE_FIXED_C
 // orders.
 export const SELLER_FEE_RATE = 0.06;
 
+// What a seller keeps of each sale, as a percentage, for wording such as
+// "Sellers keep 94% of every sale".
+export const SELLER_KEEPS_PERCENT = Math.round((1 - SELLER_FEE_RATE) * 100);
+
+// Roughly how much of each dollar of produce sold the platform keeps once
+// card processing and tax calculation are paid, combining both sides' fees,
+// for a typical order of $20 to $50. It is used in wording on the site.
+// UPDATE IT WHENEVER THE FEES CHANGE: at 6% + $1.00 and 6% it is about 9 cents.
+export const PLATFORM_KEEPS_CENTS_PER_DOLLAR = 9;
+
 // What the farmer is paid for a given produce subtotal, in cents.
 export function calculateFarmerPayoutCents(subtotalCents: number, sellerFeeRate: number) {
   return subtotalCents - Math.round(subtotalCents * sellerFeeRate);
