@@ -27,6 +27,7 @@ export const CATEGORY_TAX_CODES: Record<string, string> = {
   Mushrooms: FOOD_FOR_HOME,
   // Not food, so not covered by the grocery or producer exemptions.
   'Cut Flowers': GENERAL_GOODS,
+  'Plants & Seedlings': GENERAL_GOODS,
   // A CSA farm-share box of the farm's produce.
   'CSA Box': FOOD_FOR_HOME,
 };

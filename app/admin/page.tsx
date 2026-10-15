@@ -441,7 +441,7 @@ export default function AdminPage() {
           ? `Its ${listing.open_orders} open order${listing.open_orders === 1 ? '' : 's'} will be cancelled and refunded in full.\n\n`
           : '') +
         'The seller is emailed the reason below. This cannot be undone.',
-      'It is not local produce, which is all that may be listed on Farm Fresh Direct.'
+      'It is not something that can be listed on Farm Fresh Direct (see the Seller Terms).'
     );
     if (reason === null) return;
 
@@ -1235,7 +1235,7 @@ export default function AdminPage() {
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">Listings</h2>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    The 300 most recent listings from all sellers. Remove one that isn't local produce: it comes
+                    The 300 most recent listings from all sellers. Remove one that doesn't belong: it comes
                     off sale for good, its open orders are cancelled and refunded, and the seller is emailed.
                   </p>
                 </div>

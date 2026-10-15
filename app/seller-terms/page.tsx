@@ -44,8 +44,9 @@ export default function SellerTermsPage() {
           <p>
             You are the seller of the products you list. You are responsible for knowing and following all
             federal, state and local laws that apply to them, including any licenses, permits, registrations,
-            labeling, packaging and food-safety requirements. Rules for items such as eggs, honey, jam and
-            other prepared foods vary by state; it is your responsibility to check them before you list.
+            inspections, labeling, packaging, food-safety and plant-health requirements. Rules for items such as
+            eggs, honey, jam, other prepared foods and plants vary by state; it is your responsibility to check
+            them before you list.
           </p>
           <p className="mt-2">
             <strong>Your farm&apos;s web address.</strong> You may choose a short web address for your farm
@@ -53,12 +54,23 @@ export default function SellerTermsPage() {
             it once; we may change or remove an address that is misleading or that we need for the site.
           </p>
           <p className="mt-2">
-            <strong>Local produce only.</strong> Farm Fresh Direct is for locally grown produce. You may only
+            <strong>What you can list.</strong> Farm Fresh Direct is for things grown locally. You may only
             list items that belong in one of our categories ({LISTING_CATEGORIES.join(', ')}), and that you
             grew, raised or made yourself. Mushrooms must be ones you cultivated; mushrooms gathered from the
-            wild may not be listed. Cut flowers are the one category that is not food. Seeds, potted plants,
-            meat, dairy, baked goods, crafts and anything else that is not food may not be listed. We may remove any listing that does not belong, without notice, and
+            wild may not be listed. Plants must be ones you grew or propagated yourself; plants dug up or taken
+            from the wild may not be listed, and neither may any plant that the law where you sell does not allow
+            to be sold, such as a prohibited invasive or noxious species. Cut flowers and plants are the only
+            categories that are not food. Seeds, meat, dairy, baked goods, crafts and anything else outside our
+            categories may not be listed. We may remove any listing that does not belong, without notice, and
             cancel and refund any open orders for it.
+          </p>
+          <p className="mt-2">
+            <strong>Plants.</strong> Many states require a license, registration or inspection to sell plants,
+            and restrict pests, diseases and certain species. Some native plants are protected by state law and
+            may only be sold with a permit, tag or other paperwork. Check your state&apos;s agriculture
+            department regulations before you list a plant. You are responsible for meeting these requirements,
+            and for any permit or tag a plant needs. If you mark a plant as native, it must be native to the
+            state shown on your listing.
           </p>
         </section>
 
@@ -84,7 +96,7 @@ export default function SellerTermsPage() {
         <section>
           <h2 className="text-lg font-bold text-gray-900 mb-1">4. Fees and payment</h2>
           <p>
-            Posting is free. Farm Fresh Direct keeps a seller fee of {SELLER_FEE} of the produce price on each
+            Posting is free. Farm Fresh Direct keeps a seller fee of {SELLER_FEE} of the item price on each
             completed sale. Buyers pay online, and we hold the payment until pickup. Your payout for an item is
             released when you scan or enter the buyer&apos;s pickup code and mark that item as handed over, and
             is paid to your connected payout account. Only mark an item as handed over if the buyer has
@@ -102,7 +114,7 @@ export default function SellerTermsPage() {
         <section>
           <h2 className="text-lg font-bold text-gray-900 mb-1">5. Fulfilling orders</h2>
           <p>
-            You agree to have the produce you list available for pickup at the address and times you give the
+            You agree to have the items you list available for pickup at the address and times you give the
             buyer. You must mark each order ready for pickup within {SELLER_READY_DAYS} days of the order, or of
             your listing&apos;s harvest date if that is later. If you do not, the buyer may cancel for a full
             refund, and an order still not marked ready after {AUTO_CANCEL_DAYS} days is cancelled and refunded

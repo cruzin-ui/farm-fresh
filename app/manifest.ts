@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Farm Fresh Direct',
     short_name: 'Farm Fresh',
-    description: 'Buy fresh produce directly from neighbor gardens and small local farms.',
+    description: 'Buy local produce, plants and more directly from neighbor gardens and small farms.',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
