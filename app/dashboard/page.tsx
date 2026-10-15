@@ -10,6 +10,8 @@ import AddressAutocomplete from '@/components/AddressAutocomplete';
 import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
 import PickList from '@/components/PickList';
+import SellerCsa from '@/components/SellerCsa';
+import { CSA_BOX_CATEGORY } from '@/lib/csaSchedule';
 import { tidyFarmAddress, farmAddressProblem, FARM_ADDRESS_MAX } from '@/lib/farmAddress';
 import { SELLER_CHANGE_REASONS, LISTING_ACTIONS, type ListingAction } from '@/lib/sellerChangeReasons';
 import { SELLER_CANCEL_LIMIT, SELLER_CANCEL_WINDOW_DAYS } from '@/lib/sellerLimits';
@@ -86,6 +88,7 @@ import {
   X,
   QrCode,
   ClipboardList,
+  Package,
   HelpCircle,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -93,7 +96,7 @@ import { loadConnectAndInitialize } from '@stripe/connect-js/pure';
 import type { StripeConnectInstance } from '@stripe/connect-js';
 import { ConnectComponentsProvider, ConnectAccountOnboarding } from '@stripe/react-connect-js';
 
-type DashboardTab = 'listings' | 'new' | 'orders' | 'picklist' | 'history' | 'profile' | 'settings' | 'help';
+type DashboardTab = 'listings' | 'new' | 'orders' | 'picklist' | 'csa' | 'history' | 'profile' | 'settings' | 'help';
 
 const UNIT_TYPE_OPTIONS = [
   { value: 'lbs', label: 'lbs (Pounds)' },
@@ -206,6 +209,9 @@ export default function SellerDashboardPage() {
 
   const [user, setUser] = useState<any>(null);
   const [myListings, setMyListings] = useState<any[]>([]);
+  // The hidden listings CSA boxes are ordered on: not for sale, but the Pick
+  // List needs them to name the boxes.
+  const [boxListings, setBoxListings] = useState<any[]>([]);
 
   // Start the tour for a seller who is new here: signed in, nothing listed
   // yet, and not shown it before on this device. The short wait lets their
@@ -366,7 +372,10 @@ export default function SellerDashboardPage() {
       pickup_address: addressByListing.get(l.id) || '',
     }));
 
-    if (listings) setMyListings(listingsWithAddress);
+    if (listings) {
+      setMyListings(listingsWithAddress.filter((l) => l.category !== CSA_BOX_CATEGORY));
+      setBoxListings(listingsWithAddress.filter((l) => l.category === CSA_BOX_CATEGORY));
+    }
 
     const { data: termsRow } = await supabase
       .from('seller_terms_acceptances')
@@ -867,7 +876,8 @@ export default function SellerDashboardPage() {
     setAdjustOrderId(order.id);
     setAdjustQuantity('0');
     setAdjustNote('');
-    setAdjustListingAction('');
+    // A CSA box has no listing for sale to restock or take down.
+    setAdjustListingAction(boxListings.some((l) => l.id === order.listing_id) ? 'leave' : '');
     setAdjustReason('');
   };
 
@@ -1427,6 +1437,7 @@ export default function SellerDashboardPage() {
                   new: 'Your Listings',
                   orders: 'Orders',
                   picklist: 'Pick List',
+                  csa: 'Farm Shares (CSA)',
                   history: 'Sales History',
                   profile: 'Farm Profile & Photo',
                   settings: 'Payouts & Settings',
@@ -1513,6 +1524,19 @@ export default function SellerDashboardPage() {
                   {incomingOrders.filter((o) => o.status === 'pending_pickup').length}
                 </span>
               )}
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab('csa');
+                setSuccessMsg(null);
+                setErrorMsg(null);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                activeTab === 'csa' ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <Package className="w-4 h-4" /> Farm Shares (CSA)
             </button>
 
             <button
@@ -2637,6 +2661,7 @@ export default function SellerDashboardPage() {
                                 className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm bg-white"
                               />
                             </div>
+                            {!boxListings.some((l) => l.id === order.listing_id) && (
                             <fieldset className="space-y-1.5">
                               <legend className="text-xs font-semibold text-red-900 mb-1">
                                 What should happen to the listing? *
@@ -2662,6 +2687,7 @@ export default function SellerDashboardPage() {
                                 </label>
                               ))}
                             </fieldset>
+                            )}
                             <div>
                               <label htmlFor={`change-reason-${order.id}`} className="block text-xs font-semibold text-red-900 mb-1">
                                 Why are you changing this order? *
@@ -2867,7 +2893,18 @@ export default function SellerDashboardPage() {
             </div>
           )}
 
-          {activeTab === 'picklist' && <PickList orders={incomingOrders} listings={myListings} farmName={farmName} />}
+          {activeTab === 'picklist' && (
+            <PickList orders={incomingOrders} listings={[...myListings, ...boxListings]} farmName={farmName} />
+          )}
+
+          {activeTab === 'csa' && (
+            <SellerCsa
+              sellerTermsAccepted={sellerTermsAccepted}
+              hasPickupAddress={Boolean(farmPickup)}
+              onGoToProfile={() => setActiveTab('profile')}
+              onGoToSettings={() => setActiveTab('settings')}
+            />
+          )}
 
           {activeTab === 'help' && (
             <div className="space-y-6">

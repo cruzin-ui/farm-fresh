@@ -19,6 +19,7 @@ import {
   ShoppingBag,
   CircleHelp,
   Store,
+  Package,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import Photo from '@/components/Photo';
@@ -325,6 +326,13 @@ export default function AccountMenu() {
             )}
           </Link>
           {buyerWaiting > 0 && <p className="px-3 pb-1 -mt-1 text-xs text-gray-500">{buyerWaitingText}</p>}
+          <Link
+            href="/account/csa"
+            role="menuitem"
+            className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
+          >
+            <Package className="w-4 h-4" /> My Farm Shares
+          </Link>
           <Link
             href="/dashboard"
             role="menuitem"

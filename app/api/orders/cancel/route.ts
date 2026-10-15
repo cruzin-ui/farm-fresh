@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
     const { data: listing } = await supabaseAdmin
       .from('produce_listings')
-      .select('title, unit_type, farmer_id, available_quantity')
+      .select('title, unit_type, farmer_id, available_quantity, category')
       .eq('id', order.listing_id)
       .maybeSingle();
 
@@ -127,7 +127,11 @@ export async function POST(request: Request) {
             <p>
               The order for <strong>${quantity} ${escapeHtml(listing.unit_type || 'units')}</strong> of
               <strong>${escapeHtml(listing.title || 'your listing')}</strong> was cancelled by the buyer, so
-              please don't prepare it. The quantity has been put back on your listing.
+              please don't prepare it.${
+                listing.category === 'CSA Box'
+                  ? ' It was a farm share box; their membership carries on as normal.'
+                  : ' The quantity has been put back on your listing.'
+              }
             </p>
             <p>
               ${

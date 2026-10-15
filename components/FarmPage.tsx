@@ -14,6 +14,7 @@ import { describeUsualPickup } from '@/lib/pickupRules';
 import FollowFarmButton from '@/components/FollowFarmButton';
 import FarmAdminPanel from '@/components/FarmAdminPanel';
 import DistanceFromYou from '@/components/DistanceFromYou';
+import FarmCsaPlans from '@/components/FarmCsaPlans';
 
 // A farm's public page: its photo, story, what it has for sale and its reviews.
 // Shown at the farm's own web address (/night-owl-produce) and at its original
@@ -179,6 +180,8 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
           )}
         </div>
       </div>
+
+      <FarmCsaPlans farmId={sellerId} />
 
       {/* Available Produce Section */}
       <div className="mb-12">

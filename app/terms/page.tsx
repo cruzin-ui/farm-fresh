@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { BUYER_FEE_LABEL, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { LEGAL_LAST_UPDATED, OPERATOR_DESCRIPTION } from '@/lib/legal';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
+import { CHARGE_DAYS_BEFORE } from '@/lib/csaSchedule';
 
 export const metadata: Metadata = { title: 'Terms of Use' };
 
@@ -136,8 +137,52 @@ export default function TermsPage() {
           <p className="mt-2">Refunds are returned to your original payment method and can take several business days.</p>
         </section>
 
+        <section id="csa">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">6. Farm shares (CSA) and repeat charges</h2>
+          <p>
+            Some sellers offer a farm share: a box of their produce on a set day, every week or every other week,
+            through a season. You need an account to join one. When you join, you save a card, and you authorize
+            us to charge it for each box, without asking you again each time, until you cancel or the season
+            ends. The amount, how often and when you will be charged are shown before you agree, and we email
+            you a copy.
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5 mt-2">
+            <li>
+              <strong>What you pay.</strong> Each box is charged separately, {CHARGE_DAYS_BEFORE} days before its
+              pickup: the price of the box, the service fee of {BUYER_FEE_LABEL}, and any sales tax. You only pay
+              for boxes you get. The price you joined at stays the same for your membership.
+            </li>
+            <li>
+              <strong>Reminders.</strong> We email you the day before each charge, with what the farm says is in
+              the box and a link to skip it.
+            </li>
+            <li>
+              <strong>Skipping, pausing and cancelling.</strong> Under My Farm Shares you can skip any week,
+              pause, or cancel your membership at any time before a box is charged, at no cost. Cancelling stops
+              all future charges.
+            </li>
+            <li>
+              <strong>Once a box is charged</strong> it is an ordinary order, with a pickup code, and section 5
+              applies to it: you can cancel it free within {FREE_CANCELLATION_HOURS} hours of the charge, and the
+              seller keeps a {NO_SHOW_FEE} restocking fee after that or if you do not collect it. If the seller
+              calls off a week before it is charged, you are not charged for it; if they cancel a box after it is
+              charged, you are refunded in full.
+            </li>
+            <li>
+              <strong>If your card is declined,</strong> we email you and try once more the next day. If that
+              also fails, that box is missed and you are not charged for it. Your card&apos;s bank may update a
+              replaced or expired card for us automatically.
+            </li>
+            <li>
+              <strong>Your card</strong> is stored by our payment processor, Stripe, not by us. You can change it
+              under My Farm Shares at any time. If the seller ends the farm share, or removes you from it, we
+              email you and no further charges are made.
+            </li>
+          </ul>
+        </section>
+
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">6. The products</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">7. The products</h2>
           <p>
             Products are grown, produced and described by the sellers. We do not guarantee their quality,
             safety, legality or fitness for any purpose, or that a listing is accurate. Produce and other foods
@@ -147,7 +192,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">7. Meeting sellers</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">8. Meeting sellers</h2>
           <p>
             Pickups are arranged between you and the seller, and you attend them at your own risk. Meet only at
             the pickup address on your order, and use the same judgment you would when meeting anyone you do
@@ -157,7 +202,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">8. Using the site fairly</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">9. Using the site fairly</h2>
           <p>
             Do not use the site to break the law, to mislead or harass others, to interfere with how the site
             works, or to collect other users&apos; information. Do not pay for, or arrange to pay for, an order
@@ -167,7 +212,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">9. Our responsibility to you</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">10. Our responsibility to you</h2>
           <p>
             The site is provided as it is, without warranties of any kind. To the extent the law allows, Farm
             Fresh Direct is not liable for the acts or omissions of sellers or buyers, for the products sold, or
@@ -177,7 +222,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">10. Changes and governing law</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">11. Changes and governing law</h2>
           <p>
             We may update these terms; the version posted here when you place an order is the one that applies
             to it. These terms are governed by the laws of the State of Arizona.

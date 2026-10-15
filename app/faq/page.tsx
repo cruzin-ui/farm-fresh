@@ -4,6 +4,7 @@ import { HelpCircle } from 'lucide-react';
 import { BUYER_FEE_LABEL, SELLER_KEEPS_PERCENT, PLATFORM_KEEPS_CENTS_PER_DOLLAR, SELLER_FEE_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
+import { CHARGE_DAYS_BEFORE } from '@/lib/csaSchedule';
 
 export const metadata: Metadata = { title: 'FAQ' };
 
@@ -62,6 +63,19 @@ const BUYER_FAQS: Faq[] = [
     question: 'Can I find out when a farm has something new?',
     answer:
       "Yes, with an account. Click Favorite This Farm on a farm's page, a listing or one of your orders, then open Favorite Farms from the My Account menu to see what each of your farms has for sale, with new listings marked. We don't send emails about it.",
+  },
+  {
+    question: 'What is a farm share (CSA)?',
+    answer: `Some farms offer a farm share: a box of whatever is best that week, picked up on a set day every week or every other week through their season. Look for Farm Share on a farm's page. You need an account to join, and you save a card when you do. Each box is charged separately, ${CHARGE_DAYS_BEFORE} days before pickup, at the box price plus the usual ${BUYER_FEE_LABEL} service fee and any sales tax, and you get a pickup code for it like any order. Nothing is charged when you join.`,
+  },
+  {
+    question: 'Can I skip a week or cancel my farm share?',
+    answer: `Yes, online, any time before a box is charged, under My Farm Shares in the My Account menu: skip a single week, pause until you're back, or cancel. There's no fee for any of them. We email you the day before every charge with a link to skip. Once a box is charged it is an ordinary order: you can cancel it free within ${FREE_CANCELLATION_HOURS} hours, and after that the farm keeps a ${NO_SHOW_FEE} restocking fee.`,
+  },
+  {
+    question: 'What happens if my card is declined for a farm share box?',
+    answer:
+      "We email you and try again the next day. Change your card under My Farm Shares and we'll charge the new one straight away. If the second try also fails, that week's box is missed and you aren't charged for it; your membership carries on.",
   },
   {
     question: 'How do I contact the farmer?',
@@ -226,6 +240,10 @@ const SELLER_FAQS: Faq[] = [
     question: 'What do I get besides a place to list?',
     answer:
       'Three things beyond the sale itself. A storefront: your farm has its own page with your photo, story, growing practices, current listings and reviews, and a link you can share anywhere. Regular customers: buyers can favorite your farm to see what you post next, and reviews from real pickups build trust with new ones. Records: every order, pickup, cancellation and payout is kept in your Sales History, and your dashboard charts your earnings by week and by crop.',
+  },
+  {
+    question: 'Can I run a farm share (CSA)?',
+    answer: `Yes. Open Farm Shares (CSA) in your Seller Dashboard and set the box price, pickup day, how often, season dates and, if you like, a member limit. It appears on your farm page, where buyers join with a saved card. Each box is charged ${CHARGE_DAYS_BEFORE} days before pickup and arrives in your Orders and Pick List like any order, with the same ${SELLER_FEE} seller fee, and you're paid when the member collects it. Each week you can add a note on what's in the box, which members get in their reminder email, or call a week off before it's charged.`,
   },
   {
     question: 'What does it cost to sell?',

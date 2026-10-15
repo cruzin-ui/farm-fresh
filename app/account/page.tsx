@@ -178,6 +178,19 @@ export default function AccountPage() {
         </div>
       )}
 
+      <Link
+        href="/account/csa"
+        className="flex items-center justify-between gap-3 bg-white border border-gray-200 rounded-2xl shadow-sm p-5 hover:border-emerald-300"
+      >
+        <span>
+          <span className="block text-lg font-bold text-gray-900">My Farm Shares</span>
+          <span className="block text-xs text-gray-600 mt-0.5">
+            Your CSA boxes: skip a week, pause, cancel, or change the card they're charged to.
+          </span>
+        </span>
+        <span className="text-sm font-semibold text-emerald-800" aria-hidden="true">→</span>
+      </Link>
+
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-5">
         <div>
           <h2 className="text-lg font-bold text-gray-900">Profile picture</h2>

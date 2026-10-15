@@ -22,9 +22,11 @@ import {
   Ban,
   History,
   ChevronDown,
+  Package,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
+import AdminCsa from '@/components/AdminCsa';
 
 type AdminSeller = {
   farmer_id: string;
@@ -204,7 +206,8 @@ type AdminSection =
   | 'reports'
   | 'blocks'
   | 'activity'
-  | 'insights';
+  | 'insights'
+  | 'csa';
 
 type AdminListing = {
   id: string;
@@ -899,6 +902,7 @@ export default function AdminPage() {
     { id: 'all', label: 'All orders', icon: Archive },
     { id: 'messages', label: 'Messages', icon: Mail, count: openMessages.length, urgent: true },
     { id: 'listings', label: 'Listings', icon: Store },
+    { id: 'csa', label: 'Farm shares (CSA)', icon: Package },
     { id: 'sellers', label: 'Sellers', icon: Users, count: flaggedSellers.length, urgent: true },
     { id: 'buyers', label: 'Buyers', icon: ShoppingBasket, count: flaggedBuyers.length, urgent: true },
     { id: 'reviews', label: 'Reviews', icon: Star },
@@ -2194,6 +2198,9 @@ export default function AdminPage() {
                 </div>
               );
             })()}
+
+          {/* FARM SHARES */}
+          {section === 'csa' && <AdminCsa />}
 
           {/* SUSPENDED & BLOCKED */}
           {section === 'blocks' && (

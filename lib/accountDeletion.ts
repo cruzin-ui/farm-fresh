@@ -1,5 +1,7 @@
 import type { User } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { stripeAdmin } from '@/lib/stripeAdmin';
+import { cancelMembership, liveMembersOf, type CsaMember, type CsaPlan } from '@/lib/csa';
 
 // SERVER-ONLY. Deleting a user's own account, which they can do from the
 // Account Settings page (and which the app stores require).
@@ -86,6 +88,37 @@ export async function deleteAccount(user: User) {
     if (error) throw error;
   }
   await supabaseAdmin.from('listing_pickup_addresses').delete().eq('farmer_id', userId);
+
+  // Farm shares. As a farm: every share ends and its members are told. As a
+  // member: memberships are cancelled, and the saved cards are removed from
+  // Stripe along with the Stripe customer that held them.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.farmfreshdirect.online';
+  const { data: ownPlans } = await supabaseAdmin.from('csa_plans').select('*').eq('farmer_id', userId).neq('status', 'ended');
+  for (const plan of (ownPlans || []) as CsaPlan[]) {
+    await supabaseAdmin.from('csa_plans').update({ status: 'ended', updated_at: new Date().toISOString() }).eq('id', plan.id);
+    for (const member of await liveMembersOf(plan.id)) {
+      await cancelMembership({ member, plan, reason: 'The farm has closed its account.', by: 'farm', siteUrl });
+    }
+  }
+  const { data: memberships } = await supabaseAdmin.from('csa_members').select('*').eq('buyer_id', userId).neq('status', 'cancelled');
+  for (const member of (memberships || []) as CsaMember[]) {
+    const { data: plan } = await supabaseAdmin.from('csa_plans').select('*').eq('id', member.plan_id).single();
+    if (plan) await cancelMembership({ member, plan: plan as CsaPlan, reason: 'Account deleted.', by: 'account_deleted', siteUrl });
+  }
+  await supabaseAdmin.from('csa_members').update({ buyer_id: null }).eq('buyer_id', userId);
+  const { data: customer } = await supabaseAdmin
+    .from('buyer_stripe_customers')
+    .select('stripe_customer_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (customer?.stripe_customer_id) {
+    try {
+      await stripeAdmin.customers.del(customer.stripe_customer_id);
+    } catch (err: any) {
+      if (err?.code !== 'resource_missing') throw err;
+    }
+    await supabaseAdmin.from('buyer_stripe_customers').delete().eq('user_id', userId);
+  }
 
   // Favorites, both ways.
   await supabaseAdmin.from('farm_follows').delete().eq('user_id', userId);
