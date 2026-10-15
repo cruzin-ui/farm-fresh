@@ -51,7 +51,7 @@ export default function PrivacyPolicyPage() {
             </li>
             <li>
               <strong>Payment information.</strong> Card details are entered directly with our payment
-              processor, Stripe. We do not receive or store your full card number. If you join a farm share,
+              processor, Stripe. We do not receive or store your full card number. If you sign up for a Farm Box,
               Stripe saves your card so each box can be charged; we keep only Stripe&apos;s reference to it and a
               label such as &quot;Visa ending 4242&quot;, and the saved card is deleted if you delete your
               account. Sellers give Stripe the

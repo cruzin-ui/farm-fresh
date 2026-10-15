@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { SELLER_FEE_RATE } from '@/lib/pricing';
 import { calculateCartTax, TaxError } from '@/lib/tax';
 import { recordOrderForPaymentIntent } from '@/lib/orders';
+import { refundOrderQuantity } from '@/lib/orderActions';
 import { isBuyerBlocked, isSellerSuspended } from '@/lib/accountBlocks';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { alertAdmin } from '@/lib/alerts';
@@ -11,13 +12,16 @@ import { zipFromAddress } from '@/lib/checkoutCart';
 import { boxCostCents } from '@/lib/csaTerms';
 import {
   CSA_BOX_CATEGORY,
+  CHARGE_DAYS_BEFORE,
   addDays,
+  boxDates,
   chargeDateFor,
   formatBoxDate,
+  memberGetsBox,
   todayInArizona,
 } from '@/lib/csaSchedule';
 
-// SERVER-ONLY. CSA farm shares: saved cards, and charging each box.
+// SERVER-ONLY. CSA Farm Boxes: saved cards, and charging each box.
 //
 // A member's card is saved with Stripe when they join (a SetupIntent, made
 // for charging later without them present). Before each pickup the daily job
@@ -509,4 +513,116 @@ export async function cancelMembership(params: {
       `<p>${escapeHtml(maskEmail(member.buyer_email))} has left <strong>${escapeHtml(plan.name)}</strong>. Boxes they've already paid for still appear in your orders as usual.</p>`
     );
   }
+}
+
+// ---------- buying just one box ----------
+
+// When a box for this date must be ready: the end of its pickup day. Box
+// orders are saved with this as their ready-by time.
+export function boxReadyBy(boxDate: string) {
+  return new Date(`${boxDate}T23:59:00-07:00`);
+}
+
+// One-off boxes bought for each of these dates (not counting members' boxes),
+// still going ahead.
+export async function singleBoxCounts(plan: Pick<CsaPlan, 'id' | 'listing_id'>, dates: string[]) {
+  const counts = new Map<string, number>(dates.map((d) => [d, 0]));
+  if (dates.length === 0) return counts;
+  const { data: orders } = await supabaseAdmin
+    .from('orders')
+    .select('id, ready_by')
+    .eq('listing_id', plan.listing_id)
+    .neq('status', 'cancelled')
+    .in('ready_by', dates.map((d) => boxReadyBy(d).toISOString()));
+  const { data: memberBoxes } = await supabaseAdmin
+    .from('csa_boxes')
+    .select('order_id')
+    .eq('plan_id', plan.id)
+    .in('box_date', dates)
+    .not('order_id', 'is', null);
+  const memberOrderIds = new Set((memberBoxes || []).map((b) => b.order_id));
+  for (const order of orders || []) {
+    if (memberOrderIds.has(order.id)) continue;
+    const date = todayInArizona(new Date(order.ready_by));
+    if (counts.has(date)) counts.set(date, (counts.get(date) || 0) + 1);
+  }
+  return counts;
+}
+
+// The box someone buying just one would get: the next pickup the farm hasn't
+// charged for yet, isn't skipping, and still has room in. Or why there isn't one.
+export async function nextSingleBox(plan: CsaPlan): Promise<{ boxDate: string } | { problem: string }> {
+  if (plan.status !== 'open') return { problem: 'This Farm Box isn’t taking orders right now.' };
+  if (await farmCantSell(plan.farmer_id)) return { problem: 'This farm isn’t taking orders just yet.' };
+
+  const today = todayInArizona();
+  const dates = boxDates(plan, addDays(today, CHARGE_DAYS_BEFORE), 8);
+  const { data: weeks } = dates.length
+    ? await supabaseAdmin.from('csa_box_weeks').select('box_date, skipped').eq('plan_id', plan.id).in('box_date', dates)
+    : { data: [] as any[] };
+  const skipped = new Set((weeks || []).filter((w) => w.skipped).map((w) => w.box_date));
+
+  const members = plan.max_members == null ? [] : await liveMembersOf(plan.id);
+  const singles = plan.max_members == null ? new Map<string, number>() : await singleBoxCounts(plan, dates);
+
+  for (const boxDate of dates) {
+    if (skipped.has(boxDate)) continue;
+    if (plan.max_members != null) {
+      const { data: skips } = await supabaseAdmin
+        .from('csa_boxes')
+        .select('member_id')
+        .eq('plan_id', plan.id)
+        .eq('box_date', boxDate)
+        .in('status', ['skipped', 'farm_skipped']);
+      const skippers = new Set((skips || []).map((s) => s.member_id));
+      const memberBoxes = members.filter(
+        (m) => m.status === 'active' && memberGetsBox(m.created_at, boxDate) && !skippers.has(m.id)
+      ).length;
+      if (memberBoxes + (singles.get(boxDate) || 0) >= plan.max_members) continue;
+    }
+    return { boxDate };
+  }
+  return { problem: dates.length ? 'There are no boxes left to buy right now.' : 'There are no pickups left this season.' };
+}
+
+// What one box costs bought on its own, tax included.
+export async function singleBoxPrice(plan: CsaPlan) {
+  const cost = boxCostCents(plan.price_cents);
+  const tax = await calculateCartTax([
+    { category: CSA_BOX_CATEGORY, pickupZip: await pickupZipFor(plan), subtotalCents: cost.priceCents, feeCents: cost.feeCents },
+  ]);
+  return { ...cost, taxCents: tax.taxCents, totalCents: cost.totalCents + tax.taxCents, calculationId: tax.calculationId };
+}
+
+// When a farm calls a week off: one-off boxes already bought for it are
+// cancelled and refunded in full, and their buyers emailed. Members' boxes for
+// that week haven't been charged yet, so there is nothing to refund for them.
+export async function refundSingleBoxes(plan: CsaPlan, boxDate: string, reason: string) {
+  const { data: orders } = await supabaseAdmin
+    .from('orders')
+    .select('*')
+    .eq('listing_id', plan.listing_id)
+    .in('status', ['pending_pickup', 'ready_for_pickup'])
+    .eq('ready_by', boxReadyBy(boxDate).toISOString());
+  const { data: listing } = await supabaseAdmin
+    .from('produce_listings')
+    .select('title, unit_type, available_quantity')
+    .eq('id', plan.listing_id)
+    .single();
+  let refunded = 0;
+  for (const order of orders || []) {
+    try {
+      await refundOrderQuantity({
+        order,
+        listing: listing || {},
+        newQuantity: 0,
+        reason: 'seller',
+        note: `The farm has called off its Farm Box for ${formatBoxDate(boxDate, { long: true })}: ${reason}`,
+      });
+      refunded += 1;
+    } catch (err) {
+      await alertAdmin('refunding a one-off Farm Box for a week the farm called off', err, { order: order.id });
+    }
+  }
+  return refunded;
 }

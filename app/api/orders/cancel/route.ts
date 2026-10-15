@@ -129,7 +129,7 @@ export async function POST(request: Request) {
               <strong>${escapeHtml(listing.title || 'your listing')}</strong> was cancelled by the buyer, so
               please don't prepare it.${
                 listing.category === 'CSA Box'
-                  ? ' It was a farm share box; their membership carries on as normal.'
+                  ? ' It was a Farm Box; their membership carries on as normal.'
                   : ' The quantity has been put back on your listing.'
               }
             </p>

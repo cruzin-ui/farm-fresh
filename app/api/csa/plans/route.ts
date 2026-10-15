@@ -65,9 +65,9 @@ export async function POST(request: Request) {
         // Why it can't be joined right now, or null when it can.
         closedReason:
           plan.status !== 'open'
-            ? 'This farm share isn’t taking new members right now.'
+            ? 'This Farm Box isn’t taking new members right now.'
             : spotsLeft === 0
-              ? 'This farm share is full.'
+              ? 'This Farm Box is full.'
               : !firstBox
                 ? 'There are no pickups left this season.'
                 : cantSell
@@ -80,6 +80,6 @@ export async function POST(request: Request) {
   } catch (err: any) {
     console.error('csa plans error:', err);
     await alertAdmin('CSA plans', err);
-    return NextResponse.json({ error: 'Could not load farm shares.' }, { status: 500 });
+    return NextResponse.json({ error: 'Could not load Farm Boxes.' }, { status: 500 });
   }
 }
