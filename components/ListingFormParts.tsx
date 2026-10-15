@@ -14,37 +14,6 @@ import {
 // Pieces of the listing form shared by posting a new listing (step by step)
 // and editing one (the single-page form in the Seller Dashboard).
 
-export const UNIT_TYPE_OPTIONS = [
-  { value: 'lbs', label: 'lbs (Pounds)' },
-  { value: 'oz', label: 'oz (Ounces)' },
-  { value: 'kg', label: 'kg (Kilograms)' },
-  { value: 'units', label: 'Units (each, e.g. per pumpkin)' },
-  { value: 'plants', label: 'Plants (each)' },
-  { value: 'pots', label: 'Pots' },
-  { value: 'dozen', label: 'Dozen' },
-  { value: 'bunches', label: 'Bunches' },
-  { value: 'bouquets', label: 'Bouquets' },
-  { value: 'stems', label: 'Stems' },
-  { value: 'bags', label: 'Bags' },
-  { value: 'flats', label: 'Flats' },
-  { value: 'pints', label: 'Pints' },
-  { value: 'quarts', label: 'Quarts' },
-  { value: 'jars', label: 'Jars' },
-  { value: 'packets', label: 'Packets' },
-];
-
-// The unit each category is usually sold in, to start new listings from.
-export const USUAL_UNIT: Record<string, string> = {
-  Vegetables: 'lbs',
-  'Fruits & Berries': 'lbs',
-  'Herbs & Spices': 'bunches',
-  Mushrooms: 'lbs',
-  'Honey & Jam': 'jars',
-  'Fresh Eggs': 'dozen',
-  'Cut Flowers': 'bunches',
-  [PLANTS_CATEGORY]: 'plants',
-};
-
 const noteClass = 'p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950';
 
 // What a seller needs to know about a category before listing in it.

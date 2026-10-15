@@ -9,6 +9,7 @@ import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { geocodeZip } from '@/lib/geo';
 import { cleanPlantFields } from '@/lib/plantFields';
+import { isAllowedUnit, unitRuleText, usualUnit } from '@/lib/units';
 import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
@@ -65,6 +66,11 @@ export async function POST(request: Request) {
     }
     if (!isAllowedCategory(fields.category)) {
       return NextResponse.json({ error: `Choose one of the listed categories. ${PRODUCE_ONLY_NOTICE}` }, { status: 400 });
+    }
+
+    const unitType = typeof fields.unit_type === 'string' && fields.unit_type ? fields.unit_type : usualUnit(fields.category);
+    if (!isAllowedUnit(fields.category, unitType)) {
+      return NextResponse.json({ error: unitRuleText(fields.category) }, { status: 400 });
     }
 
     // Pot size, sun, water and native, for Plants & Seedlings only.
@@ -130,7 +136,7 @@ export async function POST(request: Request) {
           variety,
           category: fields.category,
           description: typeof fields.description === 'string' ? fields.description : '',
-          unit_type: typeof fields.unit_type === 'string' ? fields.unit_type : 'lbs',
+          unit_type: unitType,
           price_per_unit: price,
           available_quantity: quantity,
           harvest_ready_date: fields.harvest_ready_date,
