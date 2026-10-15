@@ -268,6 +268,10 @@ export default function SellerDashboardPage() {
   // what is in the Farm Profile form. Every listing is picked up there.
   const [farmPickup, setFarmPickup] = useState<{ address: string; zip: string; city: string } | null>(null);
   const [farmPickupLoaded, setFarmPickupLoaded] = useState(false);
+  // The Farm Profile as last saved (see profileSnapshot), recorded on the
+  // render after a save so it includes the uploaded photos' new addresses.
+  const [savedProfileSnapshot, setSavedProfileSnapshot] = useState<string | null>(null);
+  const [profileSavePending, setProfileSavePending] = useState(false);
   const [profileAddress, setProfileAddress] = useState('');
   const [profileAddressVerified, setProfileAddressVerified] = useState(false);
   const [growingPractices, setGrowingPractices] = useState('No Synthetic Pesticides');
@@ -326,6 +330,13 @@ export default function SellerDashboardPage() {
   useEffect(() => {
     fetchDashboardData();
   }, [router]);
+
+  useEffect(() => {
+    if (!profileSavePending) return;
+    setSavedProfileSnapshot(profileSnapshot);
+    setProfileSavePending(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileSavePending]);
 
   useEffect(() => {
     let cancelled = false;
@@ -997,6 +1008,24 @@ export default function SellerDashboardPage() {
     }
   };
 
+  // Everything the Farm Profile form saves, so its button can say "Saved"
+  // until something is changed again.
+  const profileSnapshot = JSON.stringify([
+    farmName,
+    bio,
+    profileLocation,
+    profileZip,
+    profileAddress,
+    growingPractices,
+    usualDays,
+    usualTimes,
+    avatarUrl,
+    coverUrl,
+    Boolean(avatarFile),
+    Boolean(coverFile),
+  ]);
+  const profileSaved = savedProfileSnapshot === profileSnapshot;
+
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -1100,6 +1129,7 @@ export default function SellerDashboardPage() {
       setAvatarPreviewUrl(null);
       setCoverFile(null);
       setCoverPreviewUrl(null);
+      setProfileSavePending(true);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to update farm profile.');
     } finally {
@@ -3554,10 +3584,14 @@ export default function SellerDashboardPage() {
 
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl text-sm transition-colors shadow-md disabled:bg-gray-400"
+                disabled={loading || profileSaved}
+                className={`w-full font-semibold py-3 px-6 rounded-xl text-sm transition-colors ${
+                  profileSaved
+                    ? 'bg-gray-200 text-gray-600 cursor-default'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md disabled:bg-gray-400'
+                }`}
               >
-                {loading ? 'Saving Profile...' : 'Save Profile & Branding'}
+                {loading ? 'Saving Profile...' : profileSaved ? '✓ Saved' : 'Save Profile & Branding'}
               </button>
             </form>
           )}
