@@ -12,7 +12,8 @@ import OrderMessages from '@/components/OrderMessages';
 import PickList from '@/components/PickList';
 import SellerCsa from '@/components/SellerCsa';
 import NewListingWizard from '@/components/NewListingWizard';
-import { CategoryNotice, PlantFields, HighlightsPicker, UNIT_TYPE_OPTIONS } from '@/components/ListingFormParts';
+import { CategoryNotice, PlantFields, HighlightsPicker } from '@/components/ListingFormParts';
+import { unitOptionsFor, isAllowedUnit, usualUnit, unitSingular } from '@/lib/units';
 import { CSA_BOX_CATEGORY } from '@/lib/csaSchedule';
 import { tidyFarmAddress, farmAddressProblem, FARM_ADDRESS_MAX } from '@/lib/farmAddress';
 import { SELLER_CHANGE_REASONS, LISTING_ACTIONS, type ListingAction } from '@/lib/sellerChangeReasons';
@@ -1928,10 +1929,8 @@ export default function SellerDashboardPage() {
                         onChange={(e) => {
                           const next = e.target.value;
                           setCategory(next);
-                          // Start from the unit these are usually sold in, if the unit hasn't been chosen yet.
-                          if (unitType === 'lbs' && next === 'Fresh Eggs') setUnitType('dozen');
-                          if (unitType === 'lbs' && next === 'Cut Flowers') setUnitType('bunches');
-                          if (unitType === 'lbs' && next === PLANTS_CATEGORY) setUnitType('plants');
+                          // Keep the unit only if it suits the new category; otherwise use its usual one.
+                          if (!isAllowedUnit(next, unitType)) setUnitType(usualUnit(next));
                         }}
                         disabled={identityLocked}
                         className="w-full px-4 py-2 border rounded-lg text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500"
@@ -1994,7 +1993,7 @@ export default function SellerDashboardPage() {
                         disabled={identityLocked}
                         className="w-full px-3 py-2 border rounded-lg text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500"
                       >
-                        {UNIT_TYPE_OPTIONS.map((opt) => (
+                        {unitOptionsFor(category, unitType).map((opt) => (
                           <option key={opt.value} value={opt.value}>
                             {opt.label}
                           </option>
@@ -2004,7 +2003,7 @@ export default function SellerDashboardPage() {
 
                     <div>
                       <label htmlFor="dash-price-per" className="block text-xs font-semibold text-gray-700 mb-1">
-                        Price per {unitType} ($) *
+                        Price per {unitSingular(unitType)} ($) *
                       </label>
                       <input id="dash-price-per"
                         type="number"

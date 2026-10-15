@@ -4,6 +4,7 @@ import { getRequestUser } from '@/lib/apiAuth';
 import { checkListingAllowed } from '@/lib/listingRules';
 import { cleanListingTags } from '@/lib/listingTags';
 import { cleanPlantFields } from '@/lib/plantFields';
+import { isAllowedUnit, unitRuleText } from '@/lib/units';
 import { getFarmPickup } from '@/lib/farmPickupAddress';
 import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { alertAdmin } from '@/lib/alerts';
@@ -77,6 +78,13 @@ export async function POST(request: Request) {
 
     if (!title) {
       return NextResponse.json({ error: 'A name is required.' }, { status: 400 });
+    }
+
+    // Only checked when the category or unit changes, so an older listing in
+    // a unit that's no longer offered can still have its price or amount
+    // updated.
+    if ((category !== listing.category || unitType !== listing.unit_type) && !isAllowedUnit(category, unitType)) {
+      return NextResponse.json({ error: unitRuleText(category) }, { status: 400 });
     }
 
     const identity: Record<(typeof IDENTITY_FIELDS)[number], unknown> = {

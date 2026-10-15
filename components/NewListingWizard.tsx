@@ -10,7 +10,8 @@ import { PLANTS_CATEGORY, plantDetailLabels } from '@/lib/plants';
 import { SELLER_FEE_RATE } from '@/lib/pricing';
 import { pickupAvailability, friendlyDate } from '@/lib/dates';
 import { CARD_LISTING_TAGS } from '@/lib/listingTags';
-import { CategoryNotice, PlantFields, HighlightsPicker, UNIT_TYPE_OPTIONS, USUAL_UNIT } from '@/components/ListingFormParts';
+import { CategoryNotice, PlantFields, HighlightsPicker } from '@/components/ListingFormParts';
+import { unitOptionsFor, usualUnit, unitSingular } from '@/lib/units';
 
 // Posting a new listing one question at a time, so it works well on a phone:
 // category, name, photo, price, when, extras, then a preview to check before
@@ -154,7 +155,7 @@ export default function NewListingWizard({
   const reuse = (previous: any) => {
     set({
       variety: previous.variety || '',
-      unitType: previous.unit_type || d.unitType,
+      unitType: unitOptionsFor(d.category).some((o) => o.value === previous.unit_type) ? previous.unit_type : d.unitType,
       price: previous.price_per_unit != null ? String(previous.price_per_unit) : '',
       description: previous.description || '',
       tags: Array.isArray(previous.tags) ? previous.tags : [],
@@ -342,7 +343,7 @@ export default function NewListingWizard({
                       // A new category starts from its usual unit, and plant details only belong to plants.
                       set({
                         category: cat,
-                        unitType: USUAL_UNIT[cat] || 'lbs',
+                        unitType: usualUnit(cat),
                         ...(cat !== PLANTS_CATEGORY ? { potSize: '', sunNeeds: '', waterNeeds: '', isNative: false } : {}),
                       });
                       setError(null);
@@ -478,7 +479,7 @@ export default function NewListingWizard({
             <div>
               {label('Sold by', 'wiz-unit')}
               <select id="wiz-unit" value={d.unitType} onChange={(e) => set({ unitType: e.target.value })} className={`${input} bg-white`}>
-                {UNIT_TYPE_OPTIONS.map((opt) => (
+                {unitOptionsFor(d.category).map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
@@ -487,7 +488,7 @@ export default function NewListingWizard({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                {label(`Price per ${d.unitType} ($)`, 'wiz-price')}
+                {label(`Price per ${unitSingular(d.unitType)} ($)`, 'wiz-price')}
                 <input
                   id="wiz-price"
                   type="number"
@@ -501,7 +502,7 @@ export default function NewListingWizard({
                 />
               </div>
               <div>
-                {label(`How many ${d.unitType}?`, 'wiz-quantity')}
+                {label(d.unitType === 'units' ? 'How many?' : `How many ${d.unitType}?`, 'wiz-quantity')}
                 <input
                   id="wiz-quantity"
                   type="number"
@@ -518,7 +519,7 @@ export default function NewListingWizard({
             <p className="text-sm text-gray-700 bg-gray-50 border rounded-xl p-3">
               {keepsPerUnit !== null ? (
                 <>
-                  You keep <strong>${keepsPerUnit.toFixed(2)}</strong> per {d.unitType} ({Math.round((1 - SELLER_FEE_RATE) * 100)}%).
+                  You keep <strong>${keepsPerUnit.toFixed(2)}</strong> per {unitSingular(d.unitType)} ({Math.round((1 - SELLER_FEE_RATE) * 100)}%).
                 </>
               ) : (
                 <>You keep {Math.round((1 - SELLER_FEE_RATE) * 100)}% of the price.</>
