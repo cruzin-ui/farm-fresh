@@ -135,6 +135,8 @@ export default function SellerCsa({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // Weeks whose note was just saved: their button says "Saved" until edited.
+  const [savedNotes, setSavedNotes] = useState<Set<string>>(new Set());
   const [reasonFor, setReasonFor] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [openMembers, setOpenMembers] = useState<string | null>(null);
@@ -533,10 +535,13 @@ export default function SellerCsa({
                           />
                           <button
                             disabled={busy !== null || draft === week.note}
-                            onClick={() => call({ action: 'save_week', planId: plan.id, boxDate: week.date, note: draft }, key, 'Box note saved.')}
+                            onClick={async () => {
+                              const json = await call({ action: 'save_week', planId: plan.id, boxDate: week.date, note: draft }, key, 'Box note saved.');
+                              if (json) setSavedNotes((current) => new Set(current).add(key));
+                            }}
                             className="px-3 py-2 text-xs font-semibold border border-gray-300 rounded-lg disabled:opacity-50"
                           >
-                            Save note
+                            {busy === key ? 'Saving…' : savedNotes.has(key) && draft === week.note ? '✓ Saved' : 'Save note'}
                           </button>
                         </div>
                         {week.canChange &&

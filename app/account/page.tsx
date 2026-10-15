@@ -25,6 +25,9 @@ export default function AccountPage() {
   const [name, setName] = useState('');
   const [savedName, setSavedName] = useState('');
   const [savingName, setSavingName] = useState(false);
+  // True once the name has been saved this visit: the button then says
+  // "Saved" until the name is changed again.
+  const [nameSaved, setNameSaved] = useState(false);
   const [usingCamera, setUsingCamera] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -101,6 +104,7 @@ export default function AccountPage() {
     }
     setName(result.name);
     setSavedName(result.name);
+    setNameSaved(true);
     setSuccessMsg(result.name ? 'Name saved. Farmers will see it on your new orders.' : 'Name removed.');
   };
 
@@ -244,9 +248,13 @@ export default function AccountPage() {
           <button
             type="submit"
             disabled={savingName || name.trim() === savedName}
-            className="shrink-0 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-bold rounded-lg text-sm"
+            className={`shrink-0 px-4 py-2.5 font-bold rounded-lg text-sm ${
+              nameSaved && name.trim() === savedName
+                ? 'bg-gray-200 text-gray-600 cursor-default'
+                : 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white'
+            }`}
           >
-            {savingName ? 'Saving…' : 'Save'}
+            {savingName ? 'Saving…' : nameSaved && name.trim() === savedName ? '✓ Saved' : 'Save'}
           </button>
         </div>
       </form>
