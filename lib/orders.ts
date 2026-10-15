@@ -11,6 +11,7 @@ import { orderRef } from '@/lib/pickupGroups';
 import { watchNewSellerOrder } from '@/lib/fraudWatch';
 import { bumpDailyCount } from '@/lib/dailyCounts';
 import { formatBoxDate } from '@/lib/csaSchedule';
+import { BUYER_NAME_KEY, usableBuyerName } from '@/lib/buyerName';
 
 // One item of a checkout, as saved on the payment by /api/checkout.
 type CheckoutLine = {
@@ -79,13 +80,15 @@ async function sendSellerNotification(params: {
   sellerEmail: string;
   items: { quantity: number; unitType: string; title: string; subtotalCents: number; readyBy: string }[];
   buyerEmail: string | null;
+  // The buyer's name, if they gave one.
+  buyerName?: string | null;
   orderNumber: string;
   // Set for a CSA box: its pickup date.
   csaBoxDate?: string | null;
   // True for a Farm Box bought on its own rather than by a member.
   csaSingle?: boolean;
 }) {
-  const { sellerEmail, items, orderNumber, csaBoxDate, csaSingle } = params;
+  const { sellerEmail, items, orderNumber, csaBoxDate, csaSingle, buyerName } = params;
   const itemTotal = items.reduce((sum, item) => sum + item.subtotalCents, 0) / 100;
 
   await sendEmail({
@@ -98,6 +101,7 @@ async function sendSellerNotification(params: {
     html: `
       <div style="font-family: sans-serif; max-width: 480px;">
         <h2 style="color: #059669;">${csaBoxDate ? `${csaSingle ? 'A one-off Farm Box' : "A member's box"} for ${formatBoxDate(csaBoxDate, { long: true })} is paid` : "You've got a new reservation!"}</h2>
+        ${buyerName ? `<p style="font-size: 16px;">For: <strong>${escapeHtml(buyerName)}</strong></p>` : ''}
         <p>Order number: <strong style="font-family: monospace; font-size: 16px;">${orderNumber}</strong> (the buyer has the same number, so you can match them to their bag at pickup)</p>
         <ul>${items.map((item) => `<li><strong>${itemText(item)}</strong> — mark it ready by <strong>${item.readyBy}</strong></li>`).join('')}</ul>
         <p>Need to reach the buyer? Use <strong>Message Buyer</strong> on the order in your Seller Dashboard.</p>
@@ -253,9 +257,13 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
   const sellerFeeRate = Number(paymentIntent.metadata.seller_fee_rate) || 0;
 
   let buyerEmail: string | null = paymentIntent.metadata.buyer_email || null;
+  // The name the farmer sees: from checkout, or (for Farm Boxes, charged
+  // without the buyer there) the name on their account.
+  let buyerName: string | null = usableBuyerName(paymentIntent.metadata.buyer_name);
   if (buyerId) {
     const { data: buyerUser } = await supabaseAdmin.auth.admin.getUserById(buyerId);
     buyerEmail = buyerUser?.user?.email || buyerEmail;
+    if (!paymentIntent.metadata.buyer_name) buyerName = usableBuyerName(buyerUser?.user?.user_metadata?.[BUYER_NAME_KEY]);
   }
 
   // Each listing's pickup address is copied for its order now, so later edits
@@ -290,6 +298,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
           ...(line.taxCalculationId ? { tax_line_index: lineIndex } : {}),
           buyer_id: buyerId,
           buyer_email: buyerEmail,
+          ...(buyerName ? { buyer_name: buyerName } : {}),
           checkout_id: checkoutId,
           ready_by: readyByFor(line.listingId).toISOString(),
           listing_id: line.listingId,
@@ -472,7 +481,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     if (sellerLookupError) {
       console.error('Failed to look up seller email:', sellerLookupError);
     } else if (sellerUser?.user?.email) {
-      await sendSellerNotification({ sellerEmail: sellerUser.user.email, items: farm.items, buyerEmail, orderNumber, csaBoxDate, csaSingle });
+      await sendSellerNotification({ sellerEmail: sellerUser.user.email, items: farm.items, buyerEmail, buyerName, orderNumber, csaBoxDate, csaSingle });
     }
 
     // Tells an admin when a seller who has only just joined gets a large

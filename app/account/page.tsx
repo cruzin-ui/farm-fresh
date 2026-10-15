@@ -7,6 +7,7 @@ import { CircleUser, Upload, Camera, Trash2, ArrowLeft, CheckCircle2, AlertCircl
 import { supabase } from '@/lib/supabaseClient';
 import { resizeImage } from '@/lib/resizeImage';
 import { PROFILE_PHOTO_KEY } from '@/lib/accountEvents';
+import { BUYER_NAME_KEY, BUYER_NAME_MAX, cleanBuyerName } from '@/lib/buyerName';
 import CameraCapture from '@/components/CameraCapture';
 import { postWithAuth } from '@/lib/authedFetch';
 
@@ -20,6 +21,10 @@ export default function AccountPage() {
   const [userId, setUserId] = useState('');
   const [email, setEmail] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  // The optional name farmers see on this buyer's orders.
+  const [name, setName] = useState('');
+  const [savedName, setSavedName] = useState('');
+  const [savingName, setSavingName] = useState(false);
   const [usingCamera, setUsingCamera] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -71,9 +76,33 @@ export default function AccountPage() {
       setUserId(session.user.id);
       setEmail(session.user.email || '');
       setPhotoUrl((session.user.user_metadata?.[PROFILE_PHOTO_KEY] as string) || null);
+      const existingName = (session.user.user_metadata?.[BUYER_NAME_KEY] as string) || '';
+      setName(existingName);
+      setSavedName(existingName);
       setLoading(false);
     });
   }, [router]);
+
+  const saveName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuccessMsg(null);
+    setErrorMsg(null);
+    const result = cleanBuyerName(name);
+    if ('error' in result) {
+      setErrorMsg(result.error);
+      return;
+    }
+    setSavingName(true);
+    const { error } = await supabase.auth.updateUser({ data: { [BUYER_NAME_KEY]: result.name || null } });
+    setSavingName(false);
+    if (error) {
+      setErrorMsg('Your name could not be saved. Please try again.');
+      return;
+    }
+    setName(result.name);
+    setSavedName(result.name);
+    setSuccessMsg(result.name ? 'Name saved. Farmers will see it on your new orders.' : 'Name removed.');
+  };
 
   // Saves the address of the picture (or nothing, to remove it) on the user's
   // sign-in record. The account button in the header picks the change up by
@@ -190,6 +219,37 @@ export default function AccountPage() {
         </span>
         <span className="text-sm font-semibold text-emerald-800" aria-hidden="true">→</span>
       </Link>
+
+      <form onSubmit={saveName} className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-3">
+        <div>
+          <label htmlFor="account-name" className="text-lg font-bold text-gray-900">
+            Your name <span className="text-sm font-normal text-gray-500">(optional)</span>
+          </label>
+          <p className="text-xs text-gray-600 mt-0.5">
+            Farmers you buy from see it on your orders, so they can put your name on your bag and know who&apos;s
+            collecting.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <input
+            id="account-name"
+            type="text"
+            autoComplete="name"
+            maxLength={BUYER_NAME_MAX}
+            placeholder="e.g., Jane Smith"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="flex-1 min-w-0 px-4 py-2.5 border rounded-lg text-sm"
+          />
+          <button
+            type="submit"
+            disabled={savingName || name.trim() === savedName}
+            className="shrink-0 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-bold rounded-lg text-sm"
+          >
+            {savingName ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </form>
 
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-5">
         <div>

@@ -2276,6 +2276,9 @@ export default function SellerDashboardPage() {
                           <span className="text-xs text-gray-500">
                             Order <span className="font-mono font-bold text-gray-700">{orderRef(items[0])}</span>
                           </span>
+                          {items[0].buyer_name && (
+                            <span className="text-sm font-bold text-gray-900">for {items[0].buyer_name}</span>
+                          )}
                         </div>
 
                         {several ? (
@@ -3149,7 +3152,11 @@ export default function SellerDashboardPage() {
                           </span>
                         </h4>
                         <p className="text-xs text-gray-600 break-all">
-                          Buyer: <span className="font-semibold">{order.buyer_email || 'Unknown'}</span>
+                          Buyer:{' '}
+                          <span className="font-semibold">
+                            {order.buyer_name ? `${order.buyer_name} · ` : ''}
+                            {order.buyer_email || 'Unknown'}
+                          </span>
                           {order.reserved_quantity != null &&
                             ` (${order.reserved_quantity} ${order.listing_unit_type})`}
                         </p>

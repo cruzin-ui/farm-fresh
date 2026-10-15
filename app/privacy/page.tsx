@@ -26,7 +26,8 @@ export default function PrivacyPolicyPage() {
           <ul className="list-disc pl-5 space-y-1.5">
             <li>
               <strong>Account information.</strong> Your email address and sign-in details when you create an
-              account.
+              account, and your name if you choose to add one. Farmers you buy from see that name on your orders,
+              so they can label them.
             </li>
             <li>
               <strong>Guest checkout.</strong> Your email address, if you buy without creating an account.
