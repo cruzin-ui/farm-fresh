@@ -4,6 +4,7 @@ import { stripeAdmin } from '@/lib/stripeAdmin';
 import { recordOrderForPaymentIntent, isCheckoutPayment } from '@/lib/orders';
 import { alertAdmin } from '@/lib/alerts';
 import { handleDisputeEvent } from '@/lib/disputes';
+import { markBoxPaid } from '@/lib/csa';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +41,10 @@ export async function POST(request: Request) {
 
       // Only payments created by our checkout are recorded as orders.
       if (isCheckoutPayment(paymentIntent)) {
-        await recordOrderForPaymentIntent(paymentIntent, new URL(request.url).origin);
+        const { orderId } = await recordOrderForPaymentIntent(paymentIntent, new URL(request.url).origin);
+        // A CSA box: its week is marked paid, in case the daily job that
+        // charged it didn't get that far.
+        await markBoxPaid(paymentIntent, orderId);
       }
     }
 

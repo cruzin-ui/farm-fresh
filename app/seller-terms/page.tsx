@@ -5,6 +5,7 @@ import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { OPERATOR_DESCRIPTION } from '@/lib/legal';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
+import { CHARGE_DAYS_BEFORE } from '@/lib/csaSchedule';
 
 export const metadata: Metadata = { title: 'Seller Terms' };
 
@@ -124,8 +125,39 @@ export default function SellerTermsPage() {
           </p>
         </section>
 
+        <section id="csa">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">6. Farm shares (CSA)</h2>
+          <p>
+            You can offer a farm share: a box on a set day, every week or every other week, through a season you
+            choose. Members pay for each box separately, charged to their saved card {CHARGE_DAYS_BEFORE} days
+            before pickup. Each paid box is an ordinary order: the same {SELLER_FEE} seller fee applies, you mark it
+            ready and enter the member&apos;s pickup code, and you are paid when it is collected. Everything in
+            section 5 applies to boxes, with the box&apos;s pickup date as its ready-by date.
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5 mt-2">
+            <li>
+              <strong>Describe the box honestly</strong>, and give members a box of fair value for its price each
+              week. Your weekly note should say what is in it.
+            </li>
+            <li>
+              <strong>If you can&apos;t provide a box,</strong> call that week off in your Seller Dashboard before it
+              is charged; members are told and are not charged. After it is charged, cancel each box in your
+              Orders; members are refunded in full, and it counts as a cancellation by you.
+            </li>
+            <li>
+              <strong>Members can skip, pause or cancel</strong> at any time before a box is charged. Members who
+              joined at an earlier price keep it; a new price applies to new members only. The pickup day, how
+              often, and the start of the season can&apos;t be changed once anyone has joined.
+            </li>
+            <li>
+              <strong>Ending a farm share early</strong> cancels every membership; tell members why. Boxes already
+              paid for must still be provided or cancelled and refunded.
+            </li>
+          </ul>
+        </section>
+
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">6. Removing listings and accounts</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">7. Removing listings and accounts</h2>
           <p>
             We may remove a listing, cancel and refund an order, or suspend a seller&apos;s account if we believe
             a product is not permitted, a listing is inaccurate, or these terms have been broken.
@@ -133,7 +165,7 @@ export default function SellerTermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">7. Your responsibility for claims</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">8. Your responsibility for claims</h2>
           <p>
             You are responsible for any claims, losses or costs that arise from the products you sell or from
             your failure to follow the law or these terms.

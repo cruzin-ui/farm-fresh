@@ -38,7 +38,9 @@ export async function checkListingAllowed(params: {
     .from('produce_listings')
     .select('id, title, variety')
     .eq('farmer_id', farmerId)
-    .gte('available_quantity', 1);
+    .gte('available_quantity', 1)
+    // A CSA plan's hidden listing isn't one of the farm's listings for sale.
+    .neq('category', 'CSA Box');
 
   if (error) throw error;
 
