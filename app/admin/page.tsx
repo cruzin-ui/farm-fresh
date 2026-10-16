@@ -102,6 +102,7 @@ type Insights = {
     last7Days: { visits: number; pageViews: number };
     last30Days: { visits: number; pageViews: number };
     days: { day: string; visits: number; pageViews: number }[];
+    scans: { label: string; today: number; last7Days: number; last30Days: number }[];
     pages: { label: string; views: number }[];
   } | null;
   people: {
@@ -2007,6 +2008,32 @@ export default function AdminPage() {
                           </table>
                           <p className="mt-2 text-xs text-gray-500">
                             Every listing counts as "A listing" and every farm as "A farm&apos;s page".
+                          </p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-900 mb-2">Business card scans</h3>
+                          <table className="w-full text-xs text-gray-700">
+                            <thead className="text-gray-500 border-b">
+                              <tr>
+                                <th scope="col" className="py-1.5 pr-4 text-left font-semibold">QR code</th>
+                                <th scope="col" className="py-1.5 pr-4 text-right font-semibold">Today</th>
+                                <th scope="col" className="py-1.5 pr-4 text-right font-semibold">7 days</th>
+                                <th scope="col" className="py-1.5 text-right font-semibold">30 days</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(traffic.scans || []).map((s) => (
+                                <tr key={s.label} className="border-b border-gray-100 last:border-0">
+                                  <th scope="row" className="py-1.5 pr-4 text-left font-normal">{s.label}</th>
+                                  <td className="py-1.5 pr-4 text-right tabular-nums">{s.today}</td>
+                                  <td className="py-1.5 pr-4 text-right tabular-nums">{s.last7Days}</td>
+                                  <td className="py-1.5 text-right tabular-nums font-semibold text-gray-900">{s.last30Days}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          <p className="mt-2 text-xs text-gray-500">
+                            Each time someone opens the site from a card&apos;s QR code. A person who scans twice counts twice.
                           </p>
                         </div>
                       </div>

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
 import { alertAdmin } from '@/lib/alerts';
 import { PAGE_GROUPS } from '@/lib/pageGroups';
+import { SCAN_SOURCES } from '@/lib/scanSources';
 import { SELLER_CHANGE_REASONS, LISTING_ACTIONS } from '@/lib/sellerChangeReasons';
 
 export const dynamic = 'force-dynamic';
@@ -202,6 +203,13 @@ export async function POST(request: Request) {
             pageViews: (counts || []).filter((c) => isPage(c.name)).reduce((sum, c) => sum + Number(c.count || 0), 0),
           },
           days,
+          // Arrivals from each printed QR code (business cards and so on).
+          scans: Object.entries(SCAN_SOURCES).map(([key, label]) => ({
+            label,
+            today: dayTotal(days[0].day, (name) => name === `scan:${key}`),
+            last7Days: days.slice(0, 7).reduce((sum, d) => sum + dayTotal(d.day, (name) => name === `scan:${key}`), 0),
+            last30Days: tally(`scan:${key}`),
+          })),
           pages: Object.entries(PAGE_GROUPS)
             .map(([key, label]) => ({ label, views: tally(`page:${key}`) }))
             .filter((p) => p.views > 0)
