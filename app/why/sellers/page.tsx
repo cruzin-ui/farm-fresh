@@ -17,7 +17,6 @@ import {
   RESTOCKING_RATE,
   FREE_CANCELLATION_HOURS,
   SELLER_KEEPS_PERCENT,
-  BUYER_FEE_LABEL,
 } from '@/lib/pricing';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
 import { NO_SHOW_REVIEW_HOURS } from '@/lib/noShow';
@@ -105,7 +104,6 @@ export default function WhySellersPage() {
           </li>
           <li>Free to list, with no monthly subscription and no startup costs.</li>
           <li>Card processing is paid out of our fees, not yours.</li>
-          <li>Buyers pay their own service fee ({BUYER_FEE_LABEL} per checkout), on top of your price.</li>
         </ul>
         <p className="mt-4 text-sm text-emerald-100">
           Example: you sell $20 of tomatoes. You are paid ${(20 * (1 - SELLER_FEE_RATE)).toFixed(2)}.
