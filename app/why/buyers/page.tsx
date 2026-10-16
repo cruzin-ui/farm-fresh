@@ -92,6 +92,10 @@ export default function WhyBuyersPage() {
           The price the farmer sets, plus a service fee of <strong>{BUYER_FEE_LABEL}</strong>, charged once per checkout
           however many farms you buy from, and sales tax where it applies. You see every amount before you pay.
         </p>
+        <p>
+          What the service fee pays for: the card processing on your payment, and keeping the site running, so you have
+          a safe place to buy from local growers.
+        </p>
       </DetailBox>
 
       <div className="mt-10 flex flex-col sm:flex-row items-center gap-4">
