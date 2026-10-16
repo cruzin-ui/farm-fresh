@@ -3,11 +3,14 @@
 // is counted (only as a daily total) and shown on the admin page. Only the
 // keys listed here are counted, so a made-up ?src= is ignored.
 //
-// To add a new card or flyer: add its key and label here, and use
-// https://www.farmfreshdirect.online/?src=<key> in its QR code.
+// To add a new card or flyer: add its key and label here, and put ?src=<key>
+// on the link in its QR code.
 export const SCAN_SOURCES: Record<string, string> = {
-  'card-a': 'Farmer business card (front A)',
-  'card-b': 'Farmer business card (front B)',
+  // Seller cards: open /why/sellers.
+  'card-a': 'Seller business card (front A)',
+  'card-b': 'Seller business card (front B)',
+  // Buyer card: opens the home page.
+  'buyer-card': 'Buyer business card',
 };
 
 export const isScanSource = (value: unknown): value is string =>
