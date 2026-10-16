@@ -31,7 +31,7 @@ const SELLING_POINTS = [
     icon: ShieldCheck,
     title: 'Protected Until Pickup',
     body: 'Your payment is held until you collect your order and hand over your pickup code.',
-    href: '/why#why-buyers',
+    href: '/why/buyers',
   },
   {
     icon: Sprout,
@@ -49,13 +49,13 @@ const SELLING_POINTS = [
     icon: Store,
     title: 'Your Own Online Farm Stand',
     body: "Growers get a page for their farm that's open even when they aren't.",
-    href: '/why#why-sellers',
+    href: '/why/sellers',
   },
   {
     icon: Banknote,
     title: 'Paid Before You Pick',
     body: 'Every order is paid up front, and growers are covered for no-shows.',
-    href: '/why#why-sellers',
+    href: '/why/sellers',
   },
   {
     icon: Tag,
@@ -181,11 +181,23 @@ export default function SplashLandingPage() {
             </li>
           ))}
         </ul>
-        <p className="mt-5 text-center text-sm">
-          <Link href="/why" className="font-semibold text-emerald-800 underline underline-offset-2">
-            See why people buy and sell here
-          </Link>
-        </p>
+        <div className="mt-6 text-center">
+          <p className="text-sm font-semibold text-gray-800">See why people buy and sell here</p>
+          <div className="mt-3 flex flex-col sm:flex-row justify-center gap-3">
+            <Link
+              href="/why/buyers"
+              className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2.5 px-5 rounded-xl transition-colors"
+            >
+              <ShoppingBag className="w-4 h-4" aria-hidden="true" /> For buyers
+            </Link>
+            <Link
+              href="/why/sellers"
+              className="inline-flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold py-2.5 px-5 rounded-xl transition-colors"
+            >
+              <Sprout className="w-4 h-4" aria-hidden="true" /> For sellers
+            </Link>
+          </div>
+        </div>
       </section>
 
       {/* The Mission, in brief — the full version is on the About page. A
