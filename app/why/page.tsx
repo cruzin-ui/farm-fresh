@@ -33,7 +33,7 @@ export default function WhyPage() {
           </div>
           <h2 className="mt-4 text-xl font-bold text-gray-900">For buyers</h2>
           <p className="mt-1 text-sm text-gray-600">
-            Fresh food from people you can meet. Your money is held until you collect, and it&apos;s {BUYER_FEE_LABEL} per
+            Fresh food from people you can meet. Your money is protected until you get your produce, and it&apos;s {BUYER_FEE_LABEL} per
             checkout.
           </p>
           <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-800 group-hover:underline">
