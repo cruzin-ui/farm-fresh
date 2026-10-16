@@ -8,7 +8,7 @@ const HOW_IT_WORKS = [
     heading: 'If you want to buy',
     steps: [
       ["Browse what's growing nearby", 'See fresh listings from gardens and small farms in your area.'],
-      ['Fill your cart and pay online', 'No account needed. Buy from one farm or several in one checkout; we hold your payment until you have your produce.'],
+      ['Fill your cart and pay online', 'No account needed. Buy from one farm or several in one checkout; your money is protected until you get your produce.'],
       ['Wait for the "ready" email', 'The farmer tells you when and where to pick up.'],
       ['Pick up and share your code', 'Show your QR code or give your pickup code once the produce is in your hands.'],
     ],
@@ -30,7 +30,7 @@ const SELLING_POINTS = [
   {
     icon: ShieldCheck,
     title: 'Protected Until Pickup',
-    body: 'Your payment is held until you collect your order and hand over your pickup code.',
+    body: 'Your money is protected until you get your produce and hand over your pickup code.',
     href: '/why/buyers',
   },
   {

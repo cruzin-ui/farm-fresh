@@ -18,14 +18,14 @@ import { Reasons, DetailBox, OtherSide, type Reason } from '@/components/WhyReas
 export const metadata: Metadata = {
   title: 'Why Buy Here',
   description:
-    'Fresh food from local growers, picked up near you. Your payment is held until you collect, and refunded if the farmer can’t supply your order.',
+    'Fresh food from local growers, picked up near you. Your money is protected until you get your produce, and refunded if the farmer can’t supply your order.',
 };
 
 const FOR_BUYERS: Reason[] = [
   {
     icon: ShieldCheck,
     title: 'Your money is protected',
-    body: 'We hold your payment until you collect. The farmer is paid when you hand over your pickup code, with the produce in your hands.',
+    body: 'Your money is protected until you get your produce. The farmer is paid when you hand over your pickup code, with the produce in your hands.',
   },
   {
     icon: Undo2,
@@ -81,7 +81,7 @@ export default function WhyBuyersPage() {
       <DetailBox id="buy-how" title="How it works">
         <ol className="list-decimal pl-5 space-y-2">
           <li>Browse what&apos;s growing near you, and add things from one farm or several to your cart.</li>
-          <li>Pay online. Your payment is held until you collect.</li>
+          <li>Pay online. Your money is protected until you get your produce.</li>
           <li>Wait for the &quot;ready&quot; email: it has the pickup address and the days and times you can come.</li>
           <li>Collect your order, then show your QR code or give your pickup code to the farmer.</li>
         </ol>
