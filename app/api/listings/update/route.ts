@@ -6,6 +6,7 @@ import { cleanListingTags } from '@/lib/listingTags';
 import { cleanPlantFields } from '@/lib/plantFields';
 import { isAllowedUnit, unitRuleText } from '@/lib/units';
 import { getFarmPickup } from '@/lib/farmPickupAddress';
+import { readPickupInput, setListingPickup } from '@/lib/listingPickup';
 import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { alertAdmin } from '@/lib/alerts';
 
@@ -129,8 +130,24 @@ export async function POST(request: Request) {
 
     if (typeof fields.description === 'string') update.description = fields.description;
     if (typeof fields.pickup_instructions === 'string') update.pickup_instructions = fields.pickup_instructions;
-    // Where a listing is picked up isn't edited here: every listing is at the
-    // farm's address, changed on the Farm Profile (see lib/farmPickupAddress.ts).
+    // Where it's picked up: `pickup` is an address of its own, or null to
+    // go back to the farm's address. Left out, it stays where it is. Orders
+    // already placed keep the address they were bought at.
+    let newPickup: { address: string; zip: string; city: string } | null = null;
+    if ('pickup' in body) {
+      if (body.pickup === null) {
+        newPickup = await getFarmPickup(user.id);
+        if (!newPickup) {
+          return NextResponse.json({ error: 'Add your pickup address to your Farm Profile first.' }, { status: 409 });
+        }
+      } else {
+        const own = readPickupInput(body.pickup);
+        if (!own || 'error' in own) {
+          return NextResponse.json({ error: own ? own.error : 'Enter the pickup address for this listing.' }, { status: 400 });
+        }
+        newPickup = own.pickup;
+      }
+    }
     if (typeof fields.harvest_ready_date === 'string' && fields.harvest_ready_date) {
       update.harvest_ready_date = fields.harvest_ready_date;
     }
@@ -144,11 +161,15 @@ export async function POST(request: Request) {
     // a listing moves to another category.
     const plantKeys = ['pot_size', 'sun_needs', 'water_needs', 'is_native'];
     if (plantKeys.some((key) => key in fields) || category !== listing.category) {
-      const plant = await cleanPlantFields(fields, category, (await getFarmPickup(user.id))?.zip);
+      const plant = await cleanPlantFields(fields, category, newPickup?.zip || listing.zip_code || (await getFarmPickup(user.id))?.zip);
       if ('error' in plant) {
         return NextResponse.json({ error: plant.error }, { status: 400 });
       }
       Object.assign(update, plant.values);
+    }
+
+    if (newPickup) {
+      await setListingPickup(listingId, user.id, newPickup);
     }
 
     if (Object.keys(update).length === 0) {

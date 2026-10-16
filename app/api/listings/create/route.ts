@@ -9,6 +9,7 @@ import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { geocodeZip } from '@/lib/geo';
 import { cleanPlantFields } from '@/lib/plantFields';
+import { readPickupInput, publicPlace } from '@/lib/listingPickup';
 import { isAllowedUnit, unitRuleText, usualUnit } from '@/lib/units';
 import { alertAdmin } from '@/lib/alerts';
 
@@ -73,8 +74,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: unitRuleText(fields.category) }, { status: 400 });
     }
 
+    // Picked up at the farm's address, unless the seller gave this listing
+    // one of its own.
+    const own = readPickupInput(body.pickup);
+    if (own && 'error' in own) {
+      return NextResponse.json({ error: own.error }, { status: 400 });
+    }
+    const pickup = own ? own.pickup : farmPickup;
+
     // Pot size, sun, water and native, for Plants & Seedlings only.
-    const plant = await cleanPlantFields(fields, fields.category, farmPickup.zip);
+    const plant = await cleanPlantFields(fields, fields.category, pickup.zip);
     if ('error' in plant) {
       return NextResponse.json({ error: plant.error }, { status: 400 });
     }
@@ -122,10 +131,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // The centre of the farm's zip code, so buyers can search by distance.
+    // The centre of the pickup zip code, so buyers can search by distance.
     // A failed lookup just leaves the listing without a location.
-    const zipCode = farmPickup.zip;
-    const coordinates = await geocodeZip(zipCode);
+    const place = await publicPlace(pickup);
 
     const { data: listing, error: insertError } = await supabaseAdmin
       .from('produce_listings')
@@ -141,10 +149,7 @@ export async function POST(request: Request) {
           available_quantity: quantity,
           harvest_ready_date: fields.harvest_ready_date,
           harvest_end_date: fields.harvest_end_date || null,
-          location_name: farmPickup.city,
-          zip_code: zipCode,
-          latitude: coordinates?.latitude ?? null,
-          longitude: coordinates?.longitude ?? null,
+          ...place,
           pickup_instructions: typeof fields.pickup_instructions === 'string' ? fields.pickup_instructions : '',
           tags: cleanListingTags(fields.tags),
           image_url: typeof fields.image_url === 'string' && fields.image_url ? fields.image_url : null,
@@ -160,7 +165,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      await saveListingPickupAddress(listing.id, user.id, farmPickup.address);
+      await saveListingPickupAddress(listing.id, user.id, pickup.address);
     } catch (addressError) {
       await supabaseAdmin.from('produce_listings').delete().eq('id', listing.id);
       throw addressError;
