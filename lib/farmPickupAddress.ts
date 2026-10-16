@@ -30,8 +30,23 @@ export async function getFarmPickup(farmerId: string): Promise<FarmPickup | null
   return { address: row.address, zip: String(profile?.zip_code || ''), city: String(profile?.location || '') };
 }
 
-// Saves the farm's address and moves every one of its listings to it.
+// Saves the farm's address and moves its listings to it, except any listing
+// the seller gave an address of its own (one that differs from the farm's
+// old address), which stays where it is.
 export async function saveFarmPickup(farmerId: string, pickup: FarmPickup) {
+  const { data: oldRow } = await supabaseAdmin
+    .from('seller_pickup_addresses')
+    .select('address')
+    .eq('farmer_id', farmerId)
+    .maybeSingle();
+  const { data: ownRows } = await supabaseAdmin
+    .from('listing_pickup_addresses')
+    .select('listing_id, address')
+    .eq('farmer_id', farmerId);
+  const keepOwn = oldRow?.address
+    ? (ownRows || []).filter((row) => row.address && row.address !== oldRow.address).map((row) => row.listing_id as string)
+    : [];
+
   const { error: addressError } = await supabaseAdmin
     .from('seller_pickup_addresses')
     .upsert({ farmer_id: farmerId, address: pickup.address, updated_at: new Date().toISOString() });
@@ -44,7 +59,7 @@ export async function saveFarmPickup(farmerId: string, pickup: FarmPickup) {
   if (profileError) throw profileError;
 
   const coordinates = await geocodeZip(pickup.zip);
-  const { data: listings, error: listingsError } = await supabaseAdmin
+  let move = supabaseAdmin
     .from('produce_listings')
     .update({
       location_name: pickup.city,
@@ -52,22 +67,24 @@ export async function saveFarmPickup(farmerId: string, pickup: FarmPickup) {
       latitude: coordinates?.latitude ?? null,
       longitude: coordinates?.longitude ?? null,
     })
-    .eq('farmer_id', farmerId)
-    .select('id');
+    .eq('farmer_id', farmerId);
+  if (keepOwn.length > 0) move = move.not('id', 'in', `(${keepOwn.join(',')})`);
+  const { data: listings, error: listingsError } = await move.select('id');
   if (listingsError) throw listingsError;
+  const movedIds = (listings || []).map((l) => l.id as string);
 
   // Plants marked native are native to wherever the farm is, so they follow
   // it to its new state. (If the state can't be looked up, they keep the old.)
   const state = await stateForZip(pickup.zip);
-  if (state) {
+  if (state && movedIds.length > 0) {
     await supabaseAdmin
       .from('produce_listings')
       .update({ native_state: state.name })
-      .eq('farmer_id', farmerId)
+      .in('id', movedIds)
       .not('native_state', 'is', null);
   }
 
-  const copies = (listings || []).map((l) => ({ listing_id: l.id, farmer_id: farmerId, address: pickup.address }));
+  const copies = movedIds.map((id) => ({ listing_id: id, farmer_id: farmerId, address: pickup.address }));
   if (copies.length > 0) {
     const { error: copyError } = await supabaseAdmin
       .from('listing_pickup_addresses')
@@ -75,5 +92,5 @@ export async function saveFarmPickup(farmerId: string, pickup: FarmPickup) {
     if (copyError) throw copyError;
   }
 
-  return { listingsMoved: copies.length, coordinates };
+  return { listingsMoved: copies.length, listingsKept: keepOwn.length, coordinates };
 }

@@ -12,6 +12,7 @@ import OrderMessages from '@/components/OrderMessages';
 import PickList from '@/components/PickList';
 import SellerCsa from '@/components/SellerCsa';
 import NewListingWizard from '@/components/NewListingWizard';
+import ListingPickupChooser, { pickupProblem, type PickupChoice } from '@/components/ListingPickupChooser';
 import { CategoryNotice, PlantFields, HighlightsPicker } from '@/components/ListingFormParts';
 import { unitOptionsFor, isAllowedUnit, usualUnit, unitSingular } from '@/lib/units';
 import { CSA_BOX_CATEGORY } from '@/lib/csaSchedule';
@@ -229,6 +230,8 @@ export default function SellerDashboardPage() {
   const [sunNeeds, setSunNeeds] = useState('');
   const [waterNeeds, setWaterNeeds] = useState('');
   const [isNative, setIsNative] = useState(false);
+  // The listing being edited: an address of its own, or null for the farm's.
+  const [ownPickup, setOwnPickup] = useState<PickupChoice | null>(null);
   const [farmState, setFarmState] = useState<{ name: string; code: string } | null>(null);
   const [category, setCategory] = useState('Vegetables');
   const [description, setDescription] = useState('');
@@ -613,6 +616,11 @@ export default function SellerDashboardPage() {
     setSunNeeds(item.sun_needs || '');
     setWaterNeeds(item.water_needs || '');
     setIsNative(Boolean(item.native_state));
+    setOwnPickup(
+      item.pickup_address && farmPickup && item.pickup_address !== farmPickup.address
+        ? { address: item.pickup_address, zip: String(item.zip_code || ''), city: item.location_name || '' }
+        : null
+    );
     setSuccessMsg(null);
     setErrorMsg(null);
     setActiveTab('new');
@@ -1169,8 +1177,12 @@ export default function SellerDashboardPage() {
       }
 
       if (editingListingId) {
+        const addressIssue = pickupProblem(ownPickup);
+        if (addressIssue) throw new Error(addressIssue);
         const res = await postWithAuth('/api/listings/update', {
           listingId: editingListingId,
+          // An address of its own, or null to use the farm's.
+          pickup: ownPickup,
           fields: {
             ...(identityLocked
               ? {}
@@ -1671,7 +1683,7 @@ export default function SellerDashboardPage() {
                       {
                         done: profileDone,
                         title: 'Fill in your farm profile',
-                        detail: 'Your farm name, photo, story and pickup address. Every listing is picked up at that address.',
+                        detail: 'Your farm name, photo, story and pickup address, where your listings are picked up.',
                         action: 'Open Farm Profile',
                         onClick: () => setActiveTab('profile'),
                       },
@@ -2097,28 +2109,29 @@ export default function SellerDashboardPage() {
                     </div>
                   </div>
 
-                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700">
-                    {farmPickup ? (
-                      <p>
-                        <span className="font-semibold text-gray-900">Pickup:</span> your farm&apos;s address in{' '}
-                        {farmPickup.city || 'your area'} ({farmPickup.zip}). Buyers see the city and zip; they get the
-                        full address when the order is ready.{' '}
-                        <button type="button" onClick={() => setActiveTab('profile')} className="font-semibold text-emerald-800 underline">
-                          Change it in Farm Profile
-                        </button>
-                      </p>
-                    ) : farmPickupLoaded ? (
-                      <p className="text-amber-900">
-                        <span className="font-bold">Add your pickup address first.</span> Every listing is picked up at
-                        the address on your Farm Profile.{' '}
-                        <button type="button" onClick={() => setActiveTab('profile')} className="font-semibold underline">
-                          Open Farm Profile
-                        </button>
-                      </p>
-                    ) : (
-                      <p>Loading your pickup address...</p>
-                    )}
-                  </div>
+                  {farmPickup ? (
+                    <ListingPickupChooser
+                      idPrefix="dash"
+                      farmPickup={farmPickup}
+                      value={ownPickup}
+                      onChange={setOwnPickup}
+                      onGoToProfile={() => setActiveTab('profile')}
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-amber-900">
+                      {farmPickupLoaded ? (
+                        <>
+                          <span className="font-bold">Add your pickup address first.</span> Listings are picked up at the
+                          address on your Farm Profile unless you choose another.{' '}
+                          <button type="button" onClick={() => setActiveTab('profile')} className="font-semibold underline">
+                            Open Farm Profile
+                          </button>
+                        </>
+                      ) : (
+                        'Loading your pickup address...'
+                      )}
+                    </p>
+                  )}
 
                   <div>
                     <p id="dash-crop-image-label" className="block text-xs font-semibold text-gray-700 mb-1">
@@ -3453,8 +3466,9 @@ export default function SellerDashboardPage() {
                     Pickup address *
                   </label>
                   <p className="text-xs text-gray-600 mt-0.5">
-                    This address is used as the pickup location for every listing you post: it&apos;s where buyers
-                    come to collect their orders. It doesn&apos;t have to be your home. Any place you&apos;re happy to
+                    This address is used as the pickup location for your listings: it&apos;s where buyers come to
+                    collect their orders. (A listing can have a different address of its own if you choose one when
+                    posting it.) It doesn&apos;t have to be your home. Any place you&apos;re happy to
                     meet buyers works, such as your farm, your garden or a regular spot.
                   </p>
                   <p className="text-xs text-gray-600 mt-1">
@@ -3513,7 +3527,7 @@ export default function SellerDashboardPage() {
                 <p className="text-xs text-gray-500">
                   The zip code and city fill in when you pick your address from the list. They are what buyers
                   see, and the zip code is what sales tax is worked out for, so check them.
-                  {farmPickup && ' Changing your address moves all your listings; orders already placed keep their address.'}
+                  {farmPickup && ' Changing your address moves your listings, except any with an address of their own; orders already placed keep their address.'}
                 </p>
               </div>
 

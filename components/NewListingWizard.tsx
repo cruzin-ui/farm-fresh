@@ -12,6 +12,7 @@ import { pickupAvailability, friendlyDate } from '@/lib/dates';
 import { CARD_LISTING_TAGS } from '@/lib/listingTags';
 import { CategoryNotice, PlantFields, HighlightsPicker } from '@/components/ListingFormParts';
 import { unitOptionsFor, usualUnit, unitSingular } from '@/lib/units';
+import ListingPickupChooser, { pickupProblem, type PickupChoice } from '@/components/ListingPickupChooser';
 
 // Posting a new listing one question at a time, so it works well on a phone:
 // category, name, photo, price, when, extras, then a preview to check before
@@ -50,6 +51,8 @@ type Draft = {
   description: string;
   tags: string[];
   reusedImageUrl: string | null;
+  // An address just for this listing, or null for the farm's.
+  ownPickup: PickupChoice | null;
 };
 
 const EMPTY: Draft = {
@@ -69,6 +72,7 @@ const EMPTY: Draft = {
   description: '',
   tags: [],
   reusedImageUrl: null,
+  ownPickup: null,
 };
 
 const dayString = (offsetDays: number) => {
@@ -164,6 +168,11 @@ export default function NewListingWizard({
       waterNeeds: previous.water_needs || '',
       isNative: Boolean(previous.native_state),
       reusedImageUrl: previous.image_url || null,
+      // A post that had its own pickup address keeps it.
+      ownPickup:
+        previous.pickup_address && farmPickup && previous.pickup_address !== farmPickup.address
+          ? { address: previous.pickup_address, zip: String(previous.zip_code || ''), city: previous.location_name || '' }
+          : null,
     });
     setImageFile(null);
     setImagePreview(null);
@@ -189,6 +198,8 @@ export default function NewListingWizard({
     if (step === 'when') {
       if (!d.readyDate) return isPlant ? 'Choose the ready date.' : 'Choose the harvest date.';
       if (d.endDate && d.endDate < d.readyDate) return '“Available until” can’t be before the ready date.';
+      const addressIssue = pickupProblem(d.ownPickup);
+      if (addressIssue) return addressIssue;
     }
     if (step === 'review') {
       if (!sellerTermsAccepted && !termsChecked) return 'Please read and agree to the Seller Terms first.';
@@ -225,6 +236,7 @@ export default function NewListingWizard({
 
       const res = await postWithAuth('/api/listings/create', {
         acceptTerms: termsChecked,
+        ...(d.ownPickup ? { pickup: d.ownPickup } : {}),
         fields: {
           title: d.title.trim(),
           variety: d.variety.trim(),
@@ -563,6 +575,16 @@ export default function NewListingWizard({
               {label('Available until (optional)', 'wiz-end')}
               <input id="wiz-end" type="date" value={d.endDate} onChange={(e) => set({ endDate: e.target.value })} className={input} />
             </div>
+            <div className="pt-2 border-t">
+              <h3 className="text-base font-bold text-gray-900 mb-2">Where is it picked up?</h3>
+              <ListingPickupChooser
+                idPrefix="wiz"
+                farmPickup={farmPickup}
+                value={d.ownPickup}
+                onChange={(ownPickup) => set({ ownPickup })}
+                onGoToProfile={onGoToProfile}
+              />
+            </div>
             {isPlant && (
               <div className="pt-2 border-t">
                 <h3 className="text-base font-bold text-gray-900 mb-2">About the plant (optional)</h3>
@@ -652,7 +674,7 @@ export default function NewListingWizard({
                   </p>
                 )}
                 <p className="flex items-center gap-2 text-xs text-gray-500">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-600" /> {farmPickup?.city || 'Your area'}
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600" /> {d.ownPickup?.city || farmPickup?.city || 'Your area'}
                 </p>
                 <p className="flex items-center gap-2 text-xs">
                   <Calendar className="w-3.5 h-3.5 text-gray-400" />
@@ -673,10 +695,11 @@ export default function NewListingWizard({
                   ['photo', 'Photo', photo ? 'Added' : 'None'],
                   ['price', 'Price and amount', `$${Number(d.price || 0).toFixed(2)} / ${d.unitType} · ${d.quantity} available`],
                   ['when', 'Ready', `${friendlyDate(d.readyDate)}${d.endDate ? `, until ${friendlyDate(d.endDate)}` : ''}`],
+                  ['when', 'Pickup', d.ownPickup ? d.ownPickup.address : `Your farm’s address in ${farmPickup?.city || 'your area'}`],
                   ['extras', 'Description and highlights', d.description || d.tags.length ? 'Added' : 'None'],
                 ] as [Step, string, string][]
               ).map(([step, name, value]) => (
-                <li key={step} className="flex items-center justify-between gap-3 p-3">
+                <li key={name} className="flex items-center justify-between gap-3 p-3">
                   <span className="min-w-0">
                     <span className="block text-xs text-gray-500">{name}</span>
                     <span className="block font-semibold text-gray-900 truncate">{value}</span>
@@ -689,8 +712,7 @@ export default function NewListingWizard({
             </ul>
 
             <p className="text-xs text-gray-600">
-              Picked up at your farm&apos;s address in {farmPickup?.city || 'your area'}. Buyers get the full address when
-              their order is ready.
+              Buyers see the city and zip code; they get the full pickup address when their order is ready.
             </p>
 
             {!sellerTermsAccepted && (
