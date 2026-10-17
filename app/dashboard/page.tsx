@@ -17,7 +17,7 @@ import { CategoryNotice, PlantFields, HighlightsPicker } from '@/components/List
 import { unitOptionsFor, isAllowedUnit, usualUnit, unitSingular } from '@/lib/units';
 import { CSA_BOX_CATEGORY } from '@/lib/csaSchedule';
 import { tidyFarmAddress, farmAddressProblem, FARM_ADDRESS_MAX } from '@/lib/farmAddress';
-import { SELLER_CHANGE_REASONS, LISTING_ACTIONS, type ListingAction } from '@/lib/sellerChangeReasons';
+import { SELLER_CHANGE_REASONS, LISTING_ACTIONS, BUYER_REQUEST, type ListingAction } from '@/lib/sellerChangeReasons';
 import { SELLER_CANCEL_LIMIT, SELLER_CANCEL_WINDOW_DAYS } from '@/lib/sellerLimits';
 import { buildSalesCsv, downloadCsv, salesYears, sellerEarnings } from '@/lib/salesCsv';
 import SellerTour, { type TourStep } from '@/components/SellerTour';
@@ -329,6 +329,13 @@ export default function SellerDashboardPage() {
   const [adjustListingAction, setAdjustListingAction] = useState<ListingAction | ''>('');
   const [adjustReason, setAdjustReason] = useState('');
   const [submittingAdjust, setSubmittingAdjust] = useState(false);
+  // Cancelling every item in one order at once: which order (its first item's
+  // id), and the same questions as cancelling one item.
+  const [cancelAllId, setCancelAllId] = useState<string | null>(null);
+  const [cancelAllNote, setCancelAllNote] = useState('');
+  const [cancelAllAction, setCancelAllAction] = useState<ListingAction | ''>('');
+  const [cancelAllReason, setCancelAllReason] = useState('');
+  const [submittingCancelAll, setSubmittingCancelAll] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -892,6 +899,7 @@ export default function SellerDashboardPage() {
   };
 
   const openAdjust = (order: any) => {
+    setCancelAllId(null);
     setReadyDraftOrderId(null);
     setCompleteOrderId(null);
     setAdjustOrderId(order.id);
@@ -900,6 +908,52 @@ export default function SellerDashboardPage() {
     // A CSA box has no listing for sale to restock or take down.
     setAdjustListingAction(boxListings.some((l) => l.id === order.listing_id) ? 'leave' : '');
     setAdjustReason('');
+  };
+
+  const openCancelAll = (items: any[]) => {
+    setAdjustOrderId(null);
+    setReadyDraftOrderId(null);
+    setCompleteOrderId(null);
+    setCancelAllId(items[0].id);
+    setCancelAllNote('');
+    // Farm Boxes have no listing to restock or take down.
+    setCancelAllAction(items.every((o) => boxListings.some((l) => l.id === o.listing_id)) ? 'leave' : '');
+    setCancelAllReason('');
+  };
+
+  const confirmCancelAll = async (items: any[]) => {
+    const open = items.filter((o) => o.stripe_payment_intent_id);
+    if (!confirm(`Cancel all ${open.length} items in this order and refund the buyer in full? This can't be undone.`)) return;
+    setSubmittingCancelAll(true);
+    try {
+      const res = await postWithAuth('/api/orders/cancel-all', {
+        orderIds: open.map((o) => o.id),
+        note: cancelAllNote,
+        listingAction: cancelAllAction,
+        reason: cancelAllReason,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not cancel this order.');
+
+      setSuccessMsg(
+        data.failed?.length
+          ? `${data.cancelledCount} items cancelled and $${Number(data.refundTotal).toFixed(2)} refunded, but these couldn't be cancelled: ${data.failed.join(', ')}. Please try them one at a time or contact us.`
+          : data.atBuyerRequest
+            ? `Order cancelled at the buyer's request — $${Number(data.refundTotal).toFixed(2)} refunded to them${Number(data.restockingTotal) > 0 ? `, and you're paid $${Number(data.restockingTotal).toFixed(2)} in restocking fees` : ''}. They've been emailed.`
+            : `Order cancelled — $${Number(data.refundTotal).toFixed(2)} refunded to the buyer, who has been emailed.`
+      );
+      setCancelAllId(null);
+      await fetchDashboardData();
+      if (data.suspended) {
+        setErrorMsg(
+          "Because several of your recent orders have been cancelled, your listings are now paused. Contact us to tell us what happened and we'll get them back up."
+        );
+      }
+    } catch (err: any) {
+      alert(err.message || 'Could not cancel this order.');
+    } finally {
+      setSubmittingCancelAll(false);
+    }
   };
 
   // Reports a no-show for an admin to review. It moves no money by itself.
@@ -946,7 +1000,9 @@ export default function SellerDashboardPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to adjust order.');
 
       setSuccessMsg(
-        `${data.cancelled ? 'Order cancelled' : 'Order updated'} — $${Number(data.refundAmount).toFixed(2)} refunded to the buyer, who has been emailed.`
+        data.atBuyerRequest
+          ? `Order cancelled at the buyer's request — $${Number(data.refundAmount).toFixed(2)} refunded to them${Number(data.restockingFee) > 0 ? `, and you're paid a $${Number(data.restockingFee).toFixed(2)} restocking fee` : ''}. They've been emailed.`
+          : `${data.cancelled ? 'Order cancelled' : 'Order updated'} — $${Number(data.refundAmount).toFixed(2)} refunded to the buyer, who has been emailed.`
       );
       setAdjustOrderId(null);
       await fetchDashboardData();
@@ -2401,6 +2457,14 @@ export default function SellerDashboardPage() {
                                 <QrCode className="w-4 h-4" aria-hidden="true" /> Buyer Is Already Here: Scan Code
                               </button>
                             )}
+                            {several && items.filter((o) => o.stripe_payment_intent_id).length > 1 && cancelAllId !== items[0].id && (
+                              <button
+                                onClick={() => openCancelAll(items)}
+                                className="inline-flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl transition-colors"
+                              >
+                                <X className="w-4 h-4" aria-hidden="true" /> Cancel Entire Order ({items.length} items)
+                              </button>
+                            )}
                             {items.map(
                               (item) =>
                                 item.stripe_payment_intent_id &&
@@ -2551,6 +2615,111 @@ export default function SellerDashboardPage() {
                         </div>
                       ))(completing)}
 
+                      {cancelAllId === items[0].id && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+                          <div>
+                            <p className="text-sm font-bold text-red-950">Cancel the entire order</p>
+                            <ul className="mt-1 text-xs text-red-950 list-disc pl-5">
+                              {items.map((o) => (
+                                <li key={o.id}>
+                                  {o.reserved_quantity} {o.listing_unit_type} of {o.listing_title}
+                                </li>
+                              ))}
+                            </ul>
+                            <p className="text-xs text-red-900 mt-1">
+                              Every item is refunded in full, including the buyer&apos;s service fee, and you aren&apos;t
+                              paid for them. The buyer gets one email.
+                            </p>
+                          </div>
+                          <div>
+                            <label htmlFor={`cancel-all-note-${items[0].id}`} className="block text-xs font-semibold text-red-900 mb-1">
+                              Message to the buyer (optional)
+                            </label>
+                            <textarea
+                              id={`cancel-all-note-${items[0].id}`}
+                              rows={2}
+                              placeholder="e.g., Sorry — the late frost cut this week's harvest short."
+                              value={cancelAllNote}
+                              onChange={(e) => setCancelAllNote(e.target.value)}
+                              className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm bg-white"
+                            />
+                          </div>
+                          {!items.every((o) => boxListings.some((l) => l.id === o.listing_id)) && (
+                            <fieldset className="space-y-1.5">
+                              <legend className="text-xs font-semibold text-red-900 mb-1">
+                                What should happen to the listings? *
+                              </legend>
+                              {(Object.keys(LISTING_ACTIONS) as ListingAction[]).map((action) => (
+                                <label
+                                  key={action}
+                                  className={`flex items-start gap-2 p-2.5 rounded-lg border bg-white text-xs text-red-950 cursor-pointer ${
+                                    cancelAllAction === action ? 'border-red-500' : 'border-red-200'
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`cancel-all-action-${items[0].id}`}
+                                    className="mt-0.5 w-4 h-4 shrink-0"
+                                    checked={cancelAllAction === action}
+                                    onChange={() => setCancelAllAction(action)}
+                                  />
+                                  <span>
+                                    <span className="block font-bold">{LISTING_ACTIONS[action].label}</span>
+                                    <span className="block">{LISTING_ACTIONS[action].detail}</span>
+                                  </span>
+                                </label>
+                              ))}
+                              <p className="text-xs text-red-900">This applies to every item in the order.</p>
+                            </fieldset>
+                          )}
+                          <div>
+                            <label htmlFor={`cancel-all-reason-${items[0].id}`} className="block text-xs font-semibold text-red-900 mb-1">
+                              Why are you cancelling this order? *
+                            </label>
+                            <select
+                              id={`cancel-all-reason-${items[0].id}`}
+                              value={cancelAllReason}
+                              onChange={(e) => setCancelAllReason(e.target.value)}
+                              className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm bg-white"
+                            >
+                              <option value="">Choose a reason...</option>
+                              {Object.entries(SELLER_CHANGE_REASONS).map(([code, label]) => (
+                                <option key={code} value={code}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="text-xs text-red-900 mt-1">
+                              This goes to Farm Fresh Direct, not to the buyer.
+                            </p>
+                            {cancelAllReason === BUYER_REQUEST && (
+                              <p className="mt-2 text-xs text-red-950 bg-white border border-red-200 rounded-lg p-2">
+                                This is treated as the buyer cancelling: they get the produce price back, the service fee
+                                isn&apos;t refunded, and after {FREE_CANCELLATION_HOURS} hours you&apos;re paid a{' '}
+                                {Math.round(RESTOCKING_RATE * 100)}% restocking fee. It doesn&apos;t count as a
+                                cancellation by you. (The buyer can also cancel it themselves from their order page.)
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => confirmCancelAll(items)}
+                              disabled={submittingCancelAll || !cancelAllAction || !cancelAllReason}
+                              className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+                            >
+                              {submittingCancelAll ? 'Refunding...' : 'Cancel Entire Order & Refund'}
+                            </button>
+                            <button
+                              onClick={() => setCancelAllId(null)}
+                              disabled={submittingCancelAll}
+                              className="inline-flex items-center gap-1.5 bg-white border text-gray-600 text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-gray-50"
+                            >
+                              Keep Order
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {adjusting && ((order: any) => {
                         const currentQty = Number(order.reserved_quantity ?? 0);
                         const newQty = Number(adjustQuantity);
@@ -2640,16 +2809,26 @@ export default function SellerDashboardPage() {
                                 className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm bg-white"
                               >
                                 <option value="">Choose a reason...</option>
-                                {Object.entries(SELLER_CHANGE_REASONS).map(([code, label]) => (
-                                  <option key={code} value={code}>
-                                    {label}
-                                  </option>
-                                ))}
+                                {Object.entries(SELLER_CHANGE_REASONS)
+                                  .filter(([code]) => code !== BUYER_REQUEST || newQty === 0)
+                                  .map(([code, label]) => (
+                                    <option key={code} value={code}>
+                                      {label}
+                                    </option>
+                                  ))}
                               </select>
                               <p className="text-xs text-red-900 mt-1">
                                 This goes to Farm Fresh Direct, not to the buyer. Anything you want the buyer to know
                                 goes in the message above.
                               </p>
+                              {adjustReason === BUYER_REQUEST && (
+                              <p className="mt-2 text-xs text-red-950 bg-white border border-red-200 rounded-lg p-2">
+                                This is treated as the buyer cancelling: they get the produce price back, the service fee
+                                isn&apos;t refunded, and after {FREE_CANCELLATION_HOURS} hours you&apos;re paid a{' '}
+                                {Math.round(RESTOCKING_RATE * 100)}% restocking fee. It doesn&apos;t count as a
+                                cancellation by you. (The buyer can also cancel it themselves from their order page.)
+                              </p>
+                              )}
                             </div>
                             <p className="text-xs text-red-900">
                               Once you change an order, the buyer can cancel the rest of what they ordered from you at

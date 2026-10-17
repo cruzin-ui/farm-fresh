@@ -275,7 +275,7 @@ export default function FreshListingsWheel() {
   );
 
   return (
-    <section aria-label="Fresh listings this week" className="mt-12">
+    <section aria-label="Fresh listings this week" className="mt-8">
       <div className="flex items-center justify-between gap-3 mb-4 max-w-5xl mx-auto px-6">
         <h2 className="text-xl sm:text-3xl font-bold text-gray-900 whitespace-nowrap">Fresh This Week</h2>
         <div className="flex items-center gap-3">

@@ -125,9 +125,13 @@ export default function SplashLandingPage() {
         </div>
       </section>
 
+      {/* Current listings, drifting right to left: first, so visitors see
+          what's for sale straight away. */}
+      <FreshListingsWheel />
+
       {/* Buy / Sell: the two ways in, as short wide cards. The whole card is
           the link. These replace the buttons that used to sit in the hero. */}
-      <section className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <section className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
         <Link
           href="/browse"
           className="flex items-center gap-4 bg-white px-5 py-4 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all text-left"
@@ -162,9 +166,6 @@ export default function SplashLandingPage() {
           </span>
         </Link>
       </section>
-
-      {/* Current listings, drifting right to left */}
-      <FreshListingsWheel />
 
       {/* Why people use the site, in six short points */}
       <section aria-label="Why buy and sell here" className="mt-10 max-w-5xl mx-auto px-6">
