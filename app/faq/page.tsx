@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import React from 'react';
 import { HelpCircle } from 'lucide-react';
+import FaqBrowser from '@/components/FaqBrowser';
 import { BUYER_FEE_LABEL, SELLER_KEEPS_PERCENT, PLATFORM_KEEPS_CENTS_PER_DOLLAR, SELLER_FEE_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
@@ -325,23 +327,17 @@ const SELLER_FAQS: Faq[] = [
   },
 ];
 
-function FaqGroup({ title, faqs }: { title: string; faqs: Faq[] }) {
-  return (
-    <section>
-      <h2 className="text-xl font-bold text-gray-900 mb-3">{title}</h2>
-      <div className="space-y-2">
-        {faqs.map((faq) => (
-          <details key={faq.question} className="bg-white border border-gray-200 rounded-xl shadow-sm group">
-            <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-gray-900">
-              {faq.question}
-            </summary>
-            <div className="px-4 pb-4 text-sm text-gray-700 leading-relaxed">{faq.answer}</div>
-          </details>
-        ))}
-      </div>
-    </section>
-  );
+// The words in an answer, for searching. Answers are mostly text, some with
+// links and lists; this collects the text from all of it.
+function plainText(node: React.ReactNode): string {
+  if (node == null || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(plainText).join(' ');
+  if (React.isValidElement(node)) return plainText((node.props as { children?: React.ReactNode }).children);
+  return '';
 }
+
+const withText = (faqs: Faq[]) => faqs.map((faq) => ({ ...faq, text: plainText(faq.answer) }));
 
 export default function FaqPage() {
   return (
@@ -359,8 +355,12 @@ export default function FaqPage() {
         </p>
       </div>
 
-      <FaqGroup title="For buyers" faqs={BUYER_FAQS} />
-      <FaqGroup title="For sellers" faqs={SELLER_FAQS} />
+      <FaqBrowser
+        sections={[
+          { id: 'for-buyers', title: 'For buyers', faqs: withText(BUYER_FAQS) },
+          { id: 'for-sellers', title: 'For sellers', faqs: withText(SELLER_FAQS) },
+        ]}
+      />
     </div>
   );
 }

@@ -183,6 +183,17 @@ type SummaryRow = {
   estimated_net: number;
 };
 
+// Card fees Stripe kept on money that was refunded, for one month and cause.
+type RefundLoss = { month: string; cause: 'farm' | 'buyer' | 'no_show' | 'reduced' | 'other'; orders: number; refunded: number; fees: number };
+
+const REFUND_CAUSES: Record<RefundLoss['cause'], string> = {
+  farm: 'Farm cancelled (or never got it ready)',
+  reduced: 'Order reduced or partly refunded',
+  buyer: 'Buyer cancelled (service fee kept)',
+  no_show: 'No-show (service fee kept)',
+  other: 'Other refunds',
+};
+
 type ContactMessage = {
   id: string;
   created_at: string;
@@ -318,6 +329,7 @@ export default function AdminPage() {
   // On phones the section menu is a drop-down; this is whether it is open.
   const [navOpen, setNavOpen] = useState(false);
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>([]);
+  const [refundLosses, setRefundLosses] = useState<RefundLoss[]>([]);
   const [summaryMonth, setSummaryMonth] = useState<string>('');
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [showResolvedMessages, setShowResolvedMessages] = useState(false);
@@ -381,6 +393,7 @@ export default function AdminPage() {
     const summaryData = await summaryRes.json();
     if (summaryRes.ok) {
       setSummaryRows(summaryData.rows);
+      setRefundLosses(summaryData.refundLosses || []);
       setSummaryMonth((current) => current || summaryData.rows[0]?.month || recentMonths()[0]);
     }
 
@@ -890,6 +903,26 @@ export default function AdminPage() {
     { to_farmer: 0, to_stripe: 0, to_platform: 0 }
   );
   const feeGrandTotal = feeTotals.to_farmer + feeTotals.to_stripe + feeTotals.to_platform;
+
+  // What refunds cost in card fees, for the same month, by cause.
+  const lossRows = (feeMonth === 'all' ? refundLosses : refundLosses.filter((l) => l.month === feeMonth)).reduce(
+    (acc, l) => {
+      const row = acc.get(l.cause) || { cause: l.cause, orders: 0, refunded: 0, fees: 0 };
+      row.orders += l.orders;
+      row.refunded += l.refunded;
+      row.fees += l.fees;
+      acc.set(l.cause, row);
+      return acc;
+    },
+    new Map<RefundLoss['cause'], { cause: RefundLoss['cause']; orders: number; refunded: number; fees: number }>()
+  );
+  const lossList = (Object.keys(REFUND_CAUSES) as RefundLoss['cause'][]).map((c) => lossRows.get(c)).filter(Boolean) as {
+    cause: RefundLoss['cause'];
+    orders: number;
+    refunded: number;
+    fees: number;
+  }[];
+  const lostToRefunds = lossList.reduce((sum, l) => sum + l.fees, 0);
   const shareOf = (amount: number) => (feeGrandTotal > 0 ? `${Math.round((amount / feeGrandTotal) * 100)}%` : '—');
   const shownFeeRows = feeRows.filter((r) => r.farm_name.toLowerCase().includes(farmSearch.trim().toLowerCase()));
   const feePeriodLabel = feeMonth === 'all' ? 'all months' : formatMonth(feeMonth);
@@ -1719,6 +1752,59 @@ export default function AdminPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/60 space-y-3">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-700">Lost to refunds (estimated)</p>
+                    <p className="text-2xl font-black text-amber-800">${lostToRefunds.toFixed(2)}</p>
+                    <p className="text-xs text-gray-600">
+                      Card fees Stripe kept on money refunded in {feePeriodLabel}
+                      {feeRows.length > 0 && (
+                        <>
+                          . The platform keeps about{' '}
+                          <strong className={feeTotals.to_platform - lostToRefunds < 0 ? 'text-red-600' : 'text-emerald-700'}>
+                            ${(feeTotals.to_platform - lostToRefunds).toFixed(2)}
+                          </strong>{' '}
+                          after these.
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                {lossList.length === 0 ? (
+                  <p className="text-xs text-gray-600">No refunds in {feePeriodLabel}.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <caption className="sr-only">Card fees lost to refunds, by cause, for {feePeriodLabel}</caption>
+                      <thead className="text-gray-500 border-b border-amber-200">
+                        <tr>
+                          <th scope="col" className="py-1.5 pr-4 font-semibold">Why the money went back</th>
+                          <th scope="col" className="py-1.5 pr-4 font-semibold text-right">Orders</th>
+                          <th scope="col" className="py-1.5 pr-4 font-semibold text-right">Refunded</th>
+                          <th scope="col" className="py-1.5 font-semibold text-right">Card fees lost</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-amber-100">
+                        {lossList.map((l) => (
+                          <tr key={l.cause}>
+                            <th scope="row" className="py-1.5 pr-4 font-normal text-gray-800">{REFUND_CAUSES[l.cause]}</th>
+                            <td className="py-1.5 pr-4 text-right tabular-nums">{l.orders}</td>
+                            <td className="py-1.5 pr-4 text-right tabular-nums">${l.refunded.toFixed(2)}</td>
+                            <td className="py-1.5 text-right tabular-nums font-semibold text-amber-800">${l.fees.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500">
+                  Estimated at 2.9% of each refunded dollar, plus the 30¢ for orders refunded in full. When a buyer
+                  cancels or doesn&apos;t show, the service fee you kept covers this. Dispute fees and Stripe Tax
+                  charges aren&apos;t included.
+                </p>
               </div>
 
               {feeRows.length === 0 ? (

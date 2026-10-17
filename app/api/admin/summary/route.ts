@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestAdmin } from '@/lib/apiAuth';
 import { alertAdmin } from '@/lib/alerts';
+import { FARMER_CANCEL_REASONS } from '@/lib/sellerChanges';
 
 export const dynamic = 'force-dynamic';
 
@@ -127,6 +128,43 @@ export async function POST(request: Request) {
 
     const round = (n: number) => Math.round(n * 100) / 100;
 
+    // ---- what refunds cost the platform ----
+    // Stripe keeps its card fee when a payment is refunded, so every refunded
+    // dollar still cost about 2.9% of it, and an order refunded in full also
+    // loses its share of the 30¢. Estimated the same way as above, grouped by
+    // why the money went back, for each month.
+    const { data: refundedOrders } = await supabaseAdmin
+      .from('orders')
+      .select('id, created_at, status, cancel_reason, total_price, refunded_amount, stripe_payment_intent_id')
+      .gt('refunded_amount', 0)
+      .gte('created_at', since.toISOString())
+      .limit(5000);
+    const perPayment = new Map<string, number>();
+    for (const o of refundedOrders || []) {
+      if (o.stripe_payment_intent_id) perPayment.set(o.stripe_payment_intent_id, (perPayment.get(o.stripe_payment_intent_id) || 0) + 1);
+    }
+    const causeOf = (o: { status: string; cancel_reason: string | null }) => {
+      if (o.status !== 'cancelled') return 'reduced';
+      if (FARMER_CANCEL_REASONS.includes(o.cancel_reason || '')) return 'farm';
+      if (o.cancel_reason === 'buyer') return 'buyer';
+      if (o.cancel_reason === 'no_show') return 'no_show';
+      return 'other';
+    };
+    const losses = new Map<string, { month: string; cause: string; orders: number; refunded: number; fees: number }>();
+    for (const o of refundedOrders || []) {
+      const month = String(o.created_at).slice(0, 7);
+      const cause = causeOf(o);
+      const key = `${month}|${cause}`;
+      const refunded = Number(o.refunded_amount || 0);
+      const fullyRefunded = Number(o.total_price || 0) < 0.005;
+      const entry = losses.get(key) || { month, cause, orders: 0, refunded: 0, fees: 0 };
+      entry.orders += 1;
+      entry.refunded += refunded;
+      entry.fees += refunded * CARD_FEE_RATE + (fullyRefunded ? CARD_FEE_FIXED / (perPayment.get(o.stripe_payment_intent_id) || 1) : 0);
+      losses.set(key, entry);
+    }
+    const refundLosses = [...losses.values()].map((l) => ({ ...l, refunded: round(l.refunded), fees: round(l.fees) }));
+
     const result = [...rows.values()]
       .map((r) => ({
         ...r,
@@ -138,7 +176,7 @@ export async function POST(request: Request) {
       }))
       .sort((a, b) => b.month.localeCompare(a.month) || b.produce_sales - a.produce_sales);
 
-    return NextResponse.json({ rows: result, connectAccountFee: CONNECT_ACTIVE_ACCOUNT_FEE });
+    return NextResponse.json({ rows: result, refundLosses, connectAccountFee: CONNECT_ACTIVE_ACCOUNT_FEE });
   } catch (err: any) {
     console.error('admin summary error:', err);
     await alertAdmin('admin summary error', err);
