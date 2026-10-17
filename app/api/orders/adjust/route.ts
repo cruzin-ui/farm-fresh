@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
-import { refundOrderQuantity, OrderActionError } from '@/lib/orderActions';
+import { refundOrderQuantity, resolveNoShow, OrderActionError } from '@/lib/orderActions';
+import { isWithinFreeCancellation, RESTOCKING_RATE } from '@/lib/pricing';
 import { alertAdmin } from '@/lib/alerts';
 import { checkSellerCancellations } from '@/lib/fraudWatch';
-import { SELLER_CHANGE_REASONS, LISTING_ACTIONS, type ListingAction } from '@/lib/sellerChangeReasons';
+import { SELLER_CHANGE_REASONS, LISTING_ACTIONS, BUYER_REQUEST, type ListingAction } from '@/lib/sellerChangeReasons';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +63,37 @@ export async function POST(request: Request) {
     // Only the farmer who owns the listing can change its orders.
     if (!listing || listing.farmer_id !== user.id) {
       return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
+    }
+
+    // At the buyer's request: handled exactly as if the buyer had cancelled.
+    if (reason === BUYER_REQUEST) {
+      if (newQuantity !== 0) {
+        return NextResponse.json(
+          { error: "For a buyer's request, cancel the item; they can order the amount they want again." },
+          { status: 400 }
+        );
+      }
+      const quantity = Number(order.reserved_quantity ?? order.quantity ?? 0);
+      const free = isWithinFreeCancellation(order.created_at) && !order.no_show_reported_at;
+      const { refundAmount, restockingFee } = await resolveNoShow({
+        order,
+        listing,
+        farmerId: user.id,
+        cancelledByBuyer: true,
+        viaFarmer: true,
+        restockingRate: free ? 0 : RESTOCKING_RATE,
+      });
+      // That puts the quantity back on sale; undo or go further if asked.
+      if (listingAction !== 'restock') {
+        await supabaseAdmin
+          .from('produce_listings')
+          .update({ available_quantity: listingAction === 'take_down' ? 0 : Number(listing.available_quantity ?? 0) })
+          .eq('id', order.listing_id);
+      }
+      await supabaseAdmin.from('seller_order_changes').insert([
+        { order_id: order.id, farmer_id: user.id, kind: 'cancelled', reason, listing_action: listingAction, quantity_removed: quantity },
+      ]);
+      return NextResponse.json({ success: true, cancelled: true, refundAmount, restockingFee, atBuyerRequest: true, suspended: false });
     }
 
     const result = await refundOrderQuantity({

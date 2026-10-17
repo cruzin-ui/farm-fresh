@@ -33,3 +33,9 @@ export const LISTING_ACTIONS: Record<string, { label: string; detail: string }> 
 };
 
 export type ListingAction = 'restock' | 'leave' | 'take_down';
+
+// "The buyer asked me to" is handled as the buyer cancelling: the service fee
+// is kept, the restocking fee applies after the free cancellation window, and
+// it doesn't count against the farmer. It is for cancelling outright only; a
+// buyer who wants less can cancel and order again.
+export const BUYER_REQUEST = 'buyer_request';

@@ -126,6 +126,7 @@ type Insights = {
   sellers: { withListings: number; withOrdersLast30Days: number; ordersPerSellerPerWeek: number };
   share: { produceCents: number; buyerFeeCents: number; sellerFeeCents: number };
   checkout: { opened: number; started: number; completed: number } | null;
+  repeatCancellations?: { farm: string; buyer: string; orders: number; reasons: string[]; last: string }[];
   sellerChanges: {
     reasons: { label: string; cancelled: number; reduced: number; last30Days: number }[];
     listing: { label: string; count: number }[];
@@ -2181,6 +2182,48 @@ export default function AdminPage() {
                           {sellerChanges.listing.map((l) => `${l.label.toLowerCase()} ${l.count}`).join(' · ')}.
                         </p>
                       </>
+                    )}
+                  </div>
+
+                  <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+                    <h3 className="text-sm font-bold text-gray-900">
+                      Same buyer, cancelled on again
+                      {(insights.repeatCancellations || []).length > 0 && (
+                        <span className="ml-2 bg-red-100 text-red-800 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                          {(insights.repeatCancellations || []).length}
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      A farm that cancelled or reduced two or more orders for the same buyer in the last 60 days, whatever
+                      reason it gave. It can be bad luck, or a farm and buyer arranging sales off the site. Look at the
+                      orders and their messages before acting.
+                    </p>
+                    {(insights.repeatCancellations || []).length === 0 ? (
+                      <p className="mt-3 text-sm text-gray-500">Nothing to look at.</p>
+                    ) : (
+                      <div className="mt-3 overflow-x-auto">
+                        <table className="w-full text-xs text-gray-700">
+                          <thead className="text-gray-500 border-b">
+                            <tr>
+                              <th scope="col" className="py-1.5 pr-4 text-left font-semibold">Farm</th>
+                              <th scope="col" className="py-1.5 pr-4 text-left font-semibold">Buyer</th>
+                              <th scope="col" className="py-1.5 pr-4 text-right font-semibold">Orders</th>
+                              <th scope="col" className="py-1.5 text-left font-semibold">Reasons given</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(insights.repeatCancellations || []).map((p) => (
+                              <tr key={`${p.farm}|${p.buyer}`} className="border-b border-gray-100 last:border-0 align-top">
+                                <th scope="row" className="py-1.5 pr-4 text-left font-semibold text-gray-900">{p.farm}</th>
+                                <td className="py-1.5 pr-4 break-all">{p.buyer}</td>
+                                <td className="py-1.5 pr-4 text-right tabular-nums font-bold text-red-700">{p.orders}</td>
+                                <td className="py-1.5">{p.reasons.join('; ')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     )}
                   </div>
 

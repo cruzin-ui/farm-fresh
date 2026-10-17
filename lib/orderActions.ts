@@ -125,6 +125,42 @@ async function sendBuyerAdjustmentEmail(params: {
   });
 }
 
+// One email for a farm cancelling everything the buyer ordered from it in one
+// checkout, instead of one per item.
+export async function sendBuyerOrderCancelledEmail(params: {
+  buyerEmail: string;
+  farmName: string;
+  items: { title: string; quantity: number; unitType: string }[];
+  refundTotal: number;
+  note: string;
+  // Cancelled because the buyer asked: the service fee is kept, and any
+  // restocking fee went to the farmer.
+  atBuyerRequest?: boolean;
+  restockingTotal?: number;
+}) {
+  const { buyerEmail, farmName, items, refundTotal, note, atBuyerRequest = false, restockingTotal = 0 } = params;
+  await sendEmail({
+    to: buyerEmail,
+    subject: atBuyerRequest ? `Your order from ${farmName} was cancelled at your request` : `Your order from ${farmName} was cancelled`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px;">
+        <h2 style="color: #b45309;">Your order was cancelled</h2>
+        <p>${atBuyerRequest ? `At your request, <strong>${escapeHtml(farmName)}</strong> cancelled your order:` : `<strong>${escapeHtml(farmName)}</strong> had to cancel your order:`}</p>
+        <ul>${items.map((item) => `<li>${item.quantity} ${escapeHtml(item.unitType)} of ${escapeHtml(item.title)}</li>`).join('')}</ul>
+        ${note ? `<p style="white-space: pre-wrap;">${escapeHtml(note)}</p>` : ''}
+        <p>
+          A refund of <strong>$${refundTotal.toFixed(2)}</strong>${atBuyerRequest ? '' : ', including the service fee for these items,'} has been
+          issued to your original payment method. It usually takes 5–10 business days to appear.${
+            atBuyerRequest
+              ? ` The service fee is not refunded on orders cancelled at your request${restockingTotal > 0 ? `, and a restocking fee of $${restockingTotal.toFixed(2)} went to the farmer because it was cancelled more than ${FREE_CANCELLATION_HOURS} hours after it was placed` : ''}.`
+              : ''
+          }
+        </p>
+      </div>
+    `,
+  });
+}
+
 // Marks an open order completed and, for orders paid through Stripe, releases
 // the farmer's share: the platform has been holding the buyer's payment since
 // checkout, and this is the moment it transfers to the farmer's connected
@@ -459,6 +495,9 @@ export async function refundOrderAmount(params: { order: any; listing: { title?:
 // completed order can be fully cancelled too — the farmer's payout is pulled
 // back from their connected account.
 export async function refundOrderQuantity(params: {
+  // Leave the buyer's email to the caller (used when cancelling several items
+  // at once, which sends one email for them all).
+  silent?: boolean;
   order: any;
   listing: { title?: string | null; unit_type?: string | null; available_quantity?: number | null };
   newQuantity: number;
@@ -600,7 +639,7 @@ export async function refundOrderQuantity(params: {
     }
   }
 
-  if (order.buyer_email) {
+  if (order.buyer_email && !params.silent) {
     await sendBuyerAdjustmentEmail({
       buyerEmail: order.buyer_email,
       listingTitle: listing.title || 'your order',
@@ -632,8 +671,13 @@ export async function resolveNoShow(params: {
   farmerId: string;
   cancelledByBuyer?: boolean;
   restockingRate?: number;
+  // The farmer cancelled it because the buyer asked them to (worded so in
+  // the buyer's email).
+  viaFarmer?: boolean;
+  // Leave the buyer's email to the caller.
+  silent?: boolean;
 }) {
-  const { order, listing, farmerId, cancelledByBuyer = false } = params;
+  const { order, listing, farmerId, cancelledByBuyer = false, viaFarmer = false, silent = false } = params;
   const restockingRate = params.restockingRate ?? NO_SHOW_RESTOCKING_RATE;
 
   if (!isOpen(order)) {
@@ -766,21 +810,25 @@ export async function resolveNoShow(params: {
     await alertAdmin('listing not restocked after a no-show', restockError, { order: order.id, listing: order.listing_id });
   }
 
-  if (order.buyer_email && cancelledByBuyer) {
+  if (silent) {
+    // The caller emails the buyer.
+  } else if (order.buyer_email && cancelledByBuyer) {
     await sendEmail({
       to: order.buyer_email,
-      subject: `You cancelled your order of ${listing.title || 'produce'}`,
+      subject: viaFarmer
+        ? `Your order of ${listing.title || 'produce'} was cancelled at your request`
+        : `You cancelled your order of ${listing.title || 'produce'}`,
       html: `
         <div style="font-family: sans-serif; max-width: 480px;">
           <h2 style="color: #b45309;">Your order was cancelled</h2>
           <p>
-            As you asked, your order of <strong>${currentQuantity} ${escapeHtml(listing.unit_type || 'units')}</strong> of
+            ${viaFarmer ? 'At your request, the farmer cancelled' : 'As you asked,'} your order of <strong>${currentQuantity} ${escapeHtml(listing.unit_type || 'units')}</strong> of
             <strong>${escapeHtml(listing.title || 'produce')}</strong> has been cancelled.
           </p>
           <p>
             A refund of <strong>$${refundAmount.toFixed(2)}</strong> has been issued to your original
             payment method. It usually takes 5–10 business days to appear. The service fee is not refunded on
-            orders you cancel${
+            orders cancelled at your request${
               restockingFee > 0
                 ? `, and a ${restockingRate * 100}% restocking fee ($${restockingFee.toFixed(2)}) went to the farmer because the order was cancelled more than ${FREE_CANCELLATION_HOURS} hours after it was placed`
                 : ''

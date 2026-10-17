@@ -170,6 +170,49 @@ export async function POST(request: Request) {
           total: (changes || []).length,
         };
 
+    // ---- the same buyer, cancelled on by the same farm, again and again ----
+    // Bad luck happens, but repeated farm cancellations for one buyer can also
+    // mean the two are arranging sales off the site. Counted per checkout,
+    // over 60 days, whatever reason the farm gave.
+    const PAIR_DAYS = 60;
+    const { data: recentChanges } = await supabaseAdmin
+      .from('seller_order_changes')
+      .select('order_id, farmer_id, reason, created_at')
+      .gte('created_at', new Date(now - PAIR_DAYS * DAY_MS).toISOString())
+      .limit(10000);
+    const changedOrderIds = [...new Set((recentChanges || []).map((c) => c.order_id))];
+    const { data: changedOrders } = changedOrderIds.length
+      ? await supabaseAdmin.from('orders').select('id, checkout_id, buyer_id, buyer_email').in('id', changedOrderIds)
+      : { data: [] as any[] };
+    const orderById = new Map((changedOrders || []).map((o) => [o.id, o]));
+    const cancelPairs = new Map<string, { farmerId: string; buyer: string; checkouts: Set<string>; reasons: Set<string>; last: string }>();
+    for (const change of recentChanges || []) {
+      const order = orderById.get(change.order_id);
+      if (!order) continue;
+      const buyer = String(order.buyer_email || order.buyer_id || '').toLowerCase();
+      if (!buyer) continue;
+      const key = `${change.farmer_id}|${buyer}`;
+      const pair = cancelPairs.get(key) || { farmerId: change.farmer_id, buyer, checkouts: new Set(), reasons: new Set(), last: change.created_at };
+      pair.checkouts.add(order.checkout_id || order.id);
+      pair.reasons.add(SELLER_CHANGE_REASONS[change.reason] || change.reason);
+      if (change.created_at > pair.last) pair.last = change.created_at;
+      cancelPairs.set(key, pair);
+    }
+    const repeated = [...cancelPairs.values()].filter((p) => p.checkouts.size >= 2);
+    const { data: pairFarms } = repeated.length
+      ? await supabaseAdmin.from('seller_profiles').select('id, farm_name').in('id', repeated.map((p) => p.farmerId))
+      : { data: [] as any[] };
+    const pairFarmName = new Map((pairFarms || []).map((f) => [f.id, f.farm_name]));
+    const repeatCancellations = repeated
+      .map((p) => ({
+        farm: pairFarmName.get(p.farmerId) || 'Unknown farm',
+        buyer: p.buyer,
+        orders: p.checkouts.size,
+        reasons: [...p.reasons],
+        last: p.last,
+      }))
+      .sort((a, b) => b.orders - a.orders);
+
     // ---- how far do shoppers get through checkout? ----
     const since = new Date(now - 30 * DAY_MS).toISOString().slice(0, 10);
     const { data: counts, error: countsError } = await supabaseAdmin
@@ -218,6 +261,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       traffic,
+      repeatCancellations,
       people: {
         accounts,
         accountsThisWeek,
