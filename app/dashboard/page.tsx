@@ -15,7 +15,7 @@ import NewListingWizard from '@/components/NewListingWizard';
 import ListingPickupChooser, { pickupProblem, type PickupChoice } from '@/components/ListingPickupChooser';
 import { CategoryNotice, PlantFields, HighlightsPicker } from '@/components/ListingFormParts';
 import { unitOptionsFor, isAllowedUnit, usualUnit, unitSingular } from '@/lib/units';
-import { CSA_BOX_CATEGORY } from '@/lib/csaSchedule';
+import { isBoxCategory } from '@/lib/csaSchedule';
 import { tidyFarmAddress, farmAddressProblem, FARM_ADDRESS_MAX } from '@/lib/farmAddress';
 import { SELLER_CHANGE_REASONS, LISTING_ACTIONS, BUYER_REQUEST, type ListingAction } from '@/lib/sellerChangeReasons';
 import { SELLER_CANCEL_LIMIT, SELLER_CANCEL_WINDOW_DAYS } from '@/lib/sellerLimits';
@@ -157,6 +157,14 @@ export default function SellerDashboardPage() {
   // The first time orders load, a seller with open orders is taken straight
   // to them, since that is what they came for.
   const openedOnOrders = useRef(false);
+  // Links in emails can open a section directly, e.g. /dashboard?tab=csa.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'csa' || tab === 'orders' || tab === 'picklist' || tab === 'history' || tab === 'profile' || tab === 'settings') {
+      setActiveTab(tab);
+      openedOnOrders.current = true;
+    }
+  }, []);
   // Which year of Sales History is shown and downloaded.
   const [historyYear, setHistoryYear] = useState<number | 'all'>('all');
   // The farm's own web address (farmfreshdirect.online/<name>): the one it
@@ -388,8 +396,8 @@ export default function SellerDashboardPage() {
     }));
 
     if (listings) {
-      setMyListings(listingsWithAddress.filter((l) => l.category !== CSA_BOX_CATEGORY));
-      setBoxListings(listingsWithAddress.filter((l) => l.category === CSA_BOX_CATEGORY));
+      setMyListings(listingsWithAddress.filter((l) => !isBoxCategory(l.category)));
+      setBoxListings(listingsWithAddress.filter((l) => isBoxCategory(l.category)));
     }
 
     const { data: termsRow } = await supabase

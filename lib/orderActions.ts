@@ -11,6 +11,7 @@ import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { alertAdmin, notifyAdmins } from '@/lib/alerts';
 import { reverseOrderTax } from '@/lib/tax';
 import { FARMER_CANCEL_REASONS } from '@/lib/sellerChanges';
+import { getOrderShares, payOrderShares, payRestockingShares, reverseShareTransfers } from '@/lib/orderShares';
 
 // An order completed this soon after it was paid for is unusual for produce
 // that has to be picked and collected in person, and is how someone would
@@ -304,7 +305,21 @@ export async function completeOrderAndReleasePayout(
           ? paymentIntent.latest_charge
           : paymentIntent.latest_charge?.id;
 
-      if (payoutCents > 0 && chargeId) {
+      // A shared Farm Box pays each farm its own part instead.
+      const shares = await getOrderShares(order.id);
+      if (shares.length > 0) {
+        if (chargeId) {
+          const paid = await payOrderShares({
+            order,
+            shares,
+            sellerFeeRate,
+            chargeId,
+            transferGroup: paymentIntent.transfer_group ?? undefined,
+          });
+          transferId = paid.hostTransferId;
+          payoutAmount = paid.totalCents / 100;
+        }
+      } else if (payoutCents > 0 && chargeId) {
         // source_transaction ties the transfer to this order's charge, so it
         // works even before the buyer's payment has settled. The idempotency
         // key makes a retry return the same transfer instead of paying twice.
@@ -428,7 +443,9 @@ export async function refundOrderAmount(params: { order: any; listing: { title?:
 
   // A picked-up order has already paid the farmer: take their share back.
   let takenBackCents = 0;
-  if (order.status === 'completed' && order.stripe_transfer_id && payoutCutCents > 0) {
+  if (order.status === 'completed' && (await reverseShareTransfers(order, share, `partial-${paidCents}-${refundCents}`))) {
+    takenBackCents = payoutCutCents;
+  } else if (order.status === 'completed' && order.stripe_transfer_id && payoutCutCents > 0) {
     await stripeAdmin.transfers.createReversal(
       order.stripe_transfer_id,
       { amount: payoutCutCents },
@@ -559,7 +576,9 @@ export async function refundOrderQuantity(params: {
   );
 
   // A completed order already released the farmer's payout — take it back.
-  if (completed && order.stripe_transfer_id) {
+  if (completed && (await reverseShareTransfers(order, null, 'full'))) {
+    // A shared Farm Box: each farm's payout was taken back.
+  } else if (completed && order.stripe_transfer_id) {
     await stripeAdmin.transfers.createReversal(
       order.stripe_transfer_id,
       {},
@@ -707,7 +726,11 @@ export async function resolveNoShow(params: {
   const originalQuantity = original.quantity || 1;
   // Capped at the quantity originally paid for, as in the payout above.
   const currentQuantity = Math.min(Number(order.reserved_quantity ?? order.quantity ?? 0), originalQuantity);
-  const subtotalCents = Math.round((originalSubtotalCents * currentQuantity) / originalQuantity);
+  // A shared Farm Box: only the parts still in it (not ones already refunded).
+  const shares = await getOrderShares(order.id);
+  const subtotalCents = shares.length
+    ? shares.filter((s) => s.status !== 'refunded').reduce((sum, s) => sum + s.share_cents, 0)
+    : Math.round((originalSubtotalCents * currentQuantity) / originalQuantity);
   // What the buyer gets back before tax, and the tax that goes with it. The
   // tax is refunded in the same proportion as the rest of the charge, which is
   // also how Stripe reverses it in its tax records.
@@ -744,7 +767,15 @@ export async function resolveNoShow(params: {
       ? paymentIntent.latest_charge
       : paymentIntent.latest_charge?.id;
 
-  if (restockingCents > 0 && chargeId) {
+  if (restockingCents > 0 && chargeId && shares.length > 0) {
+    transferId = await payRestockingShares({
+      order,
+      shares,
+      restockingCents,
+      chargeId,
+      transferGroup: paymentIntent.transfer_group ?? undefined,
+    });
+  } else if (restockingCents > 0 && chargeId) {
     const transfer = await stripeAdmin.transfers.create(
       {
         amount: restockingCents,

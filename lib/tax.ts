@@ -30,6 +30,8 @@ export const CATEGORY_TAX_CODES: Record<string, string> = {
   'Plants & Seedlings': GENERAL_GOODS,
   // A CSA farm-share box of the farm's produce.
   'CSA Box': FOOD_FOR_HOME,
+  // A Flower Box: cut flowers, like the Cut Flowers category.
+  'Flower Box': GENERAL_GOODS,
 };
 
 // Used for a category that isn't listed above.

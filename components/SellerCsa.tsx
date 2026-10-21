@@ -2,13 +2,26 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Package, Plus, AlertCircle, CheckCircle2, Users, ChevronDown, Camera, ImageIcon, X } from 'lucide-react';
+import { Package, Plus, AlertCircle, CheckCircle2, Users, ChevronDown, Camera, ImageIcon, X, Egg } from 'lucide-react';
+import SharedBoxHostPanel, { type HostFarm } from '@/components/SharedBoxHostPanel';
+import SharedBoxPartner from '@/components/SharedBoxPartner';
+import {
+  DEFAULT_DROPOFF_NOTE,
+  EGG_NOTICE_SELLER,
+  HOST_PACKING_LABEL,
+  MIN_HOST_SHARE_CENTS,
+  SHARED_BOX_MAX_PARTNERS,
+  SHARED_BOX_MILES,
+  SHARED_BOX_STEPS,
+  farmKeepsCents as sharedKeepsCents,
+  sharedBoxAgreementText,
+} from '@/lib/sharedBoxTerms';
 import { postWithAuth } from '@/lib/authedFetch';
 import { supabase } from '@/lib/supabaseClient';
 import { resizeImage } from '@/lib/resizeImage';
 import Photo from '@/components/Photo';
 import { boxCostCents } from '@/lib/csaTerms';
-import { describeFrequency, formatBoxDate, todayInArizona, WEEKDAYS, CHARGE_DAYS_BEFORE } from '@/lib/csaSchedule';
+import { boxKindName, describeFrequency, formatBoxDate, todayInArizona, WEEKDAYS, CHARGE_DAYS_BEFORE } from '@/lib/csaSchedule';
 import { SELLER_FEE_RATE } from '@/lib/pricing';
 
 type Week = {
@@ -24,6 +37,19 @@ type Week = {
   failed: number;
   memberSkips: number;
   oneOff: number;
+  // Shared boxes: each partner's answer for the week, and whether a missing
+  // part can be reported.
+  confirmByLabel?: string;
+  canReportMissing?: boolean;
+  partners?: { farmerId: string; name: string; answer: string | null }[];
+};
+
+const ANSWER_TEXT: Record<string, string> = {
+  confirmed: 'confirmed',
+  asked: 'not answered yet',
+  cant: "can't this week",
+  no_reply: 'left out (no answer)',
+  missing: 'reported missing',
 };
 
 type Plan = {
@@ -37,7 +63,13 @@ type Plan = {
   seasonStart: string;
   seasonEnd: string;
   maxMembers: number | null;
-  status: 'open' | 'closed' | 'ended';
+  status: 'forming' | 'open' | 'closed' | 'ended';
+  kind: 'solo' | 'shared';
+  boxType: 'food' | 'flowers';
+  dropoffNote: string;
+  hostSubstitutes: boolean;
+  hostPart: { contribution: string; priceDollars: string; includesEggs: boolean } | null;
+  farms: HostFarm[];
   everJoined: boolean;
   imageUrl: string | null;
   counts: { active: number; paused: number; cancelled: number };
@@ -59,6 +91,16 @@ type Form = {
   status: string;
   // The saved photo, or '' for none.
   imageUrl: string;
+  // What's in it, and whether nearby farms help fill it (both set when the
+  // box is created).
+  boxType: 'food' | 'flowers';
+  kind: 'solo' | 'shared';
+  // Shared boxes: the host's own part (priceDollars is its price), eggs,
+  // where partners drop off, and filling in for a missing part.
+  hostContribution: string;
+  includesEggs: boolean;
+  dropoffNote: string;
+  hostSubstitutes: boolean;
 };
 
 const EMPTY_FORM: Form = {
@@ -73,14 +115,22 @@ const EMPTY_FORM: Form = {
   maxMembers: '',
   status: 'open',
   imageUrl: '',
+  boxType: 'food',
+  kind: 'solo',
+  hostContribution: '',
+  includesEggs: false,
+  dropoffNote: DEFAULT_DROPOFF_NOTE,
+  hostSubstitutes: false,
 };
 
 const STATUS_PILL: Record<Plan['status'], string> = {
+  forming: 'bg-sky-100 text-sky-900',
   open: 'bg-emerald-100 text-emerald-800',
   closed: 'bg-amber-100 text-amber-900',
   ended: 'bg-gray-100 text-gray-600',
 };
 const STATUS_TEXT: Record<Plan['status'], string> = {
+  forming: 'Gathering partner farms',
   open: 'Taking members',
   closed: 'Not taking new members',
   ended: 'Ended',
@@ -103,6 +153,9 @@ export default function SellerCsa({
   const [payoutsProblem, setPayoutsProblem] = useState<string | null>(null);
   const [form, setForm] = useState<Form | null>(null);
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptSharedTerms, setAcceptSharedTerms] = useState(false);
+  // A missing part being reported: "planId|date|farmerId".
+  const [missingFor, setMissingFor] = useState<string | null>(null);
   // A new photo picked in the form, uploaded when it is saved.
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -168,7 +221,7 @@ export default function SellerCsa({
 
   const noteKey = (planId: string, date: string) => `${planId}|${date}`;
   const field = (name: keyof Form) => ({
-    value: form?.[name] || '',
+    value: String(form?.[name] || ''),
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setForm((current) => (current ? { ...current, [name]: e.target.value } : current)),
   });
@@ -176,7 +229,18 @@ export default function SellerCsa({
   const priceCents = Math.round(Number(form?.priceDollars || 0) * 100);
   const cost = priceCents > 0 ? boxCostCents(priceCents) : null;
   const farmKeepsCents = priceCents - Math.round(priceCents * SELLER_FEE_RATE);
-  const editingJoined = Boolean(form?.id && plans?.find((p) => p.id === form.id)?.everJoined);
+  const editingPlan = form?.id ? plans?.find((p) => p.id === form.id) : undefined;
+  const editingJoined = Boolean(editingPlan?.everJoined);
+  const formShared = form?.kind === 'shared';
+  const formKind = boxKindName(form?.boxType);
+  // A shared box's own part can change only while it is still forming.
+  const hostPartLocked = Boolean(editingPlan && editingPlan.status !== 'forming');
+  const hostPartChanged =
+    !editingPlan ||
+    !editingPlan.hostPart ||
+    editingPlan.hostPart.contribution !== form?.hostContribution ||
+    editingPlan.hostPart.priceDollars !== Number(form?.priceDollars || 0).toFixed(2) ||
+    editingPlan.hostPart.includesEggs !== form?.includesEggs;
   const running = (plans || []).filter((p) => p.status !== 'ended');
   const ended = (plans || []).filter((p) => p.status === 'ended');
 
@@ -185,7 +249,7 @@ export default function SellerCsa({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Package className="w-5 h-5 text-emerald-600" /> Farm Boxes
+            <Package className="w-5 h-5 text-emerald-600" /> Farm Boxes and Flower Boxes
           </h2>
           <p className="text-sm text-gray-600 max-w-xl mb-2">
             <strong className="text-gray-800">A Farm Box is essentially a CSA</strong> (community supported agriculture):
@@ -193,10 +257,15 @@ export default function SellerCsa({
             know how many boxes to fill before you harvest, and members become regulars. Buyers can also buy a single
             box to try it first; those show in your weekly counts as one-off boxes and count toward any member limit.
           </p>
-          <p className="text-sm text-gray-600 max-w-xl">
+          <p className="text-sm text-gray-600 max-w-xl mb-2">
             Members get a box from you on a set day, all season. Each box is charged to their saved card{' '}
             {CHARGE_DAYS_BEFORE} days before pickup and shows up in your Orders and Pick List like any order. You're paid
             when they collect it, as usual.
+          </p>
+          <p className="text-sm text-gray-600 max-w-xl">
+            <strong className="text-gray-800">Grow flowers?</strong> Offer a Flower Box instead.{' '}
+            <strong className="text-gray-800">Only grow a few things?</strong> Fill a box together with up to{' '}
+            {SHARED_BOX_MAX_PARTNERS} farms within {SHARED_BOX_MILES} miles: each farm adds its own part and is paid for it.
           </p>
         </div>
         {!form && (
@@ -223,6 +292,8 @@ export default function SellerCsa({
         </p>
       )}
 
+      <SharedBoxPartner sellerTermsAccepted={sellerTermsAccepted} />
+
       {payoutsProblem && running.length > 0 && (
         <p className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-sm">
           <strong>Not open to members yet:</strong> people can join once you've finished setting up payouts.{' '}
@@ -247,15 +318,80 @@ export default function SellerCsa({
               return;
             }
             const json = await call(
-              { action: 'save_plan', plan: { ...form, imageUrl }, acceptTerms },
+              { action: 'save_plan', plan: { ...form, imageUrl }, acceptTerms, acceptSharedTerms },
               'save',
-              form.id ? 'Farm Box updated.' : 'Farm Box created. It now shows on your farm page.'
+              form.id
+                ? `${formKind} updated.`
+                : formShared
+                  ? `${formKind} created. Now invite nearby farms below; buyers see it once you open it.`
+                  : `${formKind} created. It now shows on your farm page.`
             );
-            if (json) openForm(null);
+            if (json) {
+              openForm(null);
+              setAcceptSharedTerms(false);
+            }
           }}
           className="border border-emerald-200 bg-emerald-50/40 rounded-2xl p-5 space-y-4"
         >
-          <h3 className="font-bold text-gray-900">{form.id ? 'Edit Farm Box' : 'New Farm Box'}</h3>
+          <h3 className="font-bold text-gray-900">{form.id ? `Edit ${formKind}` : `New ${formKind}`}</h3>
+          {!form.id && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <p className="block text-xs font-semibold text-gray-700 mb-1">What's in it? *</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      ['food', 'Food', 'Produce, eggs and more'],
+                      ['flowers', 'Flowers', 'Cut flowers'],
+                    ] as const
+                  ).map(([value, label, detail]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={form.boxType === value}
+                      onClick={() => setForm((current) => (current ? { ...current, boxType: value, includesEggs: value === 'flowers' ? false : current.includesEggs } : current))}
+                      className={`rounded-xl border-2 px-3 py-2 text-left ${form.boxType === value ? 'border-emerald-600 bg-white' : 'border-gray-200 bg-white/60'}`}
+                    >
+                      <span className="block text-sm font-bold text-gray-900">{label}</span>
+                      <span className="block text-xs text-gray-600">{detail}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="block text-xs font-semibold text-gray-700 mb-1">Who fills it? *</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      ['solo', 'Just my farm', 'Everything from you'],
+                      ['shared', 'With nearby farms', `Up to ${SHARED_BOX_MAX_PARTNERS} partners`],
+                    ] as const
+                  ).map(([value, label, detail]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={form.kind === value}
+                      onClick={() => setForm((current) => (current ? { ...current, kind: value } : current))}
+                      className={`rounded-xl border-2 px-3 py-2 text-left ${form.kind === value ? 'border-emerald-600 bg-white' : 'border-gray-200 bg-white/60'}`}
+                    >
+                      <span className="block text-sm font-bold text-gray-900">{label}</span>
+                      <span className="block text-xs text-gray-600">{detail}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {formShared && (
+            <details open={!form.id} className="text-sm text-gray-700 bg-white border rounded-lg p-3">
+              <summary className="font-semibold text-gray-900 cursor-pointer">How a shared box works</summary>
+              <ol className="list-decimal pl-5 mt-2 space-y-1">
+                {SHARED_BOX_STEPS.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </details>
+          )}
           {!hasPickupAddress && (
             <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-3">
               Boxes are picked up at your farm's pickup address.{' '}
@@ -269,7 +405,7 @@ export default function SellerCsa({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
               <label htmlFor="csa-name" className="block text-xs font-semibold text-gray-700 mb-1">Name *</label>
-              <input id="csa-name" required maxLength={80} placeholder='e.g., "Weekly Veggie Box"' {...field('name')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
+              <input id="csa-name" required maxLength={80} placeholder={form.boxType === 'flowers' ? 'e.g., "Weekly Bouquet"' : 'e.g., "Weekly Veggie Box"'} {...field('name')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
             </div>
             <div className="sm:col-span-2">
               <p id="csa-photo-label" className="block text-xs font-semibold text-gray-700 mb-1">
@@ -338,20 +474,64 @@ export default function SellerCsa({
                 required
                 rows={4}
                 maxLength={1500}
-                placeholder="e.g., 6–8 items of whatever is best that week: greens, roots, squash, herbs. Feeds two for a week."
+                placeholder={
+                  form.boxType === 'flowers'
+                    ? 'e.g., A mixed bouquet of whatever is blooming that week: zinnias, sunflowers, cosmos.'
+                    : formShared
+                      ? 'e.g., Seasonal vegetables from us, a dozen eggs and fruit from neighboring farms. Feeds two for a week.'
+                      : 'e.g., 6–8 items of whatever is best that week: greens, roots, squash, herbs. Feeds two for a week.'
+                }
                 {...field('description')}
                 className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
               />
             </div>
+            {formShared && (
+              <div className="sm:col-span-2">
+                <label htmlFor="csa-host-part" className="block text-xs font-semibold text-gray-700 mb-1">
+                  What your farm puts in each box *
+                </label>
+                <input
+                  id="csa-host-part"
+                  required
+                  maxLength={200}
+                  disabled={hostPartLocked}
+                  placeholder={form.boxType === 'flowers' ? 'e.g., a mixed bunch of 12 stems' : 'e.g., 6–8 seasonal vegetables'}
+                  {...field('hostContribution')}
+                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white disabled:bg-gray-100"
+                />
+              </div>
+            )}
             <div>
-              <label htmlFor="csa-price" className="block text-xs font-semibold text-gray-700 mb-1">Price per box ($) *</label>
-              <input id="csa-price" required type="number" min="5" max="500" step="0.01" inputMode="decimal" {...field('priceDollars')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
-              {cost && (
-                <p className="text-xs text-gray-600 mt-1">
-                  Members pay ${(cost.totalCents / 100).toFixed(2)} with the service fee. You keep $
-                  {(farmKeepsCents / 100).toFixed(2)} a box.
-                  {editingJoined && ' A new price applies to new members only.'}
-                </p>
+              <label htmlFor="csa-price" className="block text-xs font-semibold text-gray-700 mb-1">
+                {formShared ? 'Price of your part, per box ($) *' : 'Price per box ($) *'}
+              </label>
+              <input
+                id="csa-price"
+                required
+                type="number"
+                min={formShared ? MIN_HOST_SHARE_CENTS / 100 : 5}
+                max="500"
+                step="0.01"
+                inputMode="decimal"
+                disabled={formShared && hostPartLocked}
+                {...field('priceDollars')}
+                className="w-full px-3 py-2 border rounded-lg text-sm bg-white disabled:bg-gray-100"
+              />
+              {formShared ? (
+                priceCents > 0 && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    You keep ${(sharedKeepsCents(priceCents, 'host') / 100).toFixed(2)} a box for your part, plus a{' '}
+                    {HOST_PACKING_LABEL} packing fee from each partner's part. The box price is every farm's part added together.
+                  </p>
+                )
+              ) : (
+                cost && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    Members pay ${(cost.totalCents / 100).toFixed(2)} with the service fee. You keep $
+                    {(farmKeepsCents / 100).toFixed(2)} a box.
+                    {editingJoined && ' A new price applies to new members only.'}
+                  </p>
+                )
               )}
             </div>
             <div>
@@ -385,6 +565,48 @@ export default function SellerCsa({
               <label htmlFor="csa-end" className="block text-xs font-semibold text-gray-700 mb-1">Season ends *</label>
               <input id="csa-end" type="date" required {...field('seasonEnd')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
             </div>
+            {formShared && (
+              <>
+                {form.boxType === 'food' && (
+                  <div className="sm:col-span-2 space-y-2">
+                    <label className="flex items-start gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        disabled={hostPartLocked}
+                        checked={form.includesEggs}
+                        onChange={(e) => setForm((current) => (current ? { ...current, includesEggs: e.target.checked } : current))}
+                        className="mt-0.5 w-4 h-4"
+                      />
+                      <span>My part includes eggs</span>
+                    </label>
+                    {form.includesEggs && (
+                      <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
+                        <Egg className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" /> {EGG_NOTICE_SELLER}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <div className="sm:col-span-2">
+                  <label htmlFor="csa-dropoff" className="block text-xs font-semibold text-gray-700 mb-1">
+                    When partners drop off their part at your farm
+                  </label>
+                  <input id="csa-dropoff" maxLength={200} placeholder={DEFAULT_DROPOFF_NOTE} {...field('dropoffNote')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
+                </div>
+                <label className="sm:col-span-2 flex items-start gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    disabled={editingJoined}
+                    checked={form.hostSubstitutes}
+                    onChange={(e) => setForm((current) => (current ? { ...current, hostSubstitutes: e.target.checked } : current))}
+                    className="mt-0.5 w-4 h-4"
+                  />
+                  <span>
+                    If a partner's part doesn't arrive, I may fill in with my own produce of at least the same value (and be paid
+                    for it). Otherwise buyers are refunded that part.
+                  </span>
+                </label>
+              </>
+            )}
             <div className="sm:col-span-2">
               <label htmlFor="csa-status" className="block text-xs font-semibold text-gray-700 mb-1">New members</label>
               <select id="csa-status" {...field('status')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white">
@@ -400,6 +622,33 @@ export default function SellerCsa({
             </p>
           )}
 
+          {formShared && hostPartChanged && !hostPartLocked && (
+            <label className="flex items-start gap-2 text-sm text-gray-700 bg-white border rounded-lg p-3">
+              <input
+                type="checkbox"
+                required
+                checked={acceptSharedTerms}
+                onChange={(e) => setAcceptSharedTerms(e.target.checked)}
+                className="mt-0.5 w-4 h-4 shrink-0"
+              />
+              <span>
+                <strong className="text-gray-900">I agree to host a shared {formKind}.</strong>{' '}
+                {sharedBoxAgreementText({
+                  role: 'host',
+                  planName: form.name || 'this box',
+                  hostFarmName: 'my farm',
+                  contribution: form.hostContribution,
+                  shareCents: priceCents || 0,
+                  boxType: form.boxType,
+                  includesEggs: form.includesEggs,
+                  hostSubstitutes: form.hostSubstitutes,
+                })}{' '}
+                <Link href="/seller-terms#shared" target="_blank" className="font-semibold text-emerald-800 underline">
+                  Read section 7
+                </Link>
+              </span>
+            </label>
+          )}
           {!sellerTermsAccepted && (
             <label className="flex items-start gap-2 text-sm text-gray-700">
               <input type="checkbox" required checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="mt-0.5 w-4 h-4" />
@@ -415,7 +664,7 @@ export default function SellerCsa({
 
           <div className="flex gap-2">
             <button type="submit" disabled={busy !== null} className="px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-sm disabled:opacity-50">
-              {busy === 'save' ? 'Saving…' : form.id ? 'Save changes' : 'Create Farm Box'}
+              {busy === 'save' ? 'Saving…' : form.id ? 'Save changes' : `Create ${formKind}`}
             </button>
             <button type="button" onClick={() => openForm(null)} className="px-4 py-2.5 text-sm font-semibold text-gray-700">
               Cancel
@@ -428,7 +677,7 @@ export default function SellerCsa({
       {plans && plans.length === 0 && !form && (
         <div className="border border-dashed rounded-2xl p-6 text-center text-sm text-gray-600">
           You don't offer a Farm Box yet. A Farm Box gives you regular customers and steady weekly sales you can plan
-          your harvest around.
+          your harvest around, and you can fill one together with nearby farms.
         </div>
       )}
 
@@ -441,6 +690,9 @@ export default function SellerCsa({
                 <Photo src={plan.imageUrl} alt={plan.name} sizes="64px" className="w-16 h-16 rounded-lg object-cover border shrink-0" />
               )}
               <div>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">
+                {plan.kind === 'shared' ? `Shared ${boxKindName(plan.boxType)} · you host` : boxKindName(plan.boxType)}
+              </p>
               <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
               <p className="text-sm text-gray-600">
                 ${plan.priceDollars} a box ·{' '}
@@ -470,8 +722,15 @@ export default function SellerCsa({
                     seasonStart: plan.seasonStart,
                     seasonEnd: plan.seasonEnd,
                     maxMembers: plan.maxMembers == null ? '' : String(plan.maxMembers),
-                    status: plan.status,
+                    status: plan.status === 'closed' ? 'closed' : 'open',
                     imageUrl: plan.imageUrl || '',
+                    boxType: plan.boxType,
+                    kind: plan.kind,
+                    hostContribution: plan.hostPart?.contribution || '',
+                    includesEggs: plan.hostPart?.includesEggs || false,
+                    dropoffNote: plan.dropoffNote,
+                    hostSubstitutes: plan.hostSubstitutes,
+                    ...(plan.hostPart ? { priceDollars: plan.hostPart.priceDollars } : {}),
                   })
                 }
                 className="text-xs font-semibold border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50"
@@ -480,6 +739,17 @@ export default function SellerCsa({
               </button>
             </div>
           </div>
+
+          {plan.kind === 'shared' && (
+            <SharedBoxHostPanel
+              planId={plan.id}
+              planStatus={plan.status}
+              dropoffNote={plan.dropoffNote}
+              farms={plan.farms}
+              busy={busy}
+              call={call}
+            />
+          )}
 
           <div>
             <h4 className="text-sm font-bold text-gray-900 mb-2">Coming up</h4>
@@ -524,6 +794,56 @@ export default function SellerCsa({
                             ? `Members are charged on ${week.chargeLabel}; the reminder email the day before includes your note.`
                             : 'Charged. Paid boxes are in your Orders and Pick List.'}
                         </p>
+                        {plan.kind === 'shared' && plan.status !== 'forming' && (week.partners || []).length > 0 && (
+                          <div className="text-xs text-gray-700 space-y-1">
+                            <p>
+                              <strong>Partners:</strong>{' '}
+                              {(week.partners || [])
+                                .map((p) => `${p.name}: ${p.answer ? ANSWER_TEXT[p.answer] || p.answer : 'not asked yet'}`)
+                                .join(' · ')}
+                              {week.canChange && ` (answers close ${week.confirmByLabel})`}
+                            </p>
+                            {week.canReportMissing &&
+                              (week.partners || [])
+                                .filter((p) => p.answer !== 'missing' && p.answer !== 'cant' && p.answer !== 'no_reply')
+                                .map((p) => {
+                                  const missingKey = `${plan.id}|${week.date}|${p.farmerId}`;
+                                  const report = (substitute: boolean) =>
+                                    call(
+                                      { action: 'report_missing', planId: plan.id, boxDate: week.date, farmerId: p.farmerId, substitute },
+                                      missingKey,
+                                      substitute
+                                        ? `Recorded: you filled in for ${p.name}. Buyers were told, and you're paid for that part.`
+                                        : `Recorded: ${p.name}'s part didn't arrive. Buyers have been refunded that part.`
+                                    ).then((json) => json && setMissingFor(null));
+                                  return missingFor === missingKey ? (
+                                    <div key={p.farmerId} className="p-2 border border-red-200 bg-red-50 rounded-lg space-y-2">
+                                      <p className="text-red-900">
+                                        {p.name}'s part didn't arrive for {week.label}? Do this before handing out boxes; it counts as a
+                                        cancellation by {p.name}.
+                                      </p>
+                                      <div className="flex flex-wrap gap-2">
+                                        <button disabled={busy !== null} onClick={() => report(false)} className="px-3 py-1.5 font-bold bg-red-600 text-white rounded-lg disabled:opacity-50">
+                                          Refund buyers that part
+                                        </button>
+                                        {plan.hostSubstitutes && (
+                                          <button disabled={busy !== null} onClick={() => report(true)} className="px-3 py-1.5 font-bold border border-gray-300 bg-white rounded-lg disabled:opacity-50">
+                                            I filled in with my own produce
+                                          </button>
+                                        )}
+                                        <button onClick={() => setMissingFor(null)} className="font-semibold text-gray-600">
+                                          Never mind
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button key={p.farmerId} onClick={() => setMissingFor(missingKey)} className="mr-3 font-semibold text-red-700 underline">
+                                      {p.name}'s part didn't arrive
+                                    </button>
+                                  );
+                                })}
+                          </div>
+                        )}
                         <div className="flex flex-col sm:flex-row gap-2">
                           <input
                             aria-label={`Box note for ${week.label}`}
@@ -705,7 +1025,7 @@ export default function SellerCsa({
                 }}
                 className="text-xs font-semibold text-red-700 underline"
               >
-                End this Farm Box
+                End this {boxKindName(plan.boxType)}
               </button>
             )}
           </div>

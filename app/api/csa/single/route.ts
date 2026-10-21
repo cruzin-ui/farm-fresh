@@ -7,6 +7,7 @@ import { SELLER_FEE_RATE } from '@/lib/pricing';
 import { TaxError } from '@/lib/tax';
 import { alertAdmin } from '@/lib/alerts';
 import { nextSingleBox, singleBoxPrice, type CsaPlan } from '@/lib/csa';
+import { SHARES_METADATA_KEY } from '@/lib/orderShares';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { formatBoxDate } from '@/lib/csaSchedule';
 
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
     const next = await nextSingleBox(plan);
     if ('problem' in next) return NextResponse.json({ error: next.problem }, { status: 409 });
 
-    const price = await singleBoxPrice(plan);
+    const price = await singleBoxPrice(plan, next.boxDate);
 
     if (body.action === 'quote') {
       return NextResponse.json({
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
         feeCents: price.feeCents,
         taxCents: price.taxCents,
         totalCents: price.totalCents,
+        leftOut: price.leftOut,
       });
     }
 
@@ -100,6 +102,7 @@ export async function POST(request: Request) {
         csa_plan_id: plan.id,
         csa_box_date: next.boxDate,
         csa_single: '1',
+        ...(price.shares ? { [SHARES_METADATA_KEY]: price.shares } : {}),
       },
     });
 

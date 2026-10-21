@@ -178,6 +178,17 @@ export default function TermsPage() {
               paid for when you buy it, is an ordinary order covered by section 5, and nothing is charged again.
             </li>
             <li>
+              <strong>Shared boxes.</strong> Some boxes are filled by several nearby farms together and picked up at
+              one of them, the host. The box page lists each farm and what it adds. If a farm can&apos;t supply its
+              part one week, that part is left out and you are charged less for that box; the reminder email says
+              so before you are charged. If a part you have already paid for doesn&apos;t arrive, you are refunded
+              for that part, or the host fills in with produce of at least the same value. If a farm leaves the
+              box, we tell you, the price comes down, and you can cancel at no cost.
+            </li>
+            <li>
+              <strong>Flower Boxes</strong> work the same way as Farm Boxes, with cut flowers instead of food.
+            </li>
+            <li>
               <strong>Your card</strong> is stored by our payment processor, Stripe, not by us. You can change it
               under My Farm Boxes at any time. If the seller ends the Farm Box, or removes you from it, we
               email you and no further charges are made.

@@ -11,6 +11,7 @@ import {
   REMINDER_DAYS_BEFORE,
 } from '@/lib/csaSchedule';
 import { alertAdmin } from '@/lib/alerts';
+import { askPartners, isShared, settleWeek } from '@/lib/sharedBoxes';
 
 export const dynamic = 'force-dynamic';
 // Charging every member can take a while.
@@ -25,9 +26,14 @@ export const maxDuration = 300;
 //   box to their saved card, which records it as an order. A declined card is
 //   tried once more the next day; the member is emailed each time.
 //
+// For shared boxes, first: partner farms are asked to confirm their part of
+// upcoming pickups, and once a pickup's deadline has passed, partners who
+// didn't confirm (or said they can't) are left out of it, before members are
+// reminded and charged for it.
+//
 // Boxes the member skipped, weeks the farm called off, paused and cancelled
 // memberships, and ended plans are left alone. Running it twice in a day does
-// no harm: each box is reminded and charged once.
+// no harm: each box is reminded and charged once, and each email sent once.
 //
 // Vercel sends "Authorization: Bearer <CRON_SECRET>" with scheduled calls.
 export async function GET(request: Request) {
@@ -38,16 +44,28 @@ export async function GET(request: Request) {
 
   const today = todayInArizona();
   const siteUrl = siteUrlFrom(request);
-  const tally = { reminded: 0, paid: 0, failed: 0, farmSkipped: 0 };
+  const tally = { reminded: 0, paid: 0, failed: 0, farmSkipped: 0, partnersAsked: 0 };
 
   try {
     const { data: planRows } = await supabaseAdmin
       .from('csa_plans')
       .select('*')
-      .neq('status', 'ended')
+      .in('status', ['open', 'closed'])
       .gte('season_end', today);
 
     for (const plan of (planRows || []) as CsaPlan[]) {
+      if (isShared(plan)) {
+        try {
+          tally.partnersAsked += await askPartners(plan, today, siteUrl);
+          for (const boxDate of boxDates(plan, today, 2).filter((d) => d <= addDays(today, REMINDER_DAYS_BEFORE))) {
+            await settleWeek(plan, boxDate, today);
+          }
+        } catch (err) {
+          console.error('Shared box step failed:', plan.id, err);
+          await alertAdmin('CSA daily job: shared box', err, { plan: plan.name });
+        }
+      }
+
       // Pickups from tomorrow to the reminder date: the only ones with
       // something to do today.
       const dates = boxDates(plan, addDays(today, 1), 10).filter((d) => d <= addDays(today, REMINDER_DAYS_BEFORE));

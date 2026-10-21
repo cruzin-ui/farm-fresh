@@ -6,7 +6,7 @@ import { isWithinFreeCancellation, RESTOCKING_RATE } from '@/lib/pricing';
 import { alertAdmin } from '@/lib/alerts';
 import { checkSellerCancellations } from '@/lib/fraudWatch';
 import { SELLER_CHANGE_REASONS, LISTING_ACTIONS, BUYER_REQUEST, type ListingAction } from '@/lib/sellerChangeReasons';
-import { CSA_BOX_CATEGORY } from '@/lib/csaSchedule';
+import { isBoxCategory } from '@/lib/csaSchedule';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     for (const order of open) {
       const listing = listingById.get(order.listing_id)!;
       // A Farm Box has no listing for sale to restock or take down.
-      const action: ListingAction = listing.category === CSA_BOX_CATEGORY ? 'leave' : listingAction;
+      const action: ListingAction = isBoxCategory(listing.category) ? 'leave' : listingAction;
       const quantity = Number(order.reserved_quantity ?? order.quantity ?? 0);
       try {
         if (atBuyerRequest) {
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     // Take each listing down once, if asked (Farm Boxes excepted).
     if (listingAction === 'take_down') {
       const toTakeDown = [...new Set(open.map((o) => o.listing_id))].filter(
-        (id) => listingById.get(id)?.category !== CSA_BOX_CATEGORY
+        (id) => !isBoxCategory(listingById.get(id)?.category)
       );
       if (toTakeDown.length) {
         const { error } = await supabaseAdmin.from('produce_listings').update({ available_quantity: 0 }).in('id', toTakeDown);

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Package, MapPin, Repeat, User } from 'lucide-react';
 import Photo from '@/components/Photo';
-import { describeFrequency, formatBoxDate } from '@/lib/csaSchedule';
+import { boxKindName, describeFrequency, formatBoxDate } from '@/lib/csaSchedule';
 
 // A Farm Box as Browse shows it, from /api/csa/plans.
 export type BrowseFarmBox = {
@@ -18,6 +18,10 @@ export type BrowseFarmBox = {
   pickupWeekday: number;
   pickupWindow: string;
   firstBox: string | null;
+  // Food or flowers, and for a shared box the farms that fill it.
+  boxType?: string;
+  kind?: string;
+  farms?: { name: string }[];
   // For distances, in the same shape as a listing.
   zip_code: string;
   latitude: number | null;
@@ -27,6 +31,8 @@ export type BrowseFarmBox = {
 // A Farm Box card for Browse: the whole card leads to the Farm Box page,
 // where buyers sign up or buy just one.
 export default function FarmBoxCard({ box, milesAway }: { box: BrowseFarmBox; milesAway: number | null }) {
+  const kindName = boxKindName(box.boxType);
+  const otherFarms = box.kind === 'shared' ? Math.max(0, (box.farms?.length || 1) - 1) : 0;
   return (
     <div className="bg-white rounded-2xl border border-emerald-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
       <Link href={`/csa/${box.id}`} className="h-44 bg-emerald-50 relative flex items-center justify-center overflow-hidden">
@@ -41,7 +47,7 @@ export default function FarmBoxCard({ box, milesAway }: { box: BrowseFarmBox; mi
           <Package className="w-12 h-12 text-emerald-700/40" aria-hidden="true" />
         )}
         <span className="absolute top-3 left-3 bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
-          Farm Box
+          {otherFarms > 0 ? `Shared ${kindName}` : kindName}
         </span>
       </Link>
 
@@ -65,6 +71,7 @@ export default function FarmBoxCard({ box, milesAway }: { box: BrowseFarmBox; mi
             )}
             <span className="text-xs font-bold text-gray-700 truncate group-hover:text-emerald-700 group-hover:underline">
               {box.farmName}
+              {otherFarms > 0 && <span className="font-medium text-gray-500"> + {otherFarms} nearby farm{otherFarms === 1 ? '' : 's'}</span>}
             </span>
           </Link>
 
@@ -106,7 +113,7 @@ export default function FarmBoxCard({ box, milesAway }: { box: BrowseFarmBox; mi
             href={`/csa/${box.id}`}
             className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm"
           >
-            See Farm Box
+            See {kindName}
           </Link>
         </div>
       </div>

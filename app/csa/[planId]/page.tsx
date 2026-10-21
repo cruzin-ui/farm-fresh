@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, CalendarDays, CheckCircle2, Package, Repeat, Store } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CheckCircle2, Egg, Handshake, Package, Repeat, Store } from 'lucide-react';
+import { eggNoticeBuyer } from '@/lib/sharedBoxTerms';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import SaveCardForm from '@/components/SaveCardForm';
@@ -12,6 +13,7 @@ import Photo from '@/components/Photo';
 import { csaAgreementText } from '@/lib/csaTerms';
 import {
   CHARGE_DAYS_BEFORE,
+  boxKindName,
   chargeDateFor,
   describeFrequency,
   formatBoxDate,
@@ -38,6 +40,10 @@ type PublicPlan = {
   boxesLeft: number;
   spotsLeft: number | null;
   closedReason: string | null;
+  boxType: 'food' | 'flowers';
+  kind: 'solo' | 'shared';
+  // A shared box: the farms that fill it, the host first.
+  farms: { id: string; role: 'host' | 'partner'; name: string; slug: string | null; contribution: string; includesEggs: boolean }[];
 };
 
 const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -101,6 +107,10 @@ export default function JoinCsaPage() {
     season_start: plan.seasonStart,
     season_end: plan.seasonEnd,
   };
+  const kindName = boxKindName(plan.boxType);
+  const shared = plan.kind === 'shared' && plan.farms.length > 1;
+  const partnerNames = shared ? plan.farms.filter((f) => f.role === 'partner').map((f) => f.name) : [];
+  const eggFarms = plan.farms.filter((f) => f.includesEggs).map((f) => f.name);
   const agreement = plan.firstBox
     ? csaAgreementText({
         farmName: plan.farmName,
@@ -108,6 +118,7 @@ export default function JoinCsaPage() {
         priceCents: plan.priceCents,
         plan: schedule,
         firstBoxDate: plan.firstBox,
+        partnerNames,
       })
     : '';
 
@@ -118,10 +129,12 @@ export default function JoinCsaPage() {
       </Link>
 
       <header className="space-y-1">
-        <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Farm Box</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+          {shared ? `Shared ${kindName} · ${plan.farms.length} local farms` : kindName}
+        </p>
         <h1 className="text-2xl font-extrabold text-gray-900">{plan.name}</h1>
         <p className="text-sm text-gray-600 flex items-center gap-1.5">
-          <Store className="w-4 h-4" /> {plan.farmName}
+          <Store className="w-4 h-4" /> {shared ? `Picked up at ${plan.farmName}` : plan.farmName}
           {plan.farmLocation ? ` · ${plan.farmLocation}` : ''}
         </p>
       </header>
@@ -138,6 +151,34 @@ export default function JoinCsaPage() {
 
       <section className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
         <p className="text-sm text-gray-800 whitespace-pre-line">{plan.description}</p>
+
+        {shared && (
+          <div className="border border-emerald-200 bg-emerald-50/50 rounded-lg p-3 space-y-2">
+            <p className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+              <Handshake className="w-4 h-4 text-emerald-600" /> From {plan.farms.length} local farms
+            </p>
+            <ul className="text-sm text-gray-800 space-y-1">
+              {plan.farms.map((farm) => (
+                <li key={farm.id}>
+                  <Link href={farm.slug ? `/${farm.slug}` : `/sellers/${farm.id}`} className="font-semibold text-emerald-800 hover:underline">
+                    {farm.name}
+                  </Link>
+                  {farm.role === 'host' && <span className="text-xs text-gray-500"> (pickup here)</span>}
+                  {farm.contribution ? `: ${farm.contribution}` : ''}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-gray-600">
+              Each farm is paid for its own part. If a farm can't supply its part one week, it's left out of that week's box and
+              you pay less; the reminder email tells you before you're charged.
+            </p>
+          </div>
+        )}
+        {eggFarms.length > 0 && (
+          <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
+            <Egg className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" /> {eggNoticeBuyer(eggFarms)}
+          </p>
+        )}
 
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
           <div className="flex gap-2">
@@ -186,10 +227,11 @@ export default function JoinCsaPage() {
       </section>
 
       <section className="bg-white border rounded-xl p-5 text-sm text-gray-700 space-y-2">
-        <h2 className="font-bold text-gray-900">What is a Farm Box?</h2>
+        <h2 className="font-bold text-gray-900">What is a {kindName}?</h2>
         <p>
-          A box of whatever {plan.farmName} is harvesting that week, picked up on the same day each time through the
-          season. It's the freshest way to eat with the seasons, and you only pay for the boxes you get.
+          {plan.boxType === 'flowers'
+            ? `Fresh-cut flowers from ${shared ? 'local growers' : plan.farmName}, whatever is blooming that week, picked up on the same day each time through the season. You only pay for the boxes you get.`
+            : `A box of whatever ${shared ? 'these farms are' : `${plan.farmName} is`} harvesting that week, picked up on the same day each time through the season. It's the freshest way to eat with the seasons, and you only pay for the boxes you get.`}
         </p>
         <p>
           It also makes a real difference to a small grower. Knowing ahead of time how many boxes to fill lets them
@@ -285,7 +327,7 @@ export default function JoinCsaPage() {
             captcha
             submitLabel={`Join — ${dollars(plan.cost.totalCents)} per box`}
             recurring={{
-              description: `${plan.name} from ${plan.farmName}`,
+              description: `${plan.name} from ${shared ? `${plan.farms.length} local farms` : plan.farmName}`,
               label: `${plan.name} (per box)`,
               amountCents: plan.cost.totalCents,
               everyDays: plan.frequency === 'biweekly' ? 14 : 7,

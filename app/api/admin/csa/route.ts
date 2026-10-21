@@ -15,7 +15,13 @@ export async function POST(request: Request) {
 
     const today = todayInArizona();
     const { data: plans } = await supabaseAdmin.from('csa_plans').select('*').order('created_at', { ascending: false });
-    const farmerIds = [...new Set((plans || []).map((p) => p.farmer_id))];
+    // Shared boxes: the partner farms in each.
+    const { data: partnerRows } = await supabaseAdmin
+      .from('csa_plan_farms')
+      .select('plan_id, farmer_id, status')
+      .eq('role', 'partner')
+      .in('status', ['invited', 'accepted']);
+    const farmerIds = [...new Set([...(plans || []).map((p) => p.farmer_id), ...(partnerRows || []).map((r) => r.farmer_id)])];
     const { data: farms } = farmerIds.length
       ? await supabaseAdmin.from('seller_profiles').select('id, farm_name').in('id', farmerIds)
       : { data: [] as any[] };
@@ -33,11 +39,19 @@ export async function POST(request: Request) {
     return NextResponse.json({
       plans: (plans || []).map((p) => {
         const theirs = (members || []).filter((m) => m.plan_id === p.id);
+        const partners = (partnerRows || []).filter((r) => r.plan_id === p.id);
+        const label = [p.kind === 'shared' ? 'shared' : '', p.box_type === 'flowers' ? 'flowers' : '', p.status === 'forming' ? 'forming' : '']
+          .filter(Boolean)
+          .join(', ');
         return {
           id: p.id,
-          name: p.name,
+          name: label ? `${p.name} (${label})` : p.name,
           farmId: p.farmer_id,
-          farm: farmName.get(p.farmer_id) || 'Unknown farm',
+          farm: partners.length
+            ? `${farmName.get(p.farmer_id) || 'Unknown farm'} (host) + ${partners
+                .map((r) => `${farmName.get(r.farmer_id) || 'farm'}${r.status === 'invited' ? ' (invited)' : ''}`)
+                .join(', ')}`
+            : farmName.get(p.farmer_id) || 'Unknown farm',
           status: p.status,
           priceCents: p.price_cents,
           frequency: p.frequency,

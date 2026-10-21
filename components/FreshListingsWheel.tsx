@@ -119,6 +119,7 @@ export default function FreshListingsWheel() {
           image_url: p.imageUrl,
           farm_name: p.farmName,
           priceCents: p.cost?.priceCents || 0,
+          boxLabel: p.boxType === 'flowers' ? 'Flower Box' : 'Farm Box',
         }));
       } catch {}
 
@@ -256,7 +257,7 @@ export default function FreshListingsWheel() {
         )}
         {item.kind === 'box' && (
           <span className="absolute top-2 left-2 bg-emerald-700 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-            Farm Box
+            {item.boxLabel || 'Farm Box'}
           </span>
         )}
       </div>

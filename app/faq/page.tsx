@@ -6,7 +6,8 @@ import FaqBrowser from '@/components/FaqBrowser';
 import { BUYER_FEE_LABEL, SELLER_KEEPS_PERCENT, PLATFORM_KEEPS_CENTS_PER_DOLLAR, SELLER_FEE_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
-import { CHARGE_DAYS_BEFORE } from '@/lib/csaSchedule';
+import { CHARGE_DAYS_BEFORE, CONFIRM_DAYS_BEFORE } from '@/lib/csaSchedule';
+import { HOST_PACKING_LABEL, SHARED_BOX_CANCEL_LIMIT, SHARED_BOX_MAX_PARTNERS, SHARED_BOX_MILES, SHARED_BOX_WINDOW_DAYS } from '@/lib/sharedBoxTerms';
 
 export const metadata: Metadata = { title: 'FAQ' };
 
@@ -73,6 +74,14 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'Can I skip a week or cancel my Farm Box?',
     answer: `Yes, online, any time before a box is charged, under My Farm Boxes in the My Account menu: skip a single week, pause until you're back, or cancel. There's no fee for any of them. We email you the day before every charge with a link to skip. Once a box is charged it is an ordinary order: you can cancel it free within ${FREE_CANCELLATION_HOURS} hours, and after that the farm keeps a ${NO_SHOW_FEE} restocking fee.`,
+  },
+  {
+    question: 'What is a shared Farm Box?',
+    answer: `A box filled by a few nearby farms together, so you get more variety than one small farm grows: say, vegetables from one farm, eggs from another and fruit from a third. The box page lists each farm and what it adds, and you pick up at one of them, the host. Each farm is paid for its own part. If a farm can't supply its part one week, it's left out of that week's box and you're charged less; the reminder email tells you before you're charged. If a part you've already paid for doesn't arrive, you're refunded for it.`,
+  },
+  {
+    question: 'What is a Flower Box?',
+    answer: 'A Farm Box of fresh-cut flowers instead of food: whatever a local grower has blooming, on a set day through their season. It works exactly like a Farm Box, and you can sign up or buy just one.',
   },
   {
     question: 'What happens if my card is declined for a Farm Box?',
@@ -251,6 +260,20 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'Can I offer Farm Boxes, like a CSA?',
     answer: `Yes. A Farm Box is essentially a CSA (community supported agriculture): members sign up for a regular box from your farm through the season. Open Farm Boxes in your Seller Dashboard and set the box price, pickup day, how often, season dates and, if you like, a member limit. It appears on your farm page, where buyers join with a saved card. Each box is charged ${CHARGE_DAYS_BEFORE} days before pickup and arrives in your Orders and Pick List like any order, with the same ${SELLER_FEE} seller fee, and you're paid when the member collects it. Each week you can add a note on what's in the box, which members get in their reminder email, or call a week off before it's charged. Buyers can also buy a single box to try it, with no sign-up; it's for your next pickup that hasn't been charged yet, and counts toward any member limit.`,
+  },
+  {
+    question: 'Can I fill a Farm Box together with other farms?',
+    answer: `Yes, with a shared Farm Box. When you create a Farm Box, choose "With nearby farms". You host it: buyers pick up at your farm, and you invite up to ${SHARED_BOX_MAX_PARTNERS} farms within ${SHARED_BOX_MILES} miles, which the site suggests for you, putting first the farms that grow what you don't. Each farm says what it puts in every box and sets its own price for that part; the box price is the parts added together. Once every invited farm has answered, you open the box to buyers. Each week partners confirm their part by ${CONFIRM_DAYS_BEFORE} days before pickup and drop it off at your farm; you pack the boxes. At pickup every farm is paid its own part less the ${SELLER_FEE} seller fee, and each partner pays you a ${HOST_PACKING_LABEL} packing fee for packing the boxes. Any farm can host or join unless, in the last ${SHARED_BOX_WINDOW_DAYS} days, it has had ${SHARED_BOX_CANCEL_LIMIT} or more orders cancelled by the farm (a missed shared-box delivery counts as one) or had a payment disputed. The full rules are in section 7 of the Seller Terms.`,
+  },
+  {
+    question: "What happens if a partner farm's part doesn't arrive?",
+    answer:
+      "Report it in your Seller Dashboard before you hand out the boxes. Buyers are refunded that part, or, if you offered to when you set up the box, you fill in with your own produce of at least the same value and are paid for it instead. The partner isn't paid for that week, and a missed delivery counts as a cancellation by that farm.",
+  },
+  {
+    question: 'Can I offer a Flower Box?',
+    answer:
+      'Yes. When you create a Farm Box, choose Flowers. A Flower Box works just like a Farm Box, holds only cut flowers you grew, and can be shared with other flower growers nearby.',
   },
   {
     question: 'What does it cost to sell?',

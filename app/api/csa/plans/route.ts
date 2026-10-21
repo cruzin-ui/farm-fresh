@@ -4,6 +4,7 @@ import { farmCantSell, type CsaPlan } from '@/lib/csa';
 import { boxCostCents } from '@/lib/csaTerms';
 import { boxesLeft, firstBoxForNewMember, todayInArizona } from '@/lib/csaSchedule';
 import { alertAdmin } from '@/lib/alerts';
+import { activeFarms, farmProfiles, isShared } from '@/lib/sharedBoxes';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,8 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const UUID = /^[0-9a-f-]{36}$/i;
 
-    let query = supabaseAdmin.from('csa_plans').select('*').neq('status', 'ended');
+    // A shared box still gathering its farms isn't shown yet.
+    let query = supabaseAdmin.from('csa_plans').select('*').in('status', ['open', 'closed']);
     if (typeof body.planId === 'string' && UUID.test(body.planId)) query = query.eq('id', body.planId);
     else if (typeof body.farmId === 'string' && UUID.test(body.farmId)) query = query.eq('farmer_id', body.farmId);
     else if (body.all === true) query = query.eq('status', 'open');
@@ -53,6 +55,9 @@ export async function POST(request: Request) {
       const firstBox = firstBoxForNewMember(plan, today);
       const cantSell = await farmCantSell(plan.farmer_id);
       const farm = farmById.get(plan.farmer_id);
+      // A shared box: every farm in it and what each puts in, the host first.
+      const sharedFarms = isShared(plan) ? await activeFarms(plan.id) : [];
+      const sharedProfiles = await farmProfiles(sharedFarms.map((f) => f.farmer_id));
 
       result.push({
         id: plan.id,
@@ -74,6 +79,16 @@ export async function POST(request: Request) {
         pickupWindow: plan.pickup_window,
         seasonStart: plan.season_start,
         seasonEnd: plan.season_end,
+        boxType: plan.box_type || 'food',
+        kind: plan.kind || 'solo',
+        farms: sharedFarms.map((f) => ({
+          id: f.farmer_id,
+          role: f.role,
+          name: sharedProfiles.get(f.farmer_id)?.farm_name || 'Local Farm',
+          slug: sharedProfiles.get(f.farmer_id)?.slug || null,
+          contribution: f.contribution,
+          includesEggs: f.includes_eggs,
+        })),
         firstBox,
         boxesLeft: firstBox ? boxesLeft(plan, firstBox) : 0,
         spotsLeft,

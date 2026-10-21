@@ -24,8 +24,10 @@ import {
   addDays,
   formatBoxDate,
   memberGetsBox,
+  confirmByFor,
 } from '@/lib/csaSchedule';
 import { alertAdmin } from '@/lib/alerts';
+import { activeFarms, farmProfiles, isShared, leftOutSentence, weekParts, weekPriceCents } from '@/lib/sharedBoxes';
 
 export const dynamic = 'force-dynamic';
 
@@ -215,6 +217,21 @@ async function listMemberships(buyerId: string, today: string) {
       : { data: [] as any[] };
     const weekByDate = new Map((weeks || []).map((w) => [w.box_date, w]));
 
+    // A shared box: the farms in it, and for each coming week any part that
+    // is out (and so the lower price).
+    const shared = isShared(plan);
+    const sharedFarms = shared ? await activeFarms(plan.id) : [];
+    const sharedNames = await farmProfiles(sharedFarms.map((f) => f.farmer_id));
+    const leftOutByDate = new Map<string, { text: string; totalCents: number }>();
+    if (shared) {
+      for (const date of dates) {
+        if (date < today || boxByDate.get(date)?.status === 'paid') continue;
+        const parts = await weekParts(plan, date, today > confirmByFor(date));
+        const text = leftOutSentence(parts);
+        if (text) leftOutByDate.set(date, { text, totalCents: boxCostCents(weekPriceCents(member.price_cents, parts)).totalCents });
+      }
+    }
+
     result.push({
       id: member.id,
       status: member.status,
@@ -231,6 +248,12 @@ async function listMemberships(buyerId: string, today: string) {
         pickupWindow: plan.pickup_window,
         seasonEnd: plan.season_end,
         status: plan.status,
+        boxType: plan.box_type || 'food',
+        farms: sharedFarms.map((f) => ({
+          name: sharedNames.get(f.farmer_id)?.farm_name || 'Local Farm',
+          contribution: f.contribution,
+          role: f.role,
+        })),
       },
       farm: { id: plan.farmer_id, name: farm?.farm_name || 'Local Farm', slug: farm?.slug || null },
       boxes: dates
@@ -258,6 +281,8 @@ async function listMemberships(buyerId: string, today: string) {
             orderId: box?.order_id || null,
             note: week?.note || '',
             farmReason: week?.skip_reason || (box?.status === 'farm_skipped' ? box.last_error : '') || '',
+            leftOut: leftOutByDate.get(date)?.text || '',
+            leftOutTotalCents: leftOutByDate.get(date)?.totalCents ?? null,
             error: box?.status === 'failed' ? box.last_error || '' : '',
           };
         })

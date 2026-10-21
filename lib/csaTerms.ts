@@ -26,14 +26,21 @@ export function csaAgreementText(params: {
   priceCents: number;
   plan: CsaSchedule;
   firstBoxDate: string;
+  // A shared box: the other farms that fill it with the host.
+  partnerNames?: string[];
 }) {
-  const { farmName, planName, priceCents, plan, firstBoxDate } = params;
+  const { farmName, planName, priceCents, plan, firstBoxDate, partnerNames = [] } = params;
   const cost = boxCostCents(priceCents);
   const day = WEEKDAYS[plan.pickup_weekday];
 
   return [
     `I'm joining "${planName}" from ${farmName}, picked up ${describeFrequency(plan).replace(/^Every/, 'every')}, from ${formatBoxDate(firstBoxDate, { long: true })} until ${formatBoxDate(plan.season_end, { long: true })} at the latest.`,
     `I authorize Farm Fresh Direct to charge my saved card ${money(cost.totalCents)} for each box (${money(cost.priceCents)} for the box plus the ${BUYER_FEE_LABEL} service fee), plus any sales tax, ${CHARGE_DAYS_BEFORE} days before each ${day} pickup, until I cancel or the season ends.`,
+    ...(partnerNames.length
+      ? [
+          `The box is filled by ${farmName} together with ${partnerNames.join(' and ')}, and picked up at ${farmName}. If one of those farms can't supply its part some week, that part is left out, I'm charged less for that box by the price of that part, and the reminder email says so. If a part I've paid for doesn't arrive, I'm refunded for it.`,
+        ]
+      : []),
     `I'll get an email the day before each charge. Up to then I can skip that week, pause or cancel online at no cost. Once a box is charged it is an ordinary order: I can cancel it free within ${FREE_CANCELLATION_HOURS} hours, after which the farm keeps a ${Math.round(RESTOCKING_RATE * 100)}% restocking fee, and if the farm cancels or changes it I'm refunded in full.`,
   ].join(' ');
 }

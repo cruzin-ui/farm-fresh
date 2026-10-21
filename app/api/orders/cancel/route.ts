@@ -128,7 +128,7 @@ export async function POST(request: Request) {
               The order for <strong>${quantity} ${escapeHtml(listing.unit_type || 'units')}</strong> of
               <strong>${escapeHtml(listing.title || 'your listing')}</strong> was cancelled by the buyer, so
               please don't prepare it.${
-                listing.category === 'CSA Box'
+                ['CSA Box', 'Flower Box'].includes(listing.category)
                   ? ' It was a Farm Box; their membership carries on as normal.'
                   : ' The quantity has been put back on your listing.'
               }

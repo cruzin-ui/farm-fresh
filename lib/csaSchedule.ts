@@ -16,12 +16,28 @@
 // time zone, worked out without the viewer's own time zone getting involved.
 
 export const CSA_BOX_CATEGORY = 'CSA Box';
+// The hidden listing of a Flower Box: cut flowers, taxed as non-food goods.
+export const FLOWER_BOX_CATEGORY = 'Flower Box';
+export const BOX_CATEGORIES = [CSA_BOX_CATEGORY, FLOWER_BOX_CATEGORY];
+export const isBoxCategory = (category: string | null | undefined) => BOX_CATEGORIES.includes(category || '');
+export type BoxType = 'food' | 'flowers';
+export const boxCategoryFor = (boxType: string | null | undefined) =>
+  boxType === 'flowers' ? FLOWER_BOX_CATEGORY : CSA_BOX_CATEGORY;
+// "Farm Box" or "Flower Box", as buyers and sellers see it.
+export const boxKindName = (boxType: string | null | undefined) => (boxType === 'flowers' ? 'Flower Box' : 'Farm Box');
+
 export const CHARGE_DAYS_BEFORE = 2;
 export const REMINDER_DAYS_BEFORE = 3;
 
+// Shared boxes: partner farms confirm their part for each pickup by the end
+// of this many days before it (two days before members are charged). They are
+// first asked ASK_DAYS_BEFORE days ahead.
+export const CONFIRM_DAYS_BEFORE = CHARGE_DAYS_BEFORE + 2;
+export const ASK_DAYS_BEFORE = 7;
+
 // Changes whenever the wording members agree to changes, so each membership
 // records which version its member saw.
-export const CSA_TERMS_VERSION = '2026-10-14';
+export const CSA_TERMS_VERSION = '2026-10-20';
 
 export const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -109,6 +125,16 @@ export function isBoxDate(plan: CsaSchedule, day: string) {
 
 export const chargeDateFor = (boxDate: string) => addDays(boxDate, -CHARGE_DAYS_BEFORE);
 export const reminderDateFor = (boxDate: string) => addDays(boxDate, -REMINDER_DAYS_BEFORE);
+// When a box for this date must be ready: the end of its pickup day. Box
+// orders are saved with this as their ready-by time.
+export function boxReadyBy(boxDate: string) {
+  return new Date(`${boxDate}T23:59:00-07:00`);
+}
+
+// The last day a partner farm can confirm (or call off) its part of a shared
+// box for this pickup.
+export const confirmByFor = (boxDate: string) => addDays(boxDate, -CONFIRM_DAYS_BEFORE);
+export const canStillConfirm = (boxDate: string, today: string = todayInArizona()) => today <= confirmByFor(boxDate);
 
 // True while a member can still skip this date (or change their mind): up to
 // the day it is charged.

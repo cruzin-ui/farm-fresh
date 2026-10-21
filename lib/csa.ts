@@ -10,8 +10,12 @@ import { sendEmail, escapeHtml } from '@/lib/email';
 import { alertAdmin } from '@/lib/alerts';
 import { zipFromAddress } from '@/lib/checkoutCart';
 import { boxCostCents } from '@/lib/csaTerms';
+import { encodeShares, SHARES_METADATA_KEY } from '@/lib/orderShares';
+import { chargeShares, isShared, leftOutSentence, weekParts, weekPriceCents, type WeekPart } from '@/lib/sharedBoxes';
 import {
-  CSA_BOX_CATEGORY,
+  boxCategoryFor,
+  boxReadyBy,
+  confirmByFor,
   CHARGE_DAYS_BEFORE,
   addDays,
   boxDates,
@@ -44,8 +48,28 @@ export type CsaPlan = {
   season_start: string;
   season_end: string;
   max_members: number | null;
-  status: 'open' | 'closed' | 'ended';
+  // forming: a shared box still gathering its partner farms, not yet shown.
+  status: 'forming' | 'open' | 'closed' | 'ended';
+  // solo: one farm's box. shared: a host farm and partner farms.
+  kind: 'solo' | 'shared';
+  // food (produce and eggs) or flowers.
+  box_type: 'food' | 'flowers';
+  dropoff_note: string;
+  host_substitutes: boolean;
 };
+
+// For a shared box: this week's parts, and what one box costs this week from
+// a full price (a member's, or the box's own). For one farm's box, just the
+// price. `final` is true once partners can no longer confirm.
+export async function priceForWeek(plan: CsaPlan, boxDate: string, fullPriceCents: number, final: boolean) {
+  if (!isShared(plan)) return { priceCents: fullPriceCents, parts: [] as WeekPart[], shares: null as string | null };
+  const parts = await weekParts(plan, boxDate, final);
+  return {
+    priceCents: weekPriceCents(fullPriceCents, parts),
+    parts,
+    shares: encodeShares(chargeShares(fullPriceCents, parts)),
+  };
+}
 
 export type CsaMember = {
   id: string;
@@ -322,14 +346,15 @@ export async function chargeBox(params: {
     return 'paid';
   }
 
-  const cost = boxCostCents(member.price_cents);
+  const week = await priceForWeek(plan, boxDate, member.price_cents, true);
+  const cost = boxCostCents(week.priceCents);
   const finalTry = today >= addDays(chargeDateFor(boxDate), 1);
   let lastError = '';
 
   try {
     const tax = await calculateCartTax([
       {
-        category: CSA_BOX_CATEGORY,
+        category: boxCategoryFor(plan.box_type),
         pickupZip: await pickupZipFor(plan),
         subtotalCents: cost.priceCents,
         feeCents: cost.feeCents,
@@ -360,6 +385,7 @@ export async function chargeBox(params: {
           csa_member_id: member.id,
           csa_plan_id: plan.id,
           csa_box_date: boxDate,
+          ...(week.shares ? { [SHARES_METADATA_KEY]: week.shares } : {}),
         },
       },
       // A retry of the same attempt (say, after a timeout) gets the same
@@ -441,13 +467,24 @@ export async function sendBoxReminder(params: {
   if (error) return false;
 
   const farm = await farmFor(plan.farmer_id);
-  const cost = boxCostCents(member.price_cents);
+  // Partners can't change their answer after today, so this is the box.
+  const week = await priceForWeek(plan, boxDate, member.price_cents, true);
+  const cost = boxCostCents(week.priceCents);
+  const shared = week.parts.length > 0;
   await emailMember(
     member,
     `Your ${plan.name} box on ${formatBoxDate(boxDate)}: charged tomorrow`,
     `<h2 style="color: #059669;">Your next box is coming up</h2>
      <p><strong>${escapeHtml(plan.name)}</strong> from <strong>${escapeHtml(farm?.farm_name || 'your farm')}</strong>, for pickup on <strong>${formatBoxDate(boxDate, { long: true })}</strong>${plan.pickup_window ? `, ${escapeHtml(plan.pickup_window)}` : ''}.</p>
      ${note ? `<p style="padding: 12px; background: #ecfdf5; border-radius: 8px;"><strong>From the farm:</strong> ${escapeHtml(note)}</p>` : ''}
+     ${
+       shared
+         ? `<p>This week's box comes from: ${week.parts
+             .filter((p) => p.included)
+             .map((p) => `<strong>${escapeHtml(p.farmName)}</strong>${p.contribution ? ` (${escapeHtml(p.contribution)})` : ''}`)
+             .join(', ')}.</p>${leftOutSentence(week.parts) ? `<p>${escapeHtml(leftOutSentence(week.parts))}</p>` : ''}`
+         : ''
+     }
      <p>Tomorrow we'll charge ${escapeHtml(member.card_label || 'your saved card')} <strong>${money(cost.totalCents)}</strong> plus any sales tax, and send your pickup code.</p>
      <p>Away this week? <a href="${manageLink(siteUrl)}">Skip this box</a> before tomorrow and you won't be charged.</p>`
   );
@@ -517,11 +554,7 @@ export async function cancelMembership(params: {
 
 // ---------- buying just one box ----------
 
-// When a box for this date must be ready: the end of its pickup day. Box
-// orders are saved with this as their ready-by time.
-export function boxReadyBy(boxDate: string) {
-  return new Date(`${boxDate}T23:59:00-07:00`);
-}
+export { boxReadyBy };
 
 // One-off boxes bought for each of these dates (not counting members' boxes),
 // still going ahead.
@@ -585,13 +618,24 @@ export async function nextSingleBox(plan: CsaPlan): Promise<{ boxDate: string } 
   return { problem: dates.length ? 'There are no boxes left to buy right now.' : 'There are no pickups left this season.' };
 }
 
-// What one box costs bought on its own, tax included.
-export async function singleBoxPrice(plan: CsaPlan) {
-  const cost = boxCostCents(plan.price_cents);
+// What one box for this date costs bought on its own, tax included. For a
+// shared box, partners who have said they can't that week are left out; ones
+// who haven't answered yet are in (if they later drop out, that part is
+// refunded).
+export async function singleBoxPrice(plan: CsaPlan, boxDate: string) {
+  const week = await priceForWeek(plan, boxDate, plan.price_cents, todayInArizona() > confirmByFor(boxDate));
+  const cost = boxCostCents(week.priceCents);
   const tax = await calculateCartTax([
-    { category: CSA_BOX_CATEGORY, pickupZip: await pickupZipFor(plan), subtotalCents: cost.priceCents, feeCents: cost.feeCents },
+    { category: boxCategoryFor(plan.box_type), pickupZip: await pickupZipFor(plan), subtotalCents: cost.priceCents, feeCents: cost.feeCents },
   ]);
-  return { ...cost, taxCents: tax.taxCents, totalCents: cost.totalCents + tax.taxCents, calculationId: tax.calculationId };
+  return {
+    ...cost,
+    taxCents: tax.taxCents,
+    totalCents: cost.totalCents + tax.taxCents,
+    calculationId: tax.calculationId,
+    shares: week.shares,
+    leftOut: leftOutSentence(week.parts),
+  };
 }
 
 // When a farm calls a week off: one-off boxes already bought for it are
