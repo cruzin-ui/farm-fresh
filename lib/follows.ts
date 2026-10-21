@@ -4,8 +4,9 @@ import { LISTING_CATEGORIES } from '@/lib/categories';
 import { describeUsualPickup } from '@/lib/pickupRules';
 
 // SERVER-ONLY. "Follow a farm": a signed-in shopper keeps a list of farms they
-// like, and sees what each one has for sale on their Favorite Farms page. No
-// emails are sent — the page is where they look.
+// like, and sees what each one has for sale on their Favorite Farms page. The
+// only emails are about where a farm will be (its markets and events), and
+// only to followers who turn them on.
 
 // How many of each farm's listings the Favorite Farms page shows.
 const LISTINGS_PER_FARM = 6;
@@ -23,13 +24,30 @@ export async function unfollowFarm(farmerId: string, userId: string) {
 }
 
 export async function isFollowing(farmerId: string, userId: string) {
+  return (await followStatus(farmerId, userId)).following;
+}
+
+// Whether they follow the farm, and whether they asked for emails about where
+// it will be.
+export async function followStatus(farmerId: string, userId: string) {
   const { data } = await supabaseAdmin
     .from('farm_follows')
-    .select('id')
+    .select('id, market_emails')
     .eq('farmer_id', farmerId)
     .eq('user_id', userId)
     .maybeSingle();
-  return Boolean(data);
+  return { following: Boolean(data), marketEmails: Boolean(data?.market_emails) };
+}
+
+// Turns the market emails on or off. Turning them on follows the farm too.
+export async function setMarketEmails(farmerId: string, userId: string, on: boolean) {
+  if (on) await followFarm(farmerId, userId);
+  const { error } = await supabaseAdmin
+    .from('farm_follows')
+    .update({ market_emails: on })
+    .eq('farmer_id', farmerId)
+    .eq('user_id', userId);
+  if (error) throw error;
 }
 
 // The farms a shopper follows, most recently followed first, each with what
@@ -37,7 +55,7 @@ export async function isFollowing(farmerId: string, userId: string) {
 export async function listFollowedFarms(userId: string) {
   const { data: follows, error } = await supabaseAdmin
     .from('farm_follows')
-    .select('farmer_id, created_at')
+    .select('farmer_id, created_at, market_emails')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -76,6 +94,7 @@ export async function listFollowedFarms(userId: string) {
         location: (farm.location as string | null) || '',
         usual_pickup: describeUsualPickup(farm.pickup_days, farm.pickup_times) || '',
         followed_at: follow.created_at as string,
+        market_emails: Boolean(follow.market_emails),
         listing_count: forSale.length,
         listings: forSale.slice(0, LISTINGS_PER_FARM).map((listing) => ({
           id: listing.id as string,

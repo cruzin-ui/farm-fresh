@@ -4,6 +4,9 @@ import { calculateCartTotals } from '@/lib/pricing';
 import { calculateCartTax } from '@/lib/tax';
 import { isAllowedCategory } from '@/lib/categories';
 import { describeUsualPickup } from '@/lib/pickupRules';
+import { marketOptionsFor, type MarketOption } from '@/lib/appearancesServer';
+import { parseMarketKey } from '@/lib/appearances';
+import { formatBoxDate } from '@/lib/csaSchedule';
 
 // SERVER-ONLY. Prices a buyer's cart. Used both to show the checkout page its
 // totals and to create the charge, so the two always agree — and so nothing
@@ -35,7 +38,23 @@ export type PricedLine = {
   // Why this item can't be bought as it stands (sold out, not enough left…),
   // or null when it is fine. Items with a problem are left out of the totals.
   problem: string | null;
+  // When the buyer chose to pick up at one of the farm's markets: which one,
+  // and how it reads. Null for pickup at the farm.
+  market: { key: string; label: string } | null;
 };
+
+// The buyer's choice of where to pick up from each farm: farm id to a market
+// ("appearanceId@date"). A farm not listed is picked up at the farm.
+export type PickupChoices = Record<string, string>;
+
+export function parsePickupChoices(raw: unknown): PickupChoices {
+  const choices: PickupChoices = {};
+  if (!raw || typeof raw !== 'object') return choices;
+  for (const [farmerId, key] of Object.entries(raw as Record<string, unknown>)) {
+    if (UUID.test(farmerId) && parseMarketKey(key)) choices[farmerId] = key as string;
+  }
+  return choices;
+}
 
 // The zip code in a street address: the last five-digit number in it, so a
 // five-digit house number at the front isn't mistaken for it.
@@ -66,12 +85,12 @@ export function parseCartItems(raw: unknown): CartRequestItem[] | null {
 
 // `buyerId` is the signed-in buyer, if there is one: they can't buy from their
 // own listings.
-export async function priceCart(items: CartRequestItem[], buyerId?: string | null) {
+export async function priceCart(items: CartRequestItem[], buyerId?: string | null, pickups: PickupChoices = {}) {
   const listingIds = items.map((item) => item.listingId);
 
   const { data: listings } = await supabaseAdmin
     .from('produce_listings')
-    .select('id, title, unit_type, price_per_unit, available_quantity, farmer_id, category, zip_code, location_name, status')
+    .select('id, title, unit_type, price_per_unit, available_quantity, farmer_id, category, zip_code, location_name, status, harvest_ready_date, harvest_end_date')
     .in('id', listingIds);
   const listingById = new Map((listings || []).map((l) => [l.id as string, l]));
 
@@ -95,6 +114,8 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
     : { data: [] as any[] };
   const sellerById = new Map((sellers || []).map((s: any) => [s.id as string, s]));
   const suspended = await suspendedSellerIds(farmerIds as string[]);
+  // The markets each farm's buyers can order ahead for.
+  const marketOptions = await marketOptionsFor(farmerIds as string[]);
 
   const lines: PricedLine[] = items.map((item) => {
     const listing = listingById.get(item.listingId);
@@ -119,6 +140,17 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
       problem = "This farmer hasn't finished setting up payouts yet, so it can't be bought right now. Please remove it.";
     }
 
+    // Picked up at one of the farm's markets, if the buyer chose one.
+    const chosen = listing?.farmer_id ? pickups[listing.farmer_id] : undefined;
+    const market: MarketOption | null = chosen ? (marketOptions.get(listing!.farmer_id) || []).find((o) => o.key === chosen) || null : null;
+    if (!problem && chosen && !market) {
+      problem = 'That market pickup is no longer available. Choose another pickup for this farm.';
+    } else if (!problem && market && listing?.harvest_ready_date && market.date < String(listing.harvest_ready_date)) {
+      problem = `Not ready until ${formatBoxDate(String(listing.harvest_ready_date))}. Choose a later pickup for this farm.`;
+    } else if (!problem && market && listing?.harvest_end_date && market.date > String(listing.harvest_end_date)) {
+      problem = `Only available until ${formatBoxDate(String(listing.harvest_end_date))}. Choose an earlier pickup for this farm.`;
+    }
+
     return {
       listingId: item.listingId,
       title: listing?.title || 'Listing no longer available',
@@ -136,6 +168,7 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
       taxCents: 0,
       totalCents: 0,
       problem,
+      market: market ? { key: market.key, label: market.label } : null,
     };
   });
 
@@ -148,7 +181,8 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
       const listing = listingById.get(line.listingId);
       return {
         category: listing?.category,
-        pickupZip: pickupZipByListing.get(line.listingId) || listing?.zip_code,
+        // At a market, tax is for the market's place.
+        pickupZip: (line.market && marketOptions.get(line.farmerId || '')?.find((o) => o.key === line.market!.key)?.zip) || pickupZipByListing.get(line.listingId) || listing?.zip_code,
         subtotalCents: totals.lines[i].subtotalCents,
         feeCents: totals.lines[i].feeCents,
       };
@@ -178,5 +212,9 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
     ),
     // True when every item can be bought as it stands.
     ok: good.length === lines.length,
+    // Where each farm's buyers can order ahead for pickup, by farm.
+    marketOptions: Object.fromEntries(
+      [...marketOptions].map(([farmerId, options]) => [farmerId, options.map((o) => ({ key: o.key, label: o.label }))])
+    ) as Record<string, { key: string; label: string }[]>,
   };
 }

@@ -4,6 +4,7 @@ import { notifyAdmins } from '@/lib/alerts';
 import { logAdminAction } from '@/lib/adminLog';
 import { isSellerSuspended } from '@/lib/accountBlocks';
 import { SELLER_CANCEL_LIMIT, SELLER_CANCEL_WINDOW_DAYS } from '@/lib/sellerLimits';
+import { countSince } from '@/lib/limitResets';
 
 // SERVER-ONLY. Automatic watches for the patterns that cost a marketplace
 // money. None of them blocks an honest sale; they tell an admin early, and in
@@ -106,7 +107,9 @@ export async function watchNewSellerOrder(params: {
 export async function checkSellerCancellations(farmerId: string, siteUrl?: string) {
   try {
     const listingIds = await listingIdsOf(farmerId);
-    const since = new Date(Date.now() - SELLER_CANCEL_WINDOW_DAYS * DAY_MS).toISOString();
+    // Counted from the start of the window, or from an admin's reset of
+    // this seller's limit if that is later.
+    const since = await countSince(farmerId, SELLER_CANCEL_WINDOW_DAYS);
     const { data: cancelled } = listingIds.length
       ? await supabaseAdmin
           .from('orders')

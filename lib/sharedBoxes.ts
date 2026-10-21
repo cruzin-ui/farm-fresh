@@ -17,6 +17,7 @@ import {
 } from '@/lib/csaSchedule';
 import { categoriesForBoxType, SHARED_BOX_CANCEL_LIMIT, SHARED_BOX_MILES, SHARED_BOX_WINDOW_DAYS } from '@/lib/sharedBoxTerms';
 import { getOrderShares, refundFarmShare } from '@/lib/orderShares';
+import { countSince } from '@/lib/limitResets';
 
 // SERVER-ONLY. Shared Farm Boxes: which farms are in a box, finding nearby
 // partners, each partner's weekly confirmation, and what happens when a part
@@ -119,6 +120,9 @@ export async function sharedBoxProblem(farmerId: string): Promise<string | null>
   if (await isSellerSuspended(farmerId)) return 'is paused from selling right now';
 
   const since = new Date(Date.now() - SHARED_BOX_WINDOW_DAYS * DAY_MS).toISOString();
+  // Cancellations count from the window's start, or from an admin's reset of
+  // this farm's limit if that is later. (Disputes aren't reset.)
+  const cancelSince = await countSince(farmerId, SHARED_BOX_WINDOW_DAYS);
   const { data: listings } = await supabaseAdmin.from('produce_listings').select('id').eq('farmer_id', farmerId);
   const listingIds = (listings || []).map((l) => l.id as string);
   // Cancellations are counted the way buyers see orders: one per checkout.
@@ -130,7 +134,7 @@ export async function sharedBoxProblem(farmerId: string): Promise<string | null>
       .in('listing_id', listingIds)
       .eq('status', 'cancelled')
       .in('cancel_reason', FARMER_CANCEL_REASONS.filter((r) => r !== 'seller_changed'))
-      .gte('created_at', since)
+      .gte('created_at', cancelSince)
       .limit(1000);
     cancellations = new Set((cancelled || []).map((o) => o.checkout_id || o.id)).size;
 
@@ -150,7 +154,7 @@ export async function sharedBoxProblem(farmerId: string): Promise<string | null>
     .select('plan_id', { count: 'exact', head: true })
     .eq('farmer_id', farmerId)
     .eq('status', 'missing')
-    .gte('updated_at', since);
+    .gte('updated_at', cancelSince);
   if (cancellations + (missed || 0) >= SHARED_BOX_CANCEL_LIMIT) {
     return `had ${SHARED_BOX_CANCEL_LIMIT} or more orders cancelled by the farm (or shared-box deliveries missed) in the last ${SHARED_BOX_WINDOW_DAYS} days`;
   }

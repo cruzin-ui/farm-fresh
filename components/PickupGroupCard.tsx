@@ -440,7 +440,16 @@ export default function PickupGroupCard({
         </p>
       )}
 
-      {open && addresses.length === 0 && (
+      {open && first.market_label && (
+        <p className="text-sm text-emerald-950 bg-emerald-50 border border-emerald-200 rounded-lg p-2 flex items-start gap-1.5">
+          <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+          <span>
+            Pick up at the farm's stand: <strong>{first.market_label}</strong>. Bring your pickup code.
+          </span>
+        </p>
+      )}
+
+      {open && addresses.length === 0 && !first.market_label && (
         <p className="text-xs text-gray-600 flex items-start gap-1.5">
           <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
           <span>

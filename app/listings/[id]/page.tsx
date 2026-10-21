@@ -13,6 +13,7 @@ import { addToCart, useCart } from '@/lib/cart';
 import { describeUsualPickup } from '@/lib/pickupRules';
 import FollowFarmButton from '@/components/FollowFarmButton';
 import DistanceFromYou from '@/components/DistanceFromYou';
+import ListingMarketPickup from '@/components/ListingMarketPickup';
 import Photo from '@/components/Photo';
 import { ListingPageSkeleton } from '@/components/Skeletons';
 import { PLANTS_CATEGORY, SUN_NEEDS, WATER_NEEDS, nativeLabel } from '@/lib/plants';
@@ -310,6 +311,8 @@ export default function ListingDetailPage() {
               </div>
             )}
           </dl>
+
+          {listing.farmer_id && <ListingMarketPickup farmerId={listing.farmer_id} />}
 
           {listing.category === 'Fresh Eggs' && (
             <p className="text-xs text-amber-950 bg-amber-50 border border-amber-300 rounded-xl p-3">

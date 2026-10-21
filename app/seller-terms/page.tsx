@@ -6,6 +6,7 @@ import { OPERATOR_DESCRIPTION } from '@/lib/legal';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
 import { CHARGE_DAYS_BEFORE, CONFIRM_DAYS_BEFORE } from '@/lib/csaSchedule';
+import { ORDER_CUTOFF_HOUR, formatTime } from '@/lib/appearances';
 import {
   HOST_PACKING_LABEL,
   SHARED_BOX_CANCEL_LIMIT,
@@ -96,7 +97,9 @@ export default function SellerTermsPage() {
           <p>
             Your listings must accurately describe what you are selling, including the product, quantity, price
             and any claims you make about how it was grown or produced. Only make claims, such as
-            &quot;organic&quot;, that you are legally entitled to make.
+            &quot;organic&quot;, that you are legally entitled to make. The same goes for what you show buyers on your
+            farm page about what you&apos;re growing: list only crops you are really growing, with your honest best
+            guess of when they&apos;ll be ready. We may remove anything that is inaccurate or misleading.
           </p>
         </section>
 
@@ -132,7 +135,7 @@ export default function SellerTermsPage() {
             the buyer is refunded. When you cancel or reduce any part of a buyer&apos;s order, the buyer may
             cancel the rest of that order for a full refund, and you are not paid a restocking fee for it. If
             several of your orders in a short period are cancelled by you or not made ready, we may pause your
-            listings automatically until we have been in touch with you. If a buyer does not collect an order, we may close it and pay you a restocking
+            listings automatically until we have been in touch with you. If your cancellations had a good reason, such as a crop lost to weather, contact us: we may reset the count that applies to these limits. Every cancellation, and every reset, stays on your record. If a buyer does not collect an order, we may close it and pay you a restocking
             fee. A buyer may cancel an order before pickup: if they cancel within {FREE_CANCELLATION_HOURS} hours of ordering you are
             not paid for it, and if they cancel later you are paid a restocking fee.
           </p>
@@ -234,8 +237,33 @@ export default function SellerTermsPage() {
           </ul>
         </section>
 
+        <section id="markets">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">8. Markets, events and pickup there</h2>
+          <p>
+            You can post the farmers markets, festivals, pop-ups and other events you&apos;ll be at. They appear on your farm
+            page, and buyers who follow you and asked to hear about your markets are emailed when you post (at most one such
+            email a day) and the day before each date. The rules for listings apply to these posts: they must be accurate,
+            and we may remove a post that is inaccurate, misleading or breaks these terms. Give the venue&apos;s address, never
+            a private one.
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5 mt-2">
+            <li>
+              <strong>Ordering ahead.</strong> If you let buyers order ahead for pickup at a market or event, ordering for a
+              date closes at {formatTime(`${ORDER_CUTOFF_HOUR}:00`)} the day before. Bring every order for that date, mark
+              it ready there, and hand it over only when the buyer gives you their pickup code, as at your farm. The buyer
+              has until the event ends to collect it; after that you may report a no-show under section 5.
+            </li>
+            <li>
+              <strong>If you can&apos;t be there,</strong> mark that date as not there, or take the post down, in your Seller
+              Dashboard as soon as you know. Orders for pickup there are then cancelled and refunded in full, and count as
+              cancellations by you under section 5. While orders are booked, the place, dates and times of a post can&apos;t
+              be changed.
+            </li>
+          </ul>
+        </section>
+
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">8. Removing listings and accounts</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">9. Removing listings and accounts</h2>
           <p>
             We may remove a listing, cancel and refund an order, or suspend a seller&apos;s account if we believe
             a product is not permitted, a listing is inaccurate, or these terms have been broken.
@@ -243,7 +271,7 @@ export default function SellerTermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">9. Your responsibility for claims</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">10. Your responsibility for claims</h2>
           <p>
             You are responsible for any claims, losses or costs that arise from the products you sell or from
             your failure to follow the law or these terms.

@@ -12,6 +12,7 @@ import {
 } from '@/lib/csaSchedule';
 import { alertAdmin } from '@/lib/alerts';
 import { askPartners, isShared, settleWeek } from '@/lib/sharedBoxes';
+import { sendAppearanceReminders } from '@/lib/appearancesServer';
 
 export const dynamic = 'force-dynamic';
 // Charging every member can take a while.
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
 
   const today = todayInArizona();
   const siteUrl = siteUrlFrom(request);
-  const tally = { reminded: 0, paid: 0, failed: 0, farmSkipped: 0, partnersAsked: 0 };
+  const tally = { reminded: 0, paid: 0, failed: 0, farmSkipped: 0, partnersAsked: 0, marketReminders: 0 };
 
   try {
     const { data: planRows } = await supabaseAdmin
@@ -110,6 +111,14 @@ export async function GET(request: Request) {
           }
         }
       }
+    }
+
+    // Farms' markets and events tomorrow: a reminder to followers who asked
+    // for them. (Not a Farm Box job, but it runs at the same time each day.)
+    try {
+      tally.marketReminders = await sendAppearanceReminders(today, siteUrl);
+    } catch (err) {
+      await alertAdmin('market reminders', err);
     }
 
     // Seasons that have finished are closed off.

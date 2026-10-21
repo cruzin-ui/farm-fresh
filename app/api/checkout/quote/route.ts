@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { parseCartItems, priceCart, MAX_CART_LINES } from '@/lib/checkoutCart';
+import { parseCartItems, parsePickupChoices, priceCart, MAX_CART_LINES } from '@/lib/checkoutCart';
 import { TaxError, TAX_ENABLED } from '@/lib/tax';
 import { alertAdmin } from '@/lib/alerts';
 import { getRequestUser } from '@/lib/apiAuth';
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     }
 
     const user = await getRequestUser(request);
-    const cart = await priceCart(items, user?.id);
+    const cart = await priceCart(items, user?.id, parsePickupChoices(body.pickups));
 
     return NextResponse.json({
       lines: cart.lines,
@@ -33,6 +33,7 @@ export async function POST(request: Request) {
       taxCents: cart.taxCents,
       totalCents: cart.totalCents,
       ok: cart.ok,
+      marketOptions: cart.marketOptions,
       taxEnabled: TAX_ENABLED,
     });
   } catch (err: any) {

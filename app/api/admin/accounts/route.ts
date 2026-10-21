@@ -19,6 +19,9 @@ const looksLikeEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valu
 //   lift             — remove a suspension or block
 //   set_farm_address — change a farm's web address, or clear it (the seller
 //                      can only set theirs once; fixing a mistake is for us)
+//   reset_limits     — start a seller's cancellation count again (their
+//                      cancellations are kept; the limits count only ones
+//                      after this), optionally lifting their suspension too
 export async function POST(request: Request) {
   try {
     const admin = await getRequestAdmin(request);
@@ -155,6 +158,76 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         message: `${email} is blocked from placing orders. Orders they already have were left as they are.`,
+      });
+    }
+
+    if (action === 'reset_limits') {
+      const sellerId = typeof body.sellerId === 'string' ? body.sellerId : '';
+      if (!reason) return NextResponse.json({ error: 'Give a reason for the reset (it goes on the record).' }, { status: 400 });
+      const { data: profile } = await supabaseAdmin.from('seller_profiles').select('id, farm_name').eq('id', sellerId).maybeSingle();
+      if (!profile) return NextResponse.json({ error: 'Seller not found.' }, { status: 404 });
+
+      // Their cancellations so far, all time, for the record.
+      const { data: listings } = await supabaseAdmin.from('produce_listings').select('id').eq('farmer_id', sellerId);
+      const listingIds = (listings || []).map((l) => l.id);
+      const { data: cancelled } = listingIds.length
+        ? await supabaseAdmin
+            .from('orders')
+            .select('id, checkout_id')
+            .in('listing_id', listingIds)
+            .eq('status', 'cancelled')
+            .in('cancel_reason', ['seller', 'seller_late', 'never_ready', 'listing_removed'])
+            .limit(5000)
+        : { data: [] as { id: string; checkout_id: string | null }[] };
+      const { count: missedParts } = await supabaseAdmin
+        .from('csa_farm_weeks')
+        .select('plan_id', { count: 'exact', head: true })
+        .eq('farmer_id', sellerId)
+        .eq('status', 'missing');
+      const total = new Set((cancelled || []).map((o) => o.checkout_id || o.id)).size + (missedParts || 0);
+
+      // Lifting a suspension too, if asked.
+      let lifted = false;
+      if (body.liftSuspension === true) {
+        const { data: removed } = await supabaseAdmin
+          .from('account_blocks')
+          .delete()
+          .eq('scope', 'seller')
+          .eq('user_id', sellerId)
+          .select('id');
+        lifted = Boolean(removed && removed.length > 0);
+      }
+
+      const { error } = await supabaseAdmin.from('seller_limit_resets').insert({
+        seller_id: sellerId,
+        admin_email: admin.email || 'admin',
+        reason,
+        cancellations_at_reset: total,
+        lifted_suspension: lifted,
+      });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      const farmName = profile.farm_name || 'Unnamed farm';
+      await logAdminAction(admin.email || 'admin', lifted ? 'Reset cancellation limit and lifted suspension' : 'Reset cancellation limit', farmName, reason);
+
+      const { data: sellerUser } = await supabaseAdmin.auth.admin.getUserById(sellerId);
+      if (sellerUser?.user?.email) {
+        await sendEmail({
+          to: sellerUser.user.email,
+          subject: 'Your cancellation count has been reset',
+          html: `
+            <div style="font-family: sans-serif; max-width: 480px;">
+              <h2 style="color: #059669;">You're back to a clean slate</h2>
+              <p>We've reset the count of cancellations that counts toward your limits, so only cancellations from now on will count.${
+                lifted ? ' Your account is no longer paused: your listings are visible to buyers again and you can post new ones.' : ''
+              }</p>
+              <p>Thank you for letting us know what happened. If you can't fill an order in future, cancelling it as early as you can is always best for your buyers.</p>
+            </div>`,
+        });
+      }
+      return NextResponse.json({
+        success: true,
+        message: `${farmName}'s cancellation count was reset (${total} cancellation${total === 1 ? '' : 's'} on record).${lifted ? ' Their suspension was lifted too.' : ''}`,
       });
     }
 

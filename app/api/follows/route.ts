@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
-import { followFarm, unfollowFarm, isFollowing, listFollowedFarms } from '@/lib/follows';
+import { followFarm, unfollowFarm, followStatus, listFollowedFarms, setMarketEmails } from '@/lib/follows';
 import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 // A signed-in shopper's followed farms.
 //   { action: 'list' }                                   — the farms they follow, with what each has for sale
 //   { action: 'status' | 'follow' | 'unfollow', farmerId } — one farm
+//   { action: 'market_emails', farmerId, on }            — emails about where the farm will be
 // Following needs an account, because the list lives with the account.
 export async function POST(request: Request) {
   try {
@@ -16,14 +17,14 @@ export async function POST(request: Request) {
     const action = body.action;
     const farmerId = typeof body.farmerId === 'string' ? body.farmerId : '';
 
-    if (!['list', 'status', 'follow', 'unfollow'].includes(action) || (action !== 'list' && !farmerId)) {
+    if (!['list', 'status', 'follow', 'unfollow', 'market_emails'].includes(action) || (action !== 'list' && !farmerId)) {
       return NextResponse.json({ error: 'Missing farm or action.' }, { status: 400 });
     }
 
     const user = await getRequestUser(request);
 
     if (action === 'status') {
-      return NextResponse.json({ following: user ? await isFollowing(farmerId, user.id) : false });
+      return NextResponse.json(user ? await followStatus(farmerId, user.id) : { following: false, marketEmails: false });
     }
 
     if (!user) {
@@ -42,6 +43,11 @@ export async function POST(request: Request) {
     const { data: farm } = await supabaseAdmin.from('seller_profiles').select('id').eq('id', farmerId).maybeSingle();
     if (!farm) {
       return NextResponse.json({ error: 'Farm not found.' }, { status: 404 });
+    }
+
+    if (action === 'market_emails') {
+      await setMarketEmails(farmerId, user.id, body.on === true);
+      return NextResponse.json(await followStatus(farmerId, user.id));
     }
 
     await followFarm(farmerId, user.id);
