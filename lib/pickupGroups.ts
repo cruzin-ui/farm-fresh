@@ -33,6 +33,8 @@ export type BuyerOrder = {
   // then the buyer sees only the area (city and zip).
   pickup_address: string | null;
   pickup_area: string;
+  // Picked up at a farmers market instead of the farm: where and when.
+  market_label?: string | null;
   pickup_code: string | null;
   reviewed: boolean;
   listing_title: string;

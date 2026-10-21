@@ -80,6 +80,16 @@ const BUYER_FAQS: Faq[] = [
     answer: `A box filled by a few nearby farms together, so you get more variety than one small farm grows: say, vegetables from one farm, eggs from another and fruit from a third. The box page lists each farm and what it adds, and you pick up at one of them, the host. Each farm is paid for its own part. If a farm can't supply its part one week, it's left out of that week's box and you're charged less; the reminder email tells you before you're charged. If a part you've already paid for doesn't arrive, you're refunded for it.`,
   },
   {
+    question: 'Can I pick up my order at a farmers market?',
+    answer:
+      "Yes, if the farm sells at one and takes orders there. Farms list where they'll be on their farm page, and listings show their next market dates. At checkout, choose the market under \"Where will you pick up?\", then collect your order at their stand during the market and give them your pickup code. Ordering for a market closes the evening before. If the farm can't make it after all, your order is cancelled and refunded in full.",
+  },
+  {
+    question: 'Can I get an email when a farm will be at a market?',
+    answer:
+      "Yes. Favorite the farm, then tick \"Email me when and where to find them\" on its page or under Favorite Farms. You'll get an email when the farm posts a new market or event and a reminder the day before. These emails are off unless you turn them on.",
+  },
+  {
     question: 'What is a Flower Box?',
     answer: 'A Farm Box of fresh-cut flowers instead of food: whatever a local grower has blooming, on a set day through their season. It works exactly like a Farm Box, and you can sign up or buy just one.',
   },
@@ -269,6 +279,21 @@ const SELLER_FAQS: Faq[] = [
     question: "What happens if a partner farm's part doesn't arrive?",
     answer:
       "Report it in your Seller Dashboard before you hand out the boxes. Buyers are refunded that part, or, if you offered to when you set up the box, you fill in with your own produce of at least the same value and are paid for it instead. The partner isn't paid for that week, and a missed delivery counts as a cancellation by that farm.",
+  },
+  {
+    question: 'How do I tell buyers which farmers markets I’m at?',
+    answer:
+      "In your Seller Dashboard, open Farm Profile and use Where to find us. Add each market or event with its address, date and times; for a weekly market, tick Every week and set the last date. It shows on your farm page, and followers who asked to hear about your markets get an email. If you allow it, buyers can order ahead and pick up at your stand: bring their orders, mark them ready there, and take their pickup code as usual. Can't make a date? Mark it as not there; any orders for it are refunded and count as cancellations by you.",
+  },
+  {
+    question: 'Is there a quick way to list something I’ve sold before?',
+    answer:
+      'Yes. Press Post again on any of your listings in the Seller Dashboard (sold-out ones too), or choose one under "Post again from a past listing" when you start a new listing. Everything is copied: the name, variety, photo, description, highlights, unit and pickup address. You just enter how many you have and when it’s available, check the price, and post.',
+  },
+  {
+    question: 'Can I show buyers what I’m growing before it’s ready?',
+    answer:
+      'Yes. In your Seller Dashboard, open Farm Profile and use What we’re growing. Add each crop with roughly when it should be ready; buyers see it on your farm page as a rough time, like "Expected mid-November". When it’s ready, press Post it to start a listing with its name filled in. A crop comes off the list once you post it for sale, or a few weeks after its expected date.',
   },
   {
     question: 'Can I offer a Flower Box?',

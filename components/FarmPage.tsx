@@ -15,6 +15,8 @@ import FollowFarmButton from '@/components/FollowFarmButton';
 import FarmAdminPanel from '@/components/FarmAdminPanel';
 import DistanceFromYou from '@/components/DistanceFromYou';
 import FarmCsaPlans from '@/components/FarmCsaPlans';
+import FarmAppearances from '@/components/FarmAppearances';
+import FarmGrowing from '@/components/FarmGrowing';
 
 // A farm's public page: its photo, story, what it has for sale and its reviews.
 // Shown at the farm's own web address (/night-owl-produce) and at its original
@@ -180,6 +182,10 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
           )}
         </div>
       </div>
+
+      <FarmAppearances farmerId={sellerId} farmName={profile?.farm_name || 'this farm'} />
+
+      <FarmGrowing farmerId={sellerId} farmName={profile?.farm_name || 'this farm'} />
 
       <FarmCsaPlans farmId={sellerId} />
 

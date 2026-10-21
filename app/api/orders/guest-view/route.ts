@@ -107,6 +107,7 @@ export async function POST(request: Request) {
           pickup_code: codeRowByOrderId.get(o.id)?.code || null,
           pickup_address: o.pickup_address || null,
           pickup_area: [listing?.location_name, listing?.zip_code].filter(Boolean).join(' '),
+          market_label: o.market_label || null,
           reviewed: reviewedOrderIds.has(o.id),
           listing_title: listing?.title || 'Harvest Crop',
           listing_unit_type: listing?.unit_type || 'units',

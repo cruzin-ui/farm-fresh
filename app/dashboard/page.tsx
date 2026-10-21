@@ -11,6 +11,8 @@ import QrScanner from '@/components/QrScanner';
 import OrderMessages from '@/components/OrderMessages';
 import PickList from '@/components/PickList';
 import SellerCsa from '@/components/SellerCsa';
+import FarmAppearancesEditor from '@/components/FarmAppearancesEditor';
+import GrowingNowEditor from '@/components/GrowingNowEditor';
 import NewListingWizard from '@/components/NewListingWizard';
 import ListingPickupChooser, { pickupProblem, type PickupChoice } from '@/components/ListingPickupChooser';
 import { CategoryNotice, PlantFields, HighlightsPicker } from '@/components/ListingFormParts';
@@ -89,6 +91,8 @@ import {
   ClipboardList,
   Package,
   HelpCircle,
+  Store,
+  Repeat,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { loadConnectAndInitialize } from '@stripe/connect-js/pure';
@@ -154,6 +158,11 @@ const TOUR_STEPS: (TourStep & { tab: DashboardTab })[] = [
 export default function SellerDashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<DashboardTab>('listings');
+  // An earlier listing being posted again ("Post again"), for the new-listing form.
+  const [repostFrom, setRepostFrom] = useState<any | null>(null);
+  useEffect(() => {
+    if (activeTab !== 'new') setRepostFrom(null);
+  }, [activeTab]);
   // The first time orders load, a seller with open orders is taken straight
   // to them, since that is what they came for.
   const openedOnOrders = useRef(false);
@@ -646,6 +655,13 @@ export default function SellerDashboardPage() {
   // Where an open order stands and what is due next, in one plain sentence.
   // `urgent` marks the ones the seller is late on.
   const orderStatusLine = (order: any): { text: string; urgent: boolean } => {
+    // Picked up at one of the farm's markets: bring it there.
+    if (order.market_label && (order.status === 'pending_pickup' || order.status === 'ready_for_pickup') && !order.no_show_reported_at) {
+      return {
+        text: `For pickup at your stand: ${order.market_label}. Bring it with you${order.status === 'pending_pickup' ? ' and mark it ready there' : ''}; the buyer gives you their code.`,
+        urgent: isSellerLate(order),
+      };
+    }
     if (order.status === 'pending_pickup') {
       if (!order.ready_by) return { text: 'Waiting for you to mark it ready.', urgent: false };
       if (isSellerLate(order)) {
@@ -1490,9 +1506,9 @@ export default function SellerDashboardPage() {
                 href={farmPagePath}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-semibold text-emerald-800 underline underline-offset-2"
+                className="inline-flex items-center gap-1.5 font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg px-2.5 py-1 shadow-sm"
               >
-                View my farm page
+                <Store className="w-3.5 h-3.5" aria-hidden="true" /> View my farm page
               </a>
               <button
                 type="button"
@@ -1902,6 +1918,19 @@ export default function SellerDashboardPage() {
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <button
+                            onClick={() => {
+                              setEditingListingId(null);
+                              setRepostFrom(item);
+                              setActiveTab('new');
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            aria-label="Post again"
+                            title="Post again: copy this listing and just add the new amount and date"
+                            className="inline-flex items-center gap-1 p-3 md:px-2 md:py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 rounded-lg transition-colors"
+                          >
+                            <Repeat className="w-4 h-4" /> <span className="hidden sm:inline">Post again</span>
+                          </button>
+                          <button
                             onClick={() => startEditListing(item)}
                             aria-label="Edit listing"
                             title="Edit listing"
@@ -1946,6 +1975,7 @@ export default function SellerDashboardPage() {
                   farmState={farmState}
                   sellerTermsAccepted={sellerTermsAccepted}
                   previousListings={myListings}
+                  startFrom={repostFrom}
                   onGoToProfile={() => setActiveTab('profile')}
                   onCancel={() => setActiveTab('listings')}
                   onPosted={async () => {
@@ -3424,6 +3454,7 @@ export default function SellerDashboardPage() {
           )}
 
           {activeTab === 'profile' && (
+            <>
             <form onSubmit={handleProfileSubmit} className="space-y-6">
               <div className="pb-4 border-b border-gray-100">
                 <h1 className="text-2xl font-bold text-gray-900">Your Farm Profile & Branding</h1>
@@ -3795,6 +3826,22 @@ export default function SellerDashboardPage() {
                 {loading ? 'Saving Profile...' : profileSaved ? '✓ Saved' : 'Save Profile & Branding'}
               </button>
             </form>
+            {/* Farmers markets and events: separate from the form above. */}
+            <div className="mt-8">
+              <FarmAppearancesEditor sellerTermsAccepted={sellerTermsAccepted} />
+            </div>
+            <div className="mt-6">
+              <GrowingNowEditor
+                sellerTermsAccepted={sellerTermsAccepted}
+                onPostCrop={(crop) => {
+                  setEditingListingId(null);
+                  setRepostFrom({ id: `growing-${crop.title}`, ...crop, price_per_unit: null });
+                  setActiveTab('new');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              />
+            </div>
+            </>
           )}
 
           {activeTab === 'settings' && (

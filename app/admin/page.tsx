@@ -23,10 +23,12 @@ import {
   History,
   ChevronDown,
   Package,
+  CalendarDays,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import AdminCsa from '@/components/AdminCsa';
+import AdminAppearances from '@/components/AdminAppearances';
 
 type AdminSeller = {
   farmer_id: string;
@@ -50,6 +52,8 @@ type AdminSeller = {
   suspension_reason: string | null;
   farm_address: string | null;
   change_reasons: { label: string; count: number }[];
+  // Admin resets of their cancellation limits, newest first.
+  limit_resets?: { at: string; by: string; reason: string; cancellations: number; lifted_suspension: boolean }[];
 };
 
 type AdminBuyer = {
@@ -220,7 +224,8 @@ type AdminSection =
   | 'blocks'
   | 'activity'
   | 'insights'
-  | 'csa';
+  | 'csa'
+  | 'markets';
 
 type AdminListing = {
   id: string;
@@ -726,6 +731,23 @@ export default function AdminPage() {
     changeAccount(seller.farmer_id, { action: 'suspend_seller', sellerId: seller.farmer_id, reason });
   };
 
+  // Starts a seller's cancellation count again (their cancellations, and the
+  // reset itself, stay on record).
+  const resetSellerLimits = (seller: AdminSeller) => {
+    const reason = prompt(
+      `Reset ${seller.farm_name}'s cancellation count?\n\n` +
+        'The automatic pause and the shared Farm Box rule will only count cancellations from now on. Their past cancellations stay on record, and this reset is recorded too. They are emailed.\n\nReason (kept on the record):',
+      ''
+    );
+    if (reason === null) return;
+    if (!reason.trim()) {
+      alert('Please give a reason for the record.');
+      return;
+    }
+    const liftSuspension = Boolean(seller.suspension_id) && confirm('They are suspended. Lift the suspension too?');
+    changeAccount(seller.farmer_id, { action: 'reset_limits', sellerId: seller.farmer_id, reason, liftSuspension });
+  };
+
   // A seller can set their farm's web address once; changing it is done here.
   const changeFarmAddress = (seller: AdminSeller) => {
     const entered = prompt(
@@ -938,6 +960,7 @@ export default function AdminPage() {
     { id: 'messages', label: 'Messages', icon: Mail, count: openMessages.length, urgent: true },
     { id: 'listings', label: 'Listings', icon: Store },
     { id: 'csa', label: 'Farm Boxes (CSA)', icon: Package },
+    { id: 'markets', label: 'Markets & growing', icon: CalendarDays },
     { id: 'sellers', label: 'Sellers', icon: Users, count: flaggedSellers.length, urgent: true },
     { id: 'buyers', label: 'Buyers', icon: ShoppingBasket, count: flaggedBuyers.length, urgent: true },
     { id: 'reviews', label: 'Reviews', icon: Star },
@@ -1477,6 +1500,12 @@ export default function AdminPage() {
                                   SUSPENDED{s.suspension_reason ? `: ${s.suspension_reason}` : ''}
                                 </span>
                               )}
+                              {(s.limit_resets || []).length > 0 && (
+                                <span className="block font-normal text-gray-600">
+                                  Cancellation limit reset {s.limit_resets!.length} time{s.limit_resets!.length === 1 ? '' : 's'}, last{' '}
+                                  {new Date(s.limit_resets![0].at).toLocaleDateString()} by {s.limit_resets![0].by}: “{s.limit_resets![0].reason}”
+                                </span>
+                              )}
                               <button
                                 type="button"
                                 disabled={busyAccount !== null}
@@ -1492,6 +1521,14 @@ export default function AdminPage() {
                                 }`}
                               >
                                 {s.suspension_id ? 'Lift Suspension' : 'Suspend Seller'}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busyAccount !== null}
+                                onClick={() => resetSellerLimits(s)}
+                                className="mt-1.5 ml-1.5 text-xs font-bold px-2.5 py-1 rounded-lg border disabled:opacity-50 bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                              >
+                                Reset Cancellation Limit
                               </button>
                             </th>
                             {cell(s.orders)}
@@ -2357,6 +2394,7 @@ export default function AdminPage() {
 
           {/* FARM BOXES */}
           {section === 'csa' && <AdminCsa />}
+          {section === 'markets' && <AdminAppearances />}
 
           {/* SUSPENDED & BLOCKED */}
           {section === 'blocks' && (

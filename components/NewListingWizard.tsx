@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Camera, ImageIcon, X, MapPin, Calendar, Sprout, Pencil } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, ImageIcon, X, MapPin, Calendar, Sprout, Pencil, Repeat } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import { resizeImage } from '@/lib/resizeImage';
@@ -17,8 +17,12 @@ import ListingPickupChooser, { pickupProblem, type PickupChoice } from '@/compon
 // Posting a new listing one question at a time, so it works well on a phone:
 // category, name, photo, price, when, extras, then a preview to check before
 // posting. (Editing a listing still uses the single-page form.)
+//
+// Or "post again": start from one of the farm's earlier listings, which copies
+// everything about it, and fill in only what changes each time (how many, when
+// it's ready, and the price if it has changed) on one screen, then post.
 
-type Step = 'category' | 'name' | 'photo' | 'price' | 'when' | 'extras' | 'review';
+type Step = 'category' | 'name' | 'photo' | 'price' | 'when' | 'extras' | 'review' | 'quick';
 const STEPS: Step[] = ['category', 'name', 'photo', 'price', 'when', 'extras', 'review'];
 
 // Each category's card on the first step.
@@ -53,6 +57,9 @@ type Draft = {
   reusedImageUrl: string | null;
   // An address just for this listing, or null for the farm's.
   ownPickup: PickupChoice | null;
+  // Started from an earlier listing ("post again"): the quick screen is the
+  // way back from the preview.
+  quick?: boolean;
 };
 
 const EMPTY: Draft = {
@@ -73,7 +80,11 @@ const EMPTY: Draft = {
   tags: [],
   reusedImageUrl: null,
   ownPickup: null,
+  quick: false,
 };
+
+// How many earlier listings "post again" offers.
+const TEMPLATES_SHOWN = 8;
 
 const dayString = (offsetDays: number) => {
   const d = new Date();
@@ -89,6 +100,7 @@ export default function NewListingWizard({
   farmState,
   sellerTermsAccepted,
   previousListings,
+  startFrom,
   onGoToProfile,
   onPosted,
   onCancel,
@@ -100,6 +112,8 @@ export default function NewListingWizard({
   farmState: { name: string; code: string } | null;
   sellerTermsAccepted: boolean;
   previousListings: any[];
+  // An earlier listing to post again (from "Post again" on the dashboard).
+  startFrom?: any | null;
   onGoToProfile: () => void;
   onPosted: () => Promise<void>;
   onCancel: () => void;
@@ -121,8 +135,10 @@ export default function NewListingWizard({
   const isPlant = d.category === PLANTS_CATEGORY;
   const stepIndex = STEPS.indexOf(d.step);
 
-  // A listing left part-way on this device is offered back.
+  // A listing left part-way on this device is offered back (unless the
+  // seller came here to post an earlier listing again).
   useEffect(() => {
+    if (startFrom) return;
     try {
       const raw = window.localStorage.getItem(draftKey);
       const parsed = raw ? (JSON.parse(raw) as Draft) : null;
@@ -179,6 +195,71 @@ export default function NewListingWizard({
     goTo('price');
   };
 
+  // Everything about an earlier listing, ready to post again: only the
+  // amount and dates are left to fill in, and the price to check.
+  const applyTemplate = (previous: any) => {
+    const category = LISTING_CATEGORIES.includes(previous.category) ? previous.category : '';
+    setD({
+      ...EMPTY,
+      category,
+      title: previous.title || '',
+      variety: previous.variety || '',
+      unitType: unitOptionsFor(category).some((o) => o.value === previous.unit_type) ? previous.unit_type : usualUnit(category),
+      price: previous.price_per_unit != null ? String(previous.price_per_unit) : '',
+      quantity: '',
+      readyDate: dayString(0),
+      endDate: '',
+      description: previous.description || '',
+      tags: Array.isArray(previous.tags) ? previous.tags : [],
+      potSize: previous.pot_size || '',
+      sunNeeds: previous.sun_needs || '',
+      waterNeeds: previous.water_needs || '',
+      isNative: Boolean(previous.native_state),
+      reusedImageUrl: previous.image_url || null,
+      ownPickup:
+        previous.pickup_address && farmPickup && previous.pickup_address !== farmPickup.address
+          ? { address: previous.pickup_address, zip: String(previous.zip_code || ''), city: previous.location_name || '' }
+          : null,
+      quick: true,
+      step: 'quick',
+    });
+    setImageFile(null);
+    setImagePreview(null);
+    setError(null);
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  // Started from a crop on "What we're growing", which may have no variety:
+  // then the quick screen asks for it.
+  const [askVariety, setAskVariety] = useState(false);
+
+  // Opened from "Post again" on a listing: straight to the quick screen.
+  useEffect(() => {
+    if (startFrom) {
+      started.current = true;
+      setSavedDraft(null);
+      setAskVariety(!startFrom.variety);
+      applyTemplate(startFrom);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startFrom?.id]);
+
+  // The farm's earlier listings to start from: one of each crop and variety,
+  // newest first.
+  const templates = (() => {
+    const seen = new Set<string>();
+    return [...previousListings]
+      .filter((l) => LISTING_CATEGORIES.includes(l.category) && l.title)
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+      .filter((l) => {
+        const key = `${l.category}|${String(l.title).trim().toLowerCase()}|${String(l.variety || '').trim().toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, TEMPLATES_SHOWN);
+  })();
+
   // What's missing on this step, or null when it's fine to move on.
   const problem = (step: Step): string | null => {
     if (step === 'category') {
@@ -204,6 +285,9 @@ export default function NewListingWizard({
     if (step === 'review') {
       if (!sellerTermsAccepted && !termsChecked) return 'Please read and agree to the Seller Terms first.';
     }
+    if (step === 'quick') {
+      return problem('name') || problem('price') || problem('when');
+    }
     return null;
   };
 
@@ -212,6 +296,7 @@ export default function NewListingWizard({
     const issue = problem(d.step);
     if (issue) return setError(issue);
     if (d.step === 'review') return post();
+    if (d.step === 'quick') return goTo('review');
     goTo(STEPS[stepIndex + 1]);
   };
 
@@ -316,15 +401,16 @@ export default function NewListingWizard({
       {/* progress */}
       <div className="mb-5">
         <div className="flex items-center justify-between text-xs font-semibold text-gray-500 mb-1.5">
-          <span>
-            Step {stepIndex + 1} of {STEPS.length}
-          </span>
+          <span>{d.quick && (d.step === 'quick' || d.step === 'review') ? 'Posting again' : `Step ${stepIndex + 1} of ${STEPS.length}`}</span>
           <button type="button" onClick={onCancel} className="text-gray-500 hover:text-gray-800 underline">
             Cancel
           </button>
         </div>
         <div className="h-2 bg-gray-100 rounded-full overflow-hidden" aria-hidden="true">
-          <div className="h-full bg-emerald-600 transition-all" style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%` }} />
+          <div
+            className="h-full bg-emerald-600 transition-all"
+            style={{ width: d.step === 'quick' ? '50%' : `${((stepIndex + 1) / STEPS.length) * 100}%` }}
+          />
         </div>
       </div>
 
@@ -332,6 +418,41 @@ export default function NewListingWizard({
         {/* ---------- 1. category ---------- */}
         {d.step === 'category' && (
           <>
+            {templates.length > 0 && !(farmPickupLoaded && !farmPickup) && (
+              <div className="space-y-2">
+                <h2 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+                  <Repeat className="w-5 h-5 text-emerald-600" aria-hidden="true" /> Post again from a past listing
+                </h2>
+                <p className="text-sm text-gray-600">Everything is copied. You just add how many you have and when.</p>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {templates.map((t) => (
+                    <li key={t.id}>
+                      <button
+                        type="button"
+                        onClick={() => applyTemplate(t)}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-xl border-2 border-gray-200 bg-white hover:border-emerald-400 text-left"
+                      >
+                        {t.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={t.image_url} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                        ) : (
+                          <span className="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center text-2xl shrink-0" aria-hidden="true">
+                            {(CATEGORY_CARDS[t.category] || { emoji: '🧺' }).emoji}
+                          </span>
+                        )}
+                        <span className="min-w-0">
+                          <span className="block text-sm font-bold text-gray-900 truncate">{t.title}</span>
+                          <span className="block text-xs text-gray-500 truncate">
+                            {t.variety ? `${t.variety} · ` : ''}${Number(t.price_per_unit ?? 0).toFixed(2)} / {unitSingular(t.unit_type || 'units')}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <p className="pt-3 text-sm font-semibold text-gray-500">Or start something new:</p>
+              </div>
+            )}
             <h2 className="text-2xl font-extrabold text-gray-900">What are you selling?</h2>
             {farmPickupLoaded && !farmPickup && (
               <p className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-sm text-amber-950">
@@ -379,6 +500,109 @@ export default function NewListingWizard({
               })}
             </div>
             {d.category && <CategoryNotice category={d.category} />}
+          </>
+        )}
+
+        {/* ---------- posting again: just what changes ---------- */}
+        {d.step === 'quick' && (
+          <>
+            <h2 className="text-2xl font-extrabold text-gray-900">{d.price ? `Post ${d.title} again` : `Post ${d.title}`}</h2>
+            <div className="flex items-center gap-3 p-3 rounded-xl border bg-gray-50">
+              {photo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photo} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0" />
+              ) : (
+                <span className="w-14 h-14 rounded-lg bg-emerald-50 flex items-center justify-center text-2xl shrink-0" aria-hidden="true">
+                  {(CATEGORY_CARDS[d.category] || { emoji: '🧺' }).emoji}
+                </span>
+              )}
+              <div className="min-w-0 text-sm">
+                <p className="font-bold text-gray-900 truncate">
+                  {d.title} · {d.variety}
+                </p>
+                <p className="text-xs text-gray-600">
+                  {d.category} · sold by the {unitSingular(d.unitType)} · picked up {d.ownPickup ? `at ${d.ownPickup.address}` : 'at your farm'}
+                </p>
+                {(photo || d.description || d.tags.length > 0) && (
+                  <p className="text-xs text-gray-500">Photo, description and highlights are copied too.</p>
+                )}
+              </div>
+            </div>
+            {askVariety && (
+              <div>
+                {label('Variety or type', 'quick-variety')}
+                <input
+                  id="quick-variety"
+                  maxLength={60}
+                  placeholder={isPlant ? 'e.g., Cherokee Purple' : 'e.g., Yukon Gold'}
+                  value={d.variety}
+                  onChange={(e) => set({ variety: e.target.value })}
+                  className={input}
+                />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                {label(d.unitType === 'units' ? 'How many this time?' : `How many ${d.unitType} this time?`, 'quick-quantity')}
+                <input
+                  id="quick-quantity"
+                  autoFocus
+                  type="number"
+                  inputMode="numeric"
+                  step="1"
+                  min="1"
+                  placeholder="25"
+                  value={d.quantity}
+                  onChange={(e) => set({ quantity: e.target.value })}
+                  className={input}
+                />
+              </div>
+              <div>
+                {label(`Price per ${unitSingular(d.unitType)} ($)`, 'quick-price')}
+                <input
+                  id="quick-price"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  value={d.price}
+                  onChange={(e) => set({ price: e.target.value })}
+                  className={input}
+                />
+              </div>
+            </div>
+            <div>
+              {label(isPlant ? 'Ready date' : 'Available from', 'quick-ready')}
+              <div className="flex gap-2 mb-2">
+                {[
+                  ['Today', dayString(0)],
+                  ['Tomorrow', dayString(1)],
+                ].map(([text, day]) => (
+                  <button
+                    key={text}
+                    type="button"
+                    onClick={() => set({ readyDate: day })}
+                    aria-pressed={d.readyDate === day}
+                    className={`px-4 py-2 rounded-xl border-2 text-sm font-semibold ${
+                      d.readyDate === day ? 'border-emerald-600 bg-emerald-50 text-emerald-900' : 'border-gray-200 text-gray-700'
+                    }`}
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+              <input id="quick-ready" type="date" value={d.readyDate} onChange={(e) => set({ readyDate: e.target.value })} className={input} />
+            </div>
+            <div>
+              {label('Available until (optional)', 'quick-end')}
+              <input id="quick-end" type="date" value={d.endDate} onChange={(e) => set({ endDate: e.target.value })} className={input} />
+            </div>
+            <p className="text-xs text-gray-600">
+              Anything else different this time?{' '}
+              <button type="button" onClick={() => goTo('name')} className="font-semibold text-emerald-800 underline">
+                Change other details
+              </button>
+            </p>
           </>
         )}
 
@@ -740,10 +964,16 @@ export default function NewListingWizard({
 
         {/* ---------- back / next ---------- */}
         <div className="flex gap-3 pt-2">
-          {stepIndex > 0 && (
+          {(stepIndex > 0 || d.step === 'quick') && (
             <button
               type="button"
-              onClick={() => goTo(STEPS[stepIndex - 1])}
+              onClick={() =>
+                d.step === 'quick'
+                  ? setD({ ...EMPTY })
+                  : d.step === 'review' && d.quick
+                    ? goTo('quick')
+                    : goTo(STEPS[stepIndex - 1])
+              }
               disabled={posting}
               className="flex items-center justify-center gap-1.5 px-5 py-3.5 rounded-xl border-2 border-gray-200 font-semibold text-sm text-gray-700"
             >

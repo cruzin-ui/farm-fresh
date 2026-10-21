@@ -215,6 +215,14 @@ export default function TermsPage() {
             not know. You and the seller can message each other about an order through the site. Messages are
             for arranging the pickup; we may read them when looking into a problem or a report.
           </p>
+          <p className="mt-2">
+            <strong>Picking up at a farmers market.</strong> Some farms let you order ahead and pick up at their stand at
+            a market or event, chosen at checkout. Collect your order there during the event and give the farmer your
+            pickup code; if you don&apos;t collect it before the event ends, section 5 applies as for a missed pickup. If
+            the farm can&apos;t be there after all, your order is cancelled and refunded in full. If you follow a farm, you
+            can choose to get emails about where it will be; they are off unless you turn them on, and you can turn them
+            off at any time.
+          </p>
         </section>
 
         <section>

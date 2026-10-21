@@ -16,6 +16,8 @@ type FollowedFarm = {
   avatar_url: string | null;
   location: string;
   usual_pickup: string;
+  // Emails about where the farm will be, which they turned on.
+  market_emails: boolean;
   listing_count: number;
   listings: {
     id: string;
@@ -76,6 +78,21 @@ export default function FollowedFarmsPage() {
       setFarms((current) => current.filter((f) => f.id !== farm.id));
     } catch (err: any) {
       setErrorMsg(err.message || 'Could not remove that farm from your favorites.');
+    } finally {
+      setBusyFarmId(null);
+    }
+  };
+
+  const setMarketEmails = async (farm: FollowedFarm, on: boolean) => {
+    setBusyFarmId(farm.id);
+    setErrorMsg(null);
+    try {
+      const res = await postWithAuth('/api/follows', { action: 'market_emails', farmerId: farm.id, on });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not update that.');
+      setFarms((current) => current.map((f) => (f.id === farm.id ? { ...f, market_emails: Boolean(data.marketEmails) } : f)));
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Could not update that.');
     } finally {
       setBusyFarmId(null);
     }
@@ -167,6 +184,16 @@ export default function FollowedFarmsPage() {
                 {busyFarmId === farm.id ? 'Removing...' : 'Remove Favorite'}
               </button>
             </div>
+            <label className="flex items-center gap-1.5 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                disabled={busyFarmId === farm.id}
+                checked={farm.market_emails}
+                onChange={(e) => setMarketEmails(farm, e.target.checked)}
+                className="w-3.5 h-3.5"
+              />
+              Email me when and where to find {farm.farm_name} at markets and events
+            </label>
 
             {farm.listings.length === 0 ? (
               <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-3">

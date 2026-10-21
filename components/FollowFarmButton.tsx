@@ -17,13 +17,34 @@ export default function FollowFarmButton({ farmerId, farmName }: { farmerId: str
   const [following, setFollowing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [justFollowed, setJustFollowed] = useState(false);
+  // Emails about where the farm will be (markets and events). Off unless the
+  // follower turns them on.
+  const [marketEmails, setMarketEmails] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const call = async (action: 'status' | 'follow' | 'unfollow') => {
     const res = await postWithAuth('/api/follows', { farmerId, action });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Could not update that.');
+    if (action === 'status') setMarketEmails(Boolean(data.marketEmails));
+    if (action === 'unfollow') setMarketEmails(false);
     return Boolean(data.following);
+  };
+
+  const toggleMarketEmails = async (on: boolean) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await postWithAuth('/api/follows', { farmerId, action: 'market_emails', on });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not update that.');
+      setMarketEmails(Boolean(data.marketEmails));
+      setFollowing(Boolean(data.following));
+    } catch (err: any) {
+      setError(err.message || 'Could not update that.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   useEffect(() => {
@@ -92,6 +113,19 @@ export default function FollowFarmButton({ farmerId, farmName }: { farmerId: str
         <Heart className={`w-4 h-4 ${following ? 'fill-emerald-600 text-emerald-600' : ''}`} aria-hidden="true" />
         {following ? 'Favorited' : 'Favorite This Farm'}
       </button>
+
+      {following && (
+        <label className="flex items-center gap-1.5 text-xs text-gray-700">
+          <input
+            type="checkbox"
+            disabled={busy}
+            checked={marketEmails}
+            onChange={(e) => toggleMarketEmails(e.target.checked)}
+            className="w-3.5 h-3.5"
+          />
+          Email me when and where to find them at markets and events
+        </label>
+      )}
 
       {justFollowed && (
         <p role="status" className="text-xs text-emerald-800">

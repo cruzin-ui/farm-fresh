@@ -13,6 +13,7 @@ import { bumpDailyCount } from '@/lib/dailyCounts';
 import { formatBoxDate } from '@/lib/csaSchedule';
 import { BUYER_NAME_KEY, usableBuyerName } from '@/lib/buyerName';
 import { recordOrderShares, SHARES_METADATA_KEY } from '@/lib/orderShares';
+import { appearanceEnd, parseMarketKey, pickupLabel, placeLine, type Appearance } from '@/lib/appearances';
 
 // One item of a checkout, as saved on the payment by /api/checkout.
 type CheckoutLine = {
@@ -24,6 +25,8 @@ type CheckoutLine = {
   // Set only when this item's tax has to be recorded with Stripe by us (a
   // cart picked up in several zip codes).
   taxCalculationId: string | null;
+  // Set when the buyer picks this item up at one of the farm's markets.
+  market: { appearanceId: string; date: string } | null;
 };
 
 // True for payments created by our checkout (and not, say, something made by
@@ -40,7 +43,7 @@ function checkoutLines(paymentIntent: Stripe.PaymentIntent): CheckoutLine[] {
   if (count > 0) {
     const lines: CheckoutLine[] = [];
     for (let i = 0; i < count; i++) {
-      const [listingId, quantity, subtotalCents, feeCents, taxCents, taxCalculationId] = String(
+      const [listingId, quantity, subtotalCents, feeCents, taxCents, taxCalculationId, marketKey] = String(
         metadata[`item_${i}`] || ''
       ).split(':');
       if (!listingId) throw new Error(`Payment ${paymentIntent.id} is missing the details of item ${i + 1}.`);
@@ -51,6 +54,7 @@ function checkoutLines(paymentIntent: Stripe.PaymentIntent): CheckoutLine[] {
         feeCents: Number(feeCents) || 0,
         taxCents: Number(taxCents) || 0,
         taxCalculationId: taxCalculationId || null,
+        market: parseMarketKey(marketKey),
       });
     }
     return lines;
@@ -68,6 +72,7 @@ function checkoutLines(paymentIntent: Stripe.PaymentIntent): CheckoutLine[] {
       feeCents: Math.max(0, paymentIntent.amount - subtotalCents - taxCents),
       taxCents,
       taxCalculationId: null,
+      market: null,
     },
   ];
 }
@@ -104,7 +109,7 @@ async function sendSellerNotification(params: {
         <h2 style="color: #059669;">${csaBoxDate ? `${csaSingle ? 'A one-off Farm Box' : "A member's box"} for ${formatBoxDate(csaBoxDate, { long: true })} is paid` : "You've got a new reservation!"}</h2>
         ${buyerName ? `<p style="font-size: 16px;">For: <strong>${escapeHtml(buyerName)}</strong></p>` : ''}
         <p>Order number: <strong style="font-family: monospace; font-size: 16px;">${orderNumber}</strong> (the buyer has the same number, so you can match them to their bag at pickup)</p>
-        <ul>${items.map((item) => `<li><strong>${itemText(item)}</strong> — mark it ready by <strong>${item.readyBy}</strong></li>`).join('')}</ul>
+        <ul>${items.map((item) => (item.readyBy.startsWith('pickup at ') ? `<li><strong>${itemText(item)}</strong> — the buyer will collect it at your stand: <strong>${escapeHtml(item.readyBy.slice(10))}</strong>. Bring it with you and mark it ready there.</li>` : `<li><strong>${itemText(item)}</strong> — mark it ready by <strong>${item.readyBy}</strong></li>`)).join('')}</ul>
         <p>Need to reach the buyer? Use <strong>Message Buyer</strong> on the order in your Seller Dashboard.</p>
         <p>Item total: $${itemTotal.toFixed(2)}</p>
         <p>
@@ -139,6 +144,7 @@ async function sendBuyerConfirmation(params: {
     farmName: string;
     code: string;
     pickupArea: string;
+    market?: string | null;
     items: { quantity: number; unitType: string; title: string; readyBy: string }[];
   }[];
   orderLink: string | null;
@@ -154,8 +160,12 @@ async function sendBuyerConfirmation(params: {
       (farm) => `
         <div style="margin: 16px 0; padding: 14px; border: 1px solid #a7f3d0; border-radius: 8px;">
           <p style="margin: 0 0 6px;"><strong>${escapeHtml(farm.farmName)}</strong></p>
-          <ul style="margin: 0 0 8px; padding-left: 20px;">${farm.items.map((item) => `<li>${itemText(item)} — the farmer should have it ready by ${item.readyBy}</li>`).join('')}</ul>
-          <p style="margin: 0 0 8px;">Pickup${farm.pickupArea ? ` in <strong>${escapeHtml(farm.pickupArea)}</strong>` : ''}. We'll send the exact address when the farmer marks your order ready.</p>
+          <ul style="margin: 0 0 8px; padding-left: 20px;">${farm.items.map((item) => (farm.market ? `<li>${itemText(item)}</li>` : `<li>${itemText(item)} — the farmer should have it ready by ${item.readyBy}</li>`)).join('')}</ul>
+          ${
+            farm.market
+              ? `<p style="margin: 0 0 8px;">Pick up at <strong>${escapeHtml(farm.market)}</strong>. Find the farm's stand and give them your pickup code.</p>`
+              : `<p style="margin: 0 0 8px;">Pickup${farm.pickupArea ? ` in <strong>${escapeHtml(farm.pickupArea)}</strong>` : ''}. We'll send the exact address when the farmer marks your order ready.</p>`
+          }
           <p style="margin: 0;">Pickup code for ${farm.items.length > 1 ? 'these items' : 'this item'}: <strong style="font-size: 20px;">${farm.code}</strong></p>
         </div>`
     )
@@ -292,14 +302,26 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     .in('listing_id', listingIds);
   const addressByListingId = new Map((addressRows || []).map((row) => [row.listing_id as string, row.address as string]));
 
+  // Items picked up at a farmers market: the market for each.
+  const marketIds = [...new Set(lines.map((line) => line.market?.appearanceId).filter(Boolean))] as string[];
+  const { data: marketRows } = marketIds.length
+    ? await supabaseAdmin.from('farm_appearances').select('*').in('id', marketIds)
+    : { data: [] as any[] };
+  const marketById = new Map((marketRows || []).map((row) => [row.id as string, row as Appearance]));
+  const marketFor = (line: CheckoutLine) => (line.market ? marketById.get(line.market.appearanceId) || null : null);
+
   // When each item must be marked ready by: the seller's days start when the
   // order is placed, or on the listing's harvest date if that is still to come.
   const orderedAt = new Date();
-  // A CSA box is ready on its pickup date.
-  const readyByFor = (listingId: string) =>
-    csaBoxDate
+  // A CSA box is ready on its pickup date; an item for a market, by the end of it.
+  const readyByFor = (listingId: string) => {
+    const line = lines.find((l) => l.listingId === listingId);
+    const market = line && marketFor(line);
+    if (market && line?.market) return appearanceEnd(market, line.market.date);
+    return csaBoxDate
       ? new Date(`${csaBoxDate}T23:59:00-07:00`)
       : readyDeadline(orderedAt, listingById.get(listingId)?.harvest_ready_date as string | null | undefined);
+  };
 
   // All the items go in together, so a checkout is never half recorded.
   const { data: inserted, error: orderError } = await supabaseAdmin
@@ -307,7 +329,18 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     .insert(
       lines.map((line, lineIndex) => {
         const totalPaid = (line.subtotalCents + line.feeCents + line.taxCents) / 100;
+        const market = marketFor(line);
         return {
+          // Picked up at a market: which one and when. The buyer has until the
+          // market ends to collect it, so that is also its pickup deadline.
+          ...(market && line.market
+            ? {
+                market_appearance_id: market.id,
+                market_date: line.market.date,
+                market_label: pickupLabel(market, line.market.date),
+                pickup_by: appearanceEnd(market, line.market.date).toISOString(),
+              }
+            : {}),
           // Where this item sits in its tax calculation, for reversing its
           // tax on a refund. Only needed when we record the tax ourselves.
           ...(line.taxCalculationId ? { tax_line_index: lineIndex } : {}),
@@ -371,7 +404,11 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
   // The private copies of the pickup addresses. If this fails the order still
   // stands; marking it ready falls back to the listing's current address.
   const addressCopies = orders
-    .map((order) => ({ order_id: order.id, address: addressByListingId.get(order.listing_id) || '' }))
+    .map((order) => {
+      const line = lines.find((l) => l.listingId === order.listing_id);
+      const market = line && marketFor(line);
+      return { order_id: order.id, address: market ? placeLine(market) : addressByListingId.get(order.listing_id) || '' };
+    })
     .filter((row) => row.address);
   if (addressCopies.length > 0) {
     const { error: addressError } = await supabaseAdmin
@@ -445,6 +482,8 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     farmName: string;
     code: string;
     pickupArea: string;
+    // Picked up at a farmers market: where and when.
+    market: string | null;
     items: { quantity: number; unitType: string; title: string; subtotalCents: number; readyBy: string }[];
   }[] = [];
 
@@ -460,16 +499,19 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
         farmName: farmNameById.get(farmerId) || 'Local Farm',
         code: (order && result.codeByOrderId.get(order.id)) || pickupCodeForFarm(checkoutKey, farmerId),
         pickupArea: [listing?.location_name, listing?.zip_code].filter(Boolean).join(' '),
+        market: null,
         items: [],
       };
       farms.push(farm);
     }
+    const market = marketFor(line);
+    if (market && line.market) farm.market = pickupLabel(market, line.market.date);
     farm.items.push({
       quantity: line.quantity,
       unitType: listing?.unit_type || 'units',
       title: listing?.title || 'your order',
       subtotalCents: line.subtotalCents,
-      readyBy: formatDeadline(readyByFor(line.listingId)),
+      readyBy: market && line.market ? `pickup at ${pickupLabel(market, line.market.date)}` : formatDeadline(readyByFor(line.listingId)),
     });
   }
 

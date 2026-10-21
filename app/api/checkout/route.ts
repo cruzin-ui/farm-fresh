@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { MIN_CHARGE_CENTS, SELLER_FEE_RATE } from '@/lib/pricing';
-import { parseCartItems, priceCart } from '@/lib/checkoutCart';
+import { parseCartItems, parsePickupChoices, priceCart } from '@/lib/checkoutCart';
 import { TaxError } from '@/lib/tax';
 import { alertAdmin } from '@/lib/alerts';
 import { verifyCaptcha, allowCheckoutAttempt, requestIp } from '@/lib/checkoutGuard';
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
 
     // Totals are always computed server-side from the listing prices — never
     // trusted from the client.
-    const cart = await priceCart(items, user?.id);
+    const cart = await priceCart(items, user?.id, parsePickupChoices(body.pickups));
 
     const blocked = cart.lines.find((line) => line.problem);
     if (blocked) {
@@ -103,7 +103,8 @@ export async function POST(request: Request) {
     // it later even if the buyer's browser never comes back. One entry per
     // item: listing, quantity, produce subtotal, fee share and tax, in cents —
     // then, only for carts picked up in several zip codes, the tax calculation
-    // the item belongs to.
+    // the item belongs to, and for an item picked up at a farmers market, which
+    // market and date.
     const itemMetadata: Record<string, string> = {};
     cart.lines.forEach((line, i) => {
       itemMetadata[`item_${i}`] = [
@@ -113,6 +114,7 @@ export async function POST(request: Request) {
         line.feeCents,
         line.taxCents,
         cart.manualTaxCalculationByListing.get(line.listingId) || '',
+        line.market?.key || '',
       ].join(':');
     });
 

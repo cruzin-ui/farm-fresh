@@ -33,6 +33,7 @@ type SellerOverview = {
   buyer_problems: number;
   disputes: number;
   fast_completions: number;
+  limit_resets: { at: string; by: string; reason: string; cancellations: number; lifted_suspension: boolean }[];
   flags: string[];
   produce_cents: number;
   paid_out_cents: number;
@@ -111,6 +112,23 @@ export default function FarmAdminPanel({ sellerId }: { sellerId: string }) {
   const liftSuspension = () => {
     if (!seller.suspension_id || !confirm(`Lift the suspension on ${seller.farm_name}?`)) return;
     act({ action: 'lift', id: seller.suspension_id });
+  };
+
+  // Starts the cancellation count again for a farm whose cancellations were
+  // legitimate. Every cancellation stays on record, and so does the reset.
+  const resetLimits = () => {
+    const reason = prompt(
+      `Reset ${seller.farm_name}'s cancellation count?\n\n` +
+        'The automatic pause and the shared Farm Box rule will only count cancellations from now on. Their past cancellations stay on record, and this reset is recorded too. They are emailed.\n\nReason (kept on the record):',
+      ''
+    );
+    if (reason === null) return;
+    if (!reason.trim()) {
+      alert('Please give a reason for the record.');
+      return;
+    }
+    const liftSuspension = Boolean(seller.suspension_id) && confirm('They are suspended. Lift the suspension too?');
+    act({ action: 'reset_limits', sellerId: seller.farmer_id, reason, liftSuspension });
   };
 
   const changeAddress = () => {
@@ -200,6 +218,19 @@ export default function FarmAdminPanel({ sellerId }: { sellerId: string }) {
         ))}
       </dl>
 
+      <div className="text-xs space-y-0.5">
+        <p>
+          <span className="font-bold text-gray-900">Cancellation limit resets: </span>
+          {seller.limit_resets.length === 0 ? 'none' : seller.limit_resets.length}
+        </p>
+        {seller.limit_resets.slice(0, 5).map((r) => (
+          <p key={r.at} className="text-gray-600">
+            {new Date(r.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} by {r.by}: “{r.reason}” (
+            {r.cancellations} cancellation{r.cancellations === 1 ? '' : 's'} on record then{r.lifted_suspension ? '; suspension lifted' : ''})
+          </p>
+        ))}
+      </div>
+
       {seller.change_reasons.length > 0 && (
         <p className="text-xs">
           <span className="font-bold text-gray-900">Reasons they gave for cancelling or reducing: </span>
@@ -230,6 +261,9 @@ export default function FarmAdminPanel({ sellerId }: { sellerId: string }) {
         </a>
         <button type="button" disabled={busy} onClick={changeAddress} className={`${BUTTON} bg-white text-gray-700 border-gray-300 hover:bg-gray-50`}>
           Change Web Address
+        </button>
+        <button type="button" disabled={busy} onClick={resetLimits} className={`${BUTTON} bg-white text-gray-700 border-gray-300 hover:bg-gray-50`}>
+          Reset Cancellation Limit
         </button>
         {seller.suspension_id ? (
           <button type="button" disabled={busy} onClick={liftSuspension} className={`${BUTTON} bg-white text-gray-700 border-gray-300 hover:bg-gray-50`}>

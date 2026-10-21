@@ -35,6 +35,10 @@ export type SellerRecord = {
   buyer_problems: number;
   disputes: number;
   fast_completions: number;
+  // Times an admin reset this seller's cancellation limits, newest first. The
+  // cancellations above are all of them; the limits count only those since
+  // the latest reset.
+  limit_resets: { at: string; by: string; reason: string; cancellations: number; lifted_suspension: boolean }[];
   flags: string[];
 };
 
@@ -86,7 +90,23 @@ export async function loadSellerRecords(): Promise<SellerRecord[]> {
       buyer_problems: 0,
       disputes: 0,
       fast_completions: 0,
+      limit_resets: [],
       flags: [],
+    });
+  }
+
+  const { data: resets } = await supabaseAdmin
+    .from('seller_limit_resets')
+    .select('seller_id, admin_email, reason, cancellations_at_reset, lifted_suspension, created_at')
+    .order('created_at', { ascending: false })
+    .limit(2000);
+  for (const reset of resets || []) {
+    rows.get(reset.seller_id)?.limit_resets.push({
+      at: reset.created_at,
+      by: reset.admin_email,
+      reason: reset.reason,
+      cancellations: Number(reset.cancellations_at_reset) || 0,
+      lifted_suspension: Boolean(reset.lifted_suspension),
     });
   }
 
@@ -160,6 +180,7 @@ export async function loadSellerRecords(): Promise<SellerRecord[]> {
     if (row.listings_removed >= 1) {
       row.flags.push(`${row.listings_removed} listing${row.listings_removed === 1 ? '' : 's'} removed by an admin`);
     }
+    if (row.limit_resets.length >= 2) row.flags.push(`cancellation limit reset ${row.limit_resets.length} times`);
   }
 
   // What each seller said when they cancelled or reduced an order.

@@ -57,6 +57,8 @@ type QuoteLine = {
   zipCode?: string;
   usualPickup: string;
   problem: string | null;
+  // Set when this item is to be picked up at one of the farm's markets.
+  market?: { key: string; label: string } | null;
 };
 
 type Quote = {
@@ -69,6 +71,8 @@ type Quote = {
   totalCents: number;
   ok: boolean;
   taxEnabled: boolean;
+  // The farmers markets each farm's buyers can pick up at, by farm.
+  marketOptions?: Record<string, { key: string; label: string }[]>;
 };
 
 const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -123,6 +127,7 @@ function QuantityInput({
 
 function PaymentForm({
   items,
+  pickups,
   grandTotal,
   signedIn,
   guestEmail,
@@ -130,6 +135,8 @@ function PaymentForm({
   onCartRejected,
 }: {
   items: CartItem[];
+  // Where the buyer picks up from each farm that isn't at the farm itself.
+  pickups: Record<string, string>;
   grandTotal: number;
   signedIn: boolean;
   guestEmail: string;
@@ -166,6 +173,7 @@ function PaymentForm({
 
       const intentRes = await postWithAuth('/api/checkout', {
         items,
+        pickups,
         ...(signedIn ? { buyerName } : { guestEmail }),
         ...(captchaSiteKey ? { captchaToken } : {}),
       });
@@ -283,7 +291,10 @@ function CheckoutContent() {
   const listingIdToAdd = searchParams.get('id');
 
   const { items, ready } = useCart();
-  const cartKey = JSON.stringify(items);
+  // For each farm with farmers markets, where the buyer chose to pick up:
+  // farm id to a market, or nothing for the farm itself.
+  const [pickups, setPickups] = useState<Record<string, string>>({});
+  const cartKey = JSON.stringify({ items, pickups });
 
   const [authChecked, setAuthChecked] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
@@ -326,7 +337,7 @@ function CheckoutContent() {
       try {
         // Sent with the sign-in, if there is one, so the server can spot a
         // seller trying to buy their own listing.
-        const res = await postWithAuth('/api/checkout/quote', { items });
+        const res = await postWithAuth('/api/checkout/quote', { items, pickups });
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok) throw new Error(data.error || 'Could not price this order.');
@@ -452,9 +463,34 @@ function CheckoutContent() {
               {farm.farmName}
               {farm.locationName && <span className="text-xs font-medium text-gray-500">· Pickup in {farm.locationName}</span>}
             </h2>
+            {farm.farmerId && (quote?.marketOptions?.[farm.farmerId] || []).length > 0 && (
+              <fieldset className="border border-emerald-200 bg-emerald-50/50 rounded-lg p-3 space-y-1.5">
+                <legend className="px-1 text-xs font-bold text-gray-900">Where will you pick up?</legend>
+                {[{ key: '', label: `At the farm${farm.locationName ? `, in ${farm.locationName}` : ''}` }, ...(quote?.marketOptions?.[farm.farmerId] || [])].map((option) => (
+                  <label key={option.key || 'farm'} className="flex items-start gap-2 text-sm text-gray-800">
+                    <input
+                      type="radio"
+                      name={`pickup-${farm.farmerId}`}
+                      checked={(pickups[farm.farmerId!] || '') === option.key}
+                      onChange={() =>
+                        setPickups((current) => {
+                          const next = { ...current };
+                          if (option.key) next[farm.farmerId!] = option.key;
+                          else delete next[farm.farmerId!];
+                          return next;
+                        })
+                      }
+                      className="mt-1"
+                    />
+                    <span>{option.key ? <>At their market stand: <strong>{option.label}</strong></> : option.label}</span>
+                  </label>
+                ))}
+                <p className="text-xs text-gray-600">Ordering ahead for a market closes the evening before it.</p>
+              </fieldset>
+            )}
             {/* How far the pickup is, before the buyer pays. */}
-            <DistanceFromYou farmZip={farm.zipCode} remindIfFar />
-            {farm.usualPickup && (
+            {!pickups[farm.farmerId || ''] && <DistanceFromYou farmZip={farm.zipCode} remindIfFar />}
+            {farm.usualPickup && !pickups[farm.farmerId || ''] && (
               <p className="text-xs text-gray-700 flex items-start gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
                 <span>
@@ -636,6 +672,7 @@ function CheckoutContent() {
           >
             <PaymentForm
               items={items}
+              pickups={pickups}
               signedIn={signedIn}
               guestEmail={guestEmail}
               buyerName={buyerName}

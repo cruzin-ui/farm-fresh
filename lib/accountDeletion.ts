@@ -101,6 +101,14 @@ export async function deleteAccount(user: User) {
       await cancelMembership({ member, plan, reason: 'The farm has closed its account.', by: 'farm', siteUrl });
     }
   }
+  // Its market and event posts come down. (Orders on its listings, including
+  // any for pickup at a market, are handled with the listings above.)
+  await supabaseAdmin
+    .from('farm_appearances')
+    .update({ status: 'removed', removed_by: 'farm', removed_reason: 'Account deleted.', updated_at: new Date().toISOString() })
+    .eq('farmer_id', userId)
+    .eq('status', 'active');
+
   // As a partner in other farms' shared boxes: the farm leaves each one.
   const { data: partnerRows } = await supabaseAdmin
     .from('csa_plan_farms')

@@ -171,6 +171,16 @@ export async function POST(request: Request) {
       throw addressError;
     }
 
+    // A crop on the farm's "What we're growing" list is now for sale, so it
+    // comes off that list.
+    await supabaseAdmin
+      .from('growing_crops')
+      .update({ status: 'listed', updated_at: new Date().toISOString() })
+      .eq('farmer_id', user.id)
+      .eq('status', 'growing')
+      .ilike('name', title.replace(/[%_\\]/g, (c: string) => `\\${c}`))
+      .then(() => undefined, () => undefined);
+
     return NextResponse.json({ success: true, listingId: listing.id });
   } catch (err: any) {
     console.error('listing create error:', err);
