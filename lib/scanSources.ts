@@ -11,6 +11,10 @@ export const SCAN_SOURCES: Record<string, string> = {
   'card-b': 'Seller business card (front B)',
   // Buyer card: opens the home page.
   'buyer-card': 'Buyer business card',
+  // The letter-size flyer: buyers on the front (home page), sellers on the
+  // back (/why/sellers).
+  'flyer-buyer': 'Flyer (buyer side)',
+  'flyer-seller': 'Flyer (seller side)',
 };
 
 export const isScanSource = (value: unknown): value is string =>
