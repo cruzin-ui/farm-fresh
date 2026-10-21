@@ -106,19 +106,27 @@ export async function watchNewSellerOrder(params: {
 export async function checkSellerCancellations(farmerId: string, siteUrl?: string) {
   try {
     const listingIds = await listingIdsOf(farmerId);
-    if (listingIds.length === 0) return false;
-
     const since = new Date(Date.now() - SELLER_CANCEL_WINDOW_DAYS * DAY_MS).toISOString();
-    const { data: cancelled } = await supabaseAdmin
-      .from('orders')
-      .select('id, checkout_id')
-      .in('listing_id', listingIds)
-      .eq('status', 'cancelled')
-      .in('cancel_reason', ['seller', 'never_ready'])
-      .gte('created_at', since)
-      .limit(1000);
+    const { data: cancelled } = listingIds.length
+      ? await supabaseAdmin
+          .from('orders')
+          .select('id, checkout_id')
+          .in('listing_id', listingIds)
+          .eq('status', 'cancelled')
+          .in('cancel_reason', ['seller', 'never_ready'])
+          .gte('created_at', since)
+          .limit(1000)
+      : { data: [] };
+    // A partner farm's part of a shared Farm Box that never arrived counts as
+    // one cancellation for each pickup it missed.
+    const { count: missedParts } = await supabaseAdmin
+      .from('csa_farm_weeks')
+      .select('plan_id', { count: 'exact', head: true })
+      .eq('farmer_id', farmerId)
+      .eq('status', 'missing')
+      .gte('updated_at', since);
 
-    const count = countCheckouts((cancelled || []) as { id: string; checkout_id: string | null }[]);
+    const count = countCheckouts((cancelled || []) as { id: string; checkout_id: string | null }[]) + (missedParts || 0);
     if (count < SELLER_CANCEL_LIMIT) return false;
     if (await isSellerSuspended(farmerId)) return false;
 

@@ -5,7 +5,14 @@ import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { OPERATOR_DESCRIPTION } from '@/lib/legal';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
-import { CHARGE_DAYS_BEFORE } from '@/lib/csaSchedule';
+import { CHARGE_DAYS_BEFORE, CONFIRM_DAYS_BEFORE } from '@/lib/csaSchedule';
+import {
+  HOST_PACKING_LABEL,
+  SHARED_BOX_CANCEL_LIMIT,
+  SHARED_BOX_WINDOW_DAYS,
+  SHARED_BOX_MAX_PARTNERS,
+  SHARED_BOX_MILES,
+} from '@/lib/sharedBoxTerms';
 
 export const metadata: Metadata = { title: 'Seller Terms' };
 
@@ -138,10 +145,10 @@ export default function SellerTermsPage() {
         </section>
 
         <section id="csa">
-          <h2 className="text-lg font-bold text-gray-900 mb-1">6. Farm Boxes (CSA-style subscriptions)</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">6. Farm Boxes and Flower Boxes (CSA-style subscriptions)</h2>
           <p>
             You can offer a Farm Box, which works like a CSA: a box on a set day, every week or every other week, through a season you
-            choose. Members pay for each box separately, charged to their saved card {CHARGE_DAYS_BEFORE} days
+            choose. A Flower Box works the same way and holds only cut flowers you grew; it is taxed like other non-food items. Members pay for each box separately, charged to their saved card {CHARGE_DAYS_BEFORE} days
             before pickup. Each paid box is an ordinary order: the same {SELLER_FEE} seller fee applies, you mark it
             ready and enter the member&apos;s pickup code, and you are paid when it is collected. Everything in
             section 5 applies to boxes, with the box&apos;s pickup date as its ready-by date.
@@ -172,8 +179,63 @@ export default function SellerTermsPage() {
           </ul>
         </section>
 
+        <section id="shared">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">7. Shared Farm Boxes</h2>
+          <p>
+            A shared box is a Farm Box or Flower Box filled by a host farm together with up to {SHARED_BOX_MAX_PARTNERS} partner
+            farms within {SHARED_BOX_MILES} miles of it. Buyers join or buy from the host and pick up at the host farm. Everything
+            in section 6 applies to a shared box, and section 5 applies to the host for each paid box. When you set up or join a
+            shared box you also agree to a short written summary of these rules, which is saved with your place in the box.
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5 mt-2">
+            <li>
+              <strong>Who can take part.</strong> Any farm that has finished setting up payouts and is not paused from selling,
+              unless in the last {SHARED_BOX_WINDOW_DAYS} days it has had {SHARED_BOX_CANCEL_LIMIT} or more orders cancelled by
+              the farm (a missed shared-box delivery counts as one), or had a buyer&apos;s bank dispute a payment. We may take a farm out of a shared box if this stops being
+              true.
+            </li>
+            <li>
+              <strong>Your part.</strong> Each farm says what it puts in every box and sets the price of that part; the box price
+              is all the parts added together. Describe your part honestly and supply it at fair value. Once buyers have joined, the
+              farms in a box and the price of each part can&apos;t change.
+            </li>
+            <li>
+              <strong>Each week.</strong> Partners confirm their part for each pickup by the end of the day{' '}
+              {CONFIRM_DAYS_BEFORE} days before it. A partner that doesn&apos;t confirm in time, or says it can&apos;t, is left out
+              of that week&apos;s box: buyers pay less and that partner is not paid for it. Partners bring their part for every
+              paid box to the host by the drop-off time the host sets. The host receives each part, keeps it fresh and, where
+              needed, cold, packs every box, and hands boxes over only with the buyer&apos;s pickup code.
+            </li>
+            <li>
+              <strong>Payment.</strong> At pickup each farm is paid its own part, less the {SELLER_FEE} seller fee. Each partner
+              pays the host a packing fee of {HOST_PACKING_LABEL} of its part, taken from its payout automatically. A restocking
+              fee for a box a buyer cancels late or doesn&apos;t collect is shared between the farms in proportion to their parts.
+            </li>
+            <li>
+              <strong>A part that doesn&apos;t arrive.</strong> The host must report it in the Seller Dashboard before handing out
+              the boxes. Buyers are then refunded that part or, if the host offered to when setting up the box, the host fills in
+              with its own produce of at least the same value and is paid for that part instead. The partner is not paid for it,
+              and it counts as a cancellation by the partner under section 5. Reporting a part as missing when it arrived is a
+              breach of these terms.
+            </li>
+            <li>
+              <strong>Your products, your responsibility.</strong> Each farm is responsible for its own products meeting every law
+              that applies to them, including licenses, labeling and food-safety rules. Eggs must be clean and uncracked, kept at
+              45°F or below until pickup, and packed and labeled as your state requires; check your state&apos;s agriculture
+              department regulations before adding eggs. The host must handle other farms&apos; products with reasonable care while
+              it has them. Farms should settle disagreements between themselves fairly; we may look into a report and adjust
+              refunds or payouts.
+            </li>
+            <li>
+              <strong>Leaving.</strong> A partner may leave a shared box at any time, and the host may take a partner out. The box
+              carries on without that part at a lower price; members are told and may cancel at no cost. Boxes already paid for
+              still include that part, and the partner must still supply it. The host may end the box as in section 6.
+            </li>
+          </ul>
+        </section>
+
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">7. Removing listings and accounts</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">8. Removing listings and accounts</h2>
           <p>
             We may remove a listing, cancel and refund an order, or suspend a seller&apos;s account if we believe
             a product is not permitted, a listing is inaccurate, or these terms have been broken.
@@ -181,7 +243,7 @@ export default function SellerTermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">8. Your responsibility for claims</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">9. Your responsibility for claims</h2>
           <p>
             You are responsible for any claims, losses or costs that arise from the products you sell or from
             your failure to follow the law or these terms.

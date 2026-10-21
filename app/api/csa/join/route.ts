@@ -17,6 +17,7 @@ import {
 import { csaAgreementText, boxCostCents } from '@/lib/csaTerms';
 import { CSA_TERMS_VERSION, firstBoxForNewMember, formatBoxDate, describeFrequency, CHARGE_DAYS_BEFORE } from '@/lib/csaSchedule';
 import { sendEmail, escapeHtml } from '@/lib/email';
+import { activeFarms, farmProfiles, isShared } from '@/lib/sharedBoxes';
 import { alertAdmin } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
@@ -85,7 +86,10 @@ export async function POST(request: Request) {
       const priceCents = Number(saved.setupIntent.metadata?.price_cents) || plan.price_cents;
       const farm = await farmFor(plan.farmer_id);
       const farmName = farm?.farm_name || 'Local Farm';
-      const agreedText = csaAgreementText({ farmName, planName: plan.name, priceCents, plan, firstBoxDate: firstBox });
+      const partners = isShared(plan) ? (await activeFarms(plan.id)).filter((f) => f.role === 'partner') : [];
+      const partnerProfiles = await farmProfiles(partners.map((f) => f.farmer_id));
+      const partnerNames = partners.map((f) => partnerProfiles.get(f.farmer_id)?.farm_name || 'a partner farm');
+      const agreedText = csaAgreementText({ farmName, planName: plan.name, priceCents, plan, firstBoxDate: firstBox, partnerNames });
 
       const { data: member, error } = await supabaseAdmin
         .from('csa_members')

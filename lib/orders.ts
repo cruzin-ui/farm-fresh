@@ -12,6 +12,7 @@ import { watchNewSellerOrder } from '@/lib/fraudWatch';
 import { bumpDailyCount } from '@/lib/dailyCounts';
 import { formatBoxDate } from '@/lib/csaSchedule';
 import { BUYER_NAME_KEY, usableBuyerName } from '@/lib/buyerName';
+import { recordOrderShares, SHARES_METADATA_KEY } from '@/lib/orderShares';
 
 // One item of a checkout, as saved on the payment by /api/checkout.
 type CheckoutLine = {
@@ -251,8 +252,22 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     return data || [];
   };
 
+  // A shared Farm Box: how its price splits between the farms that filled
+  // it. Saved with the order (again, harmlessly, if the order already exists).
+  const saveShares = async (orders: { id: string }[]) => {
+    if (!paymentIntent.metadata[SHARES_METADATA_KEY] || orders.length !== 1) return;
+    try {
+      await recordOrderShares(orders[0].id, paymentIntent.metadata[SHARES_METADATA_KEY]);
+    } catch (shareError) {
+      await alertAdmin('shared Farm Box order saved without its farm shares', shareError, { payment: paymentIntent.id });
+    }
+  };
+
   const existing = await findExisting();
-  if (existing.length > 0) return finish(existing);
+  if (existing.length > 0) {
+    await saveShares(existing);
+    return finish(existing);
+  }
 
   const sellerFeeRate = Number(paymentIntent.metadata.seller_fee_rate) || 0;
 
@@ -345,6 +360,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     .map((line) => inserted.find((order) => order.listing_id === line.listingId))
     .filter((order): order is NonNullable<typeof order> => Boolean(order));
 
+  await saveShares(orders);
   const result = await finish(orders);
 
   // Only the caller that saved the orders gets this far, so a payment is

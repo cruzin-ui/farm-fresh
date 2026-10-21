@@ -23,6 +23,8 @@ type Quote = {
   feeCents: number;
   taxCents: number;
   totalCents: number;
+  // A shared box: a farm whose part isn't in that week's box.
+  leftOut?: string;
 };
 
 const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -61,6 +63,7 @@ export default function SingleBoxForm({
         One box for <strong>{quote.boxLabel}</strong>
         {pickupWindow ? `, ${pickupWindow}` : ''}. Paid now; no sign-up and nothing charged again.
       </p>
+      {quote.leftOut && <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-2">{quote.leftOut}</p>}
       <div className="text-sm space-y-1 border rounded-lg p-3">
         <div className="flex justify-between text-gray-700">
           <span>Box</span>

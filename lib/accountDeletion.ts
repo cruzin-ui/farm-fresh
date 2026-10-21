@@ -2,6 +2,7 @@ import type { User } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { cancelMembership, liveMembersOf, type CsaMember, type CsaPlan } from '@/lib/csa';
+import { partnerLeaves } from '@/lib/sharedBoxes';
 
 // SERVER-ONLY. Deleting a user's own account, which they can do from the
 // Account Settings page (and which the app stores require).
@@ -99,6 +100,17 @@ export async function deleteAccount(user: User) {
     for (const member of await liveMembersOf(plan.id)) {
       await cancelMembership({ member, plan, reason: 'The farm has closed its account.', by: 'farm', siteUrl });
     }
+  }
+  // As a partner in other farms' shared boxes: the farm leaves each one.
+  const { data: partnerRows } = await supabaseAdmin
+    .from('csa_plan_farms')
+    .select('plan_id')
+    .eq('farmer_id', userId)
+    .eq('role', 'partner')
+    .in('status', ['invited', 'accepted']);
+  for (const row of partnerRows || []) {
+    const { data: plan } = await supabaseAdmin.from('csa_plans').select('*').eq('id', row.plan_id).single();
+    if (plan) await partnerLeaves({ plan: plan as CsaPlan, farmerId: userId, by: 'account_deleted', reason: 'The farm has closed its account.', siteUrl });
   }
   const { data: memberships } = await supabaseAdmin.from('csa_members').select('*').eq('buyer_id', userId).neq('status', 'cancelled');
   for (const member of (memberships || []) as CsaMember[]) {

@@ -19,6 +19,10 @@ type Box = {
   note: string;
   farmReason: string;
   error: string;
+  // A shared box: a partner's part left out of this week's box, and the
+  // lower total for that box.
+  leftOut?: string;
+  leftOutTotalCents?: number | null;
 };
 
 type Membership = {
@@ -37,6 +41,8 @@ type Membership = {
     pickupWindow: string;
     seasonEnd: string;
     status: string;
+    // For a shared box: the farms that fill it.
+    farms?: { name: string; contribution: string; role: string }[];
   };
   farm: { id: string; name: string; slug: string | null };
   boxes: Box[];
@@ -204,6 +210,11 @@ export default function MyFarmSharesPage() {
                   </Link>{' '}
                   · {describeFrequency({ pickup_weekday: m.plan.pickupWeekday, frequency: m.plan.frequency })}
                   {m.plan.pickupWindow ? `, ${m.plan.pickupWindow}` : ''} · until {formatBoxDate(m.plan.seasonEnd)}
+                  {(m.plan.farms || []).length > 1 && (
+                    <span className="block text-xs text-gray-500">
+                      With {(m.plan.farms || []).filter((f) => f.role === 'partner').map((f) => f.name).join(', ')}
+                    </span>
+                  )}
                 </p>
                 <p className="text-sm text-gray-600">
                   {dollars(m.cost.totalCents)} per box, plus any sales tax
@@ -247,6 +258,12 @@ export default function MyFarmSharesPage() {
                   )}
                   {b.note && <p className="text-xs text-emerald-900 bg-emerald-50 rounded p-2">From the farm: {b.note}</p>}
                   {b.state === 'farm_skipped' && b.farmReason && <p className="text-xs text-amber-900">{b.farmReason}</p>}
+                  {b.leftOut && b.state !== 'farm_skipped' && (
+                    <p className="text-xs text-amber-900">
+                      {b.leftOut}
+                      {b.leftOutTotalCents != null && ` This box: ${dollars(b.leftOutTotalCents)} plus any tax.`}
+                    </p>
+                  )}
                   {b.state === 'failed' && (
                     <p className="text-xs text-red-700">{b.error || 'Your card was declined.'} Change your card above to get this box.</p>
                   )}
