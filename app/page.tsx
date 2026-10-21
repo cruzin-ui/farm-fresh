@@ -17,7 +17,7 @@ const HOW_IT_WORKS = [
     heading: 'If you want to sell',
     steps: [
       ['Set up your farm profile', 'Add your farm name, photo and pickup address, and connect a payout account.'],
-      ['Post your harvest', 'List what you grew, its price and quantity. Posting is free.'],
+      ['Post your harvest', 'List what you grew, its price and quantity. Posting is free, and a repeat crop takes seconds with Post again.'],
       ['Mark orders ready', 'When the produce is ready, tick the days and times the buyer can come.'],
       ['Scan the pickup code to get paid', "Scan the buyer's QR code at pickup, or type their code. That releases your payment."],
     ],
@@ -48,7 +48,7 @@ const SELLING_POINTS = [
   {
     icon: Store,
     title: 'Your Own Online Farm Stand',
-    body: "Growers get a page for their farm that's open even when they aren't.",
+    body: "Growers get a page for their farm that's open even when they aren't, with pre-orders for their market stall.",
     href: '/why/sellers',
   },
   {
@@ -158,7 +158,10 @@ export default function SplashLandingPage() {
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-xl font-bold text-gray-900">I Want to Sell</h2>
-            <p className="text-sm text-gray-500">Your own online farm stand: get paid up front, build regulars and offer hassle-free Farm Boxes.</p>
+            <p className="text-sm text-gray-500">
+              Your own online farm stand: get paid up front, take pre-orders for your farmers market, and run Farm Boxes on your
+              own or with nearby farms.
+            </p>
           </div>
           <span className="shrink-0 inline-flex items-center gap-1.5 bg-gray-900 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap">
             Sell
