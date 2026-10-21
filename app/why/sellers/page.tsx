@@ -11,6 +11,11 @@ import {
   ClipboardList,
   SlidersHorizontal,
   Package,
+  Handshake,
+  CalendarDays,
+  Flower2,
+  Repeat,
+  Leaf,
 } from 'lucide-react';
 import {
   SELLER_FEE_RATE,
@@ -23,11 +28,12 @@ import { NO_SHOW_REVIEW_HOURS } from '@/lib/noShow';
 import { SELLER_CANCEL_LIMIT, SELLER_CANCEL_WINDOW_DAYS } from '@/lib/sellerLimits';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import { Reasons, DetailBox, OtherSide, type Reason } from '@/components/WhyReasons';
+import { HOST_PACKING_LABEL, SHARED_BOX_MAX_PARTNERS, SHARED_BOX_MILES } from '@/lib/sharedBoxTerms';
 
 export const metadata: Metadata = {
   title: 'Why Sell Here',
   description:
-    'What growers get from selling on Farm Fresh Direct: an online farm stand, payment up front, and no monthly or startup costs. Fees, payouts and cancellations explained.',
+    'What growers get from selling on Farm Fresh Direct: an online farm stand, payment up front, Farm Boxes you can fill with nearby farms, pre-orders at your farmers market, and no monthly or startup costs. Fees, payouts and cancellations explained.',
 };
 
 const SELLER_FEE = `${SELLER_FEE_RATE * 100}%`;
@@ -49,6 +55,33 @@ const FOR_SELLERS: Reason[] = [
     title: 'Hassle-free Farm Boxes (like a CSA)',
     body: 'Offer a weekly or every-other-week box that members sign up for. Each box is charged automatically before pickup, so you know how many to pack, and reminders, skipped weeks, pauses and declined cards are all handled for you.',
     wide: true,
+  },
+  {
+    icon: Handshake,
+    title: 'Grow a few things? Fill a box together',
+    body: `Team up with up to ${SHARED_BOX_MAX_PARTNERS} farms within ${SHARED_BOX_MILES} miles for a shared Farm Box: your vegetables, a neighbor's eggs, another's fruit. We suggest nearby farms that grow what you don't. Each farm sets its own price, confirms its part each week and is paid its own share at pickup, so nobody has to settle up after.`,
+    wide: true,
+  },
+  {
+    icon: CalendarDays,
+    title: 'Sell more at your farmers market',
+    body: "Post the markets and events you'll be at, and they show on your farm page. Buyers can order ahead and pay online, then collect at your stand: fewer wasted trips, nothing to make change for, and you know what's sold before you load the truck. Followers who ask are emailed where you'll be.",
+    wide: true,
+  },
+  {
+    icon: Flower2,
+    title: 'Flower Boxes too',
+    body: 'Grow flowers? Offer a weekly Flower Box, on your own or with other flower growers nearby, run the same hands-off way as a Farm Box.',
+  },
+  {
+    icon: Leaf,
+    title: "Show what's coming",
+    body: "List what's in the ground and roughly when it'll be ready, like \"Expected mid-November\". Buyers have a reason to come back, and when it's ready, one tap starts the listing.",
+  },
+  {
+    icon: Repeat,
+    title: 'Repeat a listing in seconds',
+    body: 'Sell the same crops week after week? Press Post again: everything is copied, and you just enter how many you have and when.',
   },
   {
     icon: Heart,
@@ -87,8 +120,9 @@ export default function WhySellersPage() {
         More than a place to sell: your own online farm stand
       </h1>
       <p className="mt-4 text-lg text-gray-600 leading-relaxed">
-        Post what you grow, get paid before you pick, and meet buyers at a time that suits you. Here is what you get, what
-        it costs, and exactly how payouts and cancellations work.
+        Post what you grow, get paid before you pick, and meet buyers at your farm or your market stall. Run Farm Boxes on
+        your own or with neighboring farms. Here is what you get, what it costs, and exactly how payouts and cancellations
+        work.
       </p>
 
       <Reasons items={FOR_SELLERS} />
@@ -104,6 +138,10 @@ export default function WhySellersPage() {
           </li>
           <li>Free to list, with no monthly subscription and no startup costs.</li>
           <li>Card processing is paid out of our fees, not yours.</li>
+          <li>
+            Shared Farm Boxes: each farm is paid its own part less the same fee, and partners pay the host farm{' '}
+            {HOST_PACKING_LABEL} of their part for packing the boxes.
+          </li>
         </ul>
         <p className="mt-4 text-sm text-emerald-100">
           Example: you sell $20 of tomatoes. You are paid ${(20 * (1 - SELLER_FEE_RATE)).toFixed(2)}.
@@ -141,7 +179,11 @@ export default function WhySellersPage() {
             <strong>You cancel or reduce an order</strong> (a poor harvest, say): the buyer is refunded in full for that
             part, including their share of the service fee, and you aren&apos;t paid for it. Now and then is fine; if you
             cancel {SELLER_CANCEL_LIMIT} or more orders within {SELLER_CANCEL_WINDOW_DAYS} days, your listings are paused
-            until we review your account.
+            until we review your account. Lost a crop to weather or something else outside your control?{' '}
+            <Link href="/contact" className="font-semibold text-emerald-800 underline">
+              Tell us
+            </Link>
+            ; we can reset your count.
           </li>
           <li>
             <strong>An order isn&apos;t marked ready in time:</strong> the buyer can cancel for a full refund, and an order
