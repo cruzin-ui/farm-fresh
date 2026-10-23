@@ -121,7 +121,7 @@ const TOUR_STEPS: (TourStep & { tab: DashboardTab })[] = [
     tab: 'profile',
     targets: ['nav-profile', 'menu-button'],
     title: 'Start with your Farm Profile',
-    body: "Add your farm's name, a photo, your pickup address (where buyers collect every order, and you can change it later) and the days and times you're usually around. Buyers see all but the street address before they order.",
+    body: "Add your farm's name, a photo, your pickup address (where buyers collect every order, and you can change it later) and the days and times you're usually around. Buyers see all but the street address before they order. View my farm page, at the top, shows you what buyers see.",
   },
   {
     tab: 'settings',
@@ -133,7 +133,19 @@ const TOUR_STEPS: (TourStep & { tab: DashboardTab })[] = [
     tab: 'listings',
     targets: ['post', 'nav-listings', 'menu-button'],
     title: 'Post what you have to sell',
-    body: 'Tap Post New Harvest and fill in the crop, variety, price, quantity and pickup address. Posting is free; we only take a fee when something sells.',
+    body: 'Tap Post New Harvest and fill in the crop, variety, price, quantity and pickup address. Posting is free; we only take a fee when something sells. Selling the same crop again? Post again on any listing copies it, so you just add the new amount and date.',
+  },
+  {
+    tab: 'profile',
+    targets: ['markets', 'nav-profile', 'menu-button'],
+    title: "Markets and what's growing",
+    body: "Selling at a farmers market or event? Add it here and buyers can order ahead and collect at your stand. Below it, list what's in the ground and roughly when it'll be ready, so buyers have a reason to come back.",
+  },
+  {
+    tab: 'csa',
+    targets: ['nav-csa', 'menu-button'],
+    title: 'Farm Boxes and Flower Boxes',
+    body: "Offer a weekly or every-other-week box that members sign up for and are charged for automatically. Run it on your own, or team up with nearby farms so each one adds what it grows. Flower growers can do the same with a Flower Box.",
   },
   {
     tab: 'orders',
@@ -1637,6 +1649,7 @@ export default function SellerDashboardPage() {
             </button>
 
             <button
+              data-tour="nav-csa"
               onClick={() => {
                 setActiveTab('csa');
                 setSuccessMsg(null);
@@ -3827,7 +3840,7 @@ export default function SellerDashboardPage() {
               </button>
             </form>
             {/* Farmers markets and events: separate from the form above. */}
-            <div className="mt-8">
+            <div className="mt-8" data-tour="markets">
               <FarmAppearancesEditor sellerTermsAccepted={sellerTermsAccepted} />
             </div>
             <div className="mt-6">
