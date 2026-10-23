@@ -107,45 +107,45 @@ h3,
    the same colour as the season's icon by the site name. Amber and red stay reserved for warnings and
    problems, so a season's accent never stands in for those. */
 :root[data-season='spring'] {
-  --background: #f7faf1;
-  --season-panel: #ecf3df;
-  --season-card: #fefffb;
+  --background: #eef6e0;
+  --season-panel: #dcebc4;
+  --season-card: #fbfdf6;
   --season-accent: #9333ea;
-  --color-gray-50: #f5f8ee;
-  --color-gray-100: #eaf1df;
-  --color-gray-200: #d9e5c8;
+  --color-gray-50: #eaf3da;
+  --color-gray-100: #dde9c9;
+  --color-gray-200: #c7dba9;
 }
 :root[data-season='summer'] {
-  --background: #fdfaec;
-  --season-panel: #f9f0cf;
-  --season-card: #fffef8;
+  --background: #fbf2cf;
+  --season-panel: #f5e3a3;
+  --season-card: #fffcf0;
   --season-accent: #eab308;
-  --color-gray-50: #fcf8e9;
-  --color-gray-100: #f6eed3;
-  --color-gray-200: #ebdfb6;
+  --color-gray-50: #f9efc8;
+  --color-gray-100: #f2e4b0;
+  --color-gray-200: #e4d08a;
 }
 :root[data-season='fall'] {
-  --background: #fbf7ee;
-  --season-panel: #f6eedb;
-  --season-card: #fffcf4;
+  --background: #f7ead2;
+  --season-panel: #efd9b4;
+  --season-card: #fffaf0;
   --season-accent: #ea580c;
-  --color-gray-50: #faf5ea;
-  --color-gray-100: #f1eadb;
-  --color-gray-200: #e8ddc6;
+  --color-gray-50: #f5e7cf;
+  --color-gray-100: #ecdcbf;
+  --color-gray-200: #dcc59e;
 }
 :root[data-season='winter'] {
-  --background: #f4f7f6;
-  --season-panel: #e6eeeb;
-  --season-card: #fcfefd;
+  --background: #e6eff3;
+  --season-panel: #d3e3ea;
+  --season-card: #f9fcfd;
   --season-accent: #0ea5e9;
-  --color-gray-50: #f2f6f4;
-  --color-gray-100: #e7eeeb;
-  --color-gray-200: #d6e1dc;
+  --color-gray-50: #e3edf1;
+  --color-gray-100: #d8e6ec;
+  --color-gray-200: #bdd3dc;
 }
 /* Grey text is one notch darker on the tinted backgrounds, so it stays above
    4.5:1 on all of them, including the deeper panel behind a farm's page. */
 :root[data-season] {
-  --color-gray-500: #5f6673;
+  --color-gray-500: #545b67;
 }
 :root[data-season] .bg-white {
   background-color: var(--season-card);
