@@ -8,6 +8,8 @@ import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
 import PageViewCounter from "@/components/PageViewCounter";
 import { Sprout, ShoppingBag } from "lucide-react";
+import SeasonIcon from "@/components/SeasonIcon";
+import { SEASON_SCRIPT } from "@/lib/season";
 
 // Body text: a clean, friendly sans-serif. Headings: a soft serif with a
 // hand-made, market-stall feel. Both are applied in globals.css.
@@ -56,16 +58,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    // The inline script sets data-season on <html> before the page is drawn,
+    // which is why React is told not to expect it to match the server's copy.
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: SEASON_SCRIPT }} />
+      </head>
       <body
         className={`${bodyFont.variable} ${headingFont.variable} antialiased bg-emerald-50/30 text-gray-900 min-h-screen flex flex-col`}
       >
         {/* SHARED TOP NAVIGATION */}
-        <header className="bg-white/90 backdrop-blur-md border-b border-emerald-100 sticky top-0 z-50 shadow-sm">
+        <header className="site-header bg-white/90 backdrop-blur-md border-b border-emerald-100 sticky top-0 z-50 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <Link href="/" className="font-heading flex items-center gap-2.5 font-black text-lg sm:text-xl text-emerald-900 whitespace-nowrap">
-              <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-sm">
+              <div className="relative p-2 bg-emerald-600 text-white rounded-xl shadow-sm">
                 <Sprout className="w-5 h-5" />
+                <SeasonIcon />
               </div>
               <span>Farm Fresh <span className="text-emerald-600 font-medium">Direct</span></span>
             </Link>
