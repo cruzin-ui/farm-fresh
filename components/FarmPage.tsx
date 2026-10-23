@@ -82,6 +82,7 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
   }
 
   return (
+    <div className="farm-theme -mx-4 md:mx-0 md:rounded-3xl">
     <div className="max-w-5xl mx-auto px-4 py-8">
       {/* Shown to admins only; nothing for anyone else. */}
       <FarmAdminPanel sellerId={sellerId} />
@@ -157,7 +158,7 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
 
           {/* Farm Story / Bio */}
           <div className="py-4">
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">About the Farm</h2>
+            <h2 className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">About the Farm</h2>
             <p className="text-sm text-gray-600 leading-relaxed">
               {profile?.bio || 'This grower has not added a detailed bio yet, but produces fresh local crops for pickup!'}
             </p>
@@ -166,7 +167,7 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
           {/* Farm Photos Gallery */}
           {profile?.gallery_urls && profile.gallery_urls.length > 0 && (
             <div className="pt-4 border-t border-gray-100">
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Farm & Harvest Photos</h2>
+              <h2 className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-3">Farm & Harvest Photos</h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {profile.gallery_urls.map((url: string, index: number) => (
                   <Photo
@@ -182,12 +183,6 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
           )}
         </div>
       </div>
-
-      <FarmAppearances farmerId={sellerId} farmName={profile?.farm_name || 'this farm'} />
-
-      <FarmGrowing farmerId={sellerId} farmName={profile?.farm_name || 'this farm'} />
-
-      <FarmCsaPlans farmId={sellerId} />
 
       {/* Available Produce Section */}
       <div className="mb-12">
@@ -249,6 +244,12 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
         )}
       </div>
 
+      <FarmCsaPlans farmId={sellerId} />
+
+      <FarmAppearances farmerId={sellerId} farmName={profile?.farm_name || 'this farm'} />
+
+      <FarmGrowing farmerId={sellerId} farmName={profile?.farm_name || 'this farm'} />
+
       {/* Reviews & Ratings Section */}
       <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
         <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -284,6 +285,7 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }
