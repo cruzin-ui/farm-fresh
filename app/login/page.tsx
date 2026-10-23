@@ -2,7 +2,8 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Sprout, Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import FfdLogo from '@/components/FfdLogo';
+import { Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { safeNextPath, AFTER_LOGIN_KEY, AFTER_SIGN_IN_PATH } from '@/lib/safeRedirect';
 import SellerSignupIntro from '@/components/SellerSignupIntro';
@@ -181,7 +182,7 @@ function LoginContent() {
       <div id="sign-up-form" className={sellerIntent ? 'w-full max-w-sm mx-auto md:sticky md:top-24 scroll-mt-24' : 'w-full max-w-sm'}>
         <div className="flex flex-col items-center mb-8">
           <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center mb-3">
-            <Sprout className="w-6 h-6 text-white" />
+            <FfdLogo className="w-9 h-9" />
           </div>
           <h1 className="text-xl font-bold text-gray-900">
             {mode === 'signup' ? (sellerIntent ? 'Create your seller account' : 'Create your account') : mode === 'forgot' ? 'Reset your password' : 'Welcome back'}
