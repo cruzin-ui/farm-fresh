@@ -7,7 +7,8 @@ import "./globals.css";
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
 import PageViewCounter from "@/components/PageViewCounter";
-import { Sprout, ShoppingBag } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
+import FfdLogo from "@/components/FfdLogo";
 import SeasonIcon from "@/components/SeasonIcon";
 import { SEASON_SCRIPT } from "@/lib/season";
 
@@ -71,8 +72,8 @@ export default function RootLayout({
         <header className="site-header bg-white/90 backdrop-blur-md border-b border-emerald-100 sticky top-0 z-50 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <Link href="/" className="font-heading flex items-center gap-2.5 font-black text-lg sm:text-xl text-emerald-900 whitespace-nowrap">
-              <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-sm">
-                <Sprout className="w-5 h-5" />
+              <div className="p-1 bg-emerald-600 rounded-xl shadow-sm">
+                <FfdLogo className="w-7 h-7" />
               </div>
               <span>Farm Fresh <span className="text-emerald-600 font-medium">Direct</span></span>
               <SeasonIcon />
