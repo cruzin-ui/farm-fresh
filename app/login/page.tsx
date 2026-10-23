@@ -5,6 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Sprout, Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { safeNextPath, AFTER_LOGIN_KEY, AFTER_SIGN_IN_PATH } from '@/lib/safeRedirect';
+import SellerSignupIntro from '@/components/SellerSignupIntro';
+
+// Remembered in the browser once someone has seen the seller introduction, so
+// it shrinks to one line on later visits.
+const SELLER_INTRO_SEEN_KEY = 'ffd-seller-intro-seen';
 
 type Mode = 'signin' | 'signup' | 'forgot';
 
@@ -45,6 +50,23 @@ function LoginContent() {
       .then((settings) => setAppleEnabled(Boolean(settings?.external?.apple)))
       .catch(() => {});
   }, []);
+  // Arrived from "I want to sell" (anything heading for the Seller Dashboard):
+  // show what selling here is like. The first time, it opens on Create account.
+  const sellerIntent = redirectTarget.startsWith('/dashboard');
+  const [firstSellerVisit, setFirstSellerVisit] = useState(false);
+  useEffect(() => {
+    if (!sellerIntent) return;
+    let seen = false;
+    try {
+      seen = window.localStorage.getItem(SELLER_INTRO_SEEN_KEY) === '1';
+      window.localStorage.setItem(SELLER_INTRO_SEEN_KEY, '1');
+    } catch {}
+    if (!seen) {
+      setFirstSellerVisit(true);
+      if (!initialMode) setMode('signup');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sellerIntent]);
   const [error, setError] = useState<string | null>(LINK_ERRORS[searchParams.get('error') || ''] || null);
   // Shown after a sign-up or reset request, in place of the form.
   const [notice, setNotice] = useState<string | null>(null);
@@ -153,18 +175,22 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-[70vh] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm">
+    <div className={sellerIntent ? 'px-4 py-8 md:py-12' : 'min-h-[70vh] flex items-center justify-center px-4 py-12'}>
+      <div className={sellerIntent ? 'max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_384px] gap-8 items-start' : 'contents'}>
+      {sellerIntent && <SellerSignupIntro key={String(firstSellerVisit)} compact={!firstSellerVisit} />}
+      <div id="sign-up-form" className={sellerIntent ? 'w-full max-w-sm mx-auto md:sticky md:top-24 scroll-mt-24' : 'w-full max-w-sm'}>
         <div className="flex flex-col items-center mb-8">
           <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center mb-3">
             <Sprout className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-xl font-bold text-gray-900">
-            {mode === 'signup' ? 'Create your account' : mode === 'forgot' ? 'Reset your password' : 'Welcome back'}
+            {mode === 'signup' ? (sellerIntent ? 'Create your seller account' : 'Create your account') : mode === 'forgot' ? 'Reset your password' : 'Welcome back'}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             {mode === 'signup'
-              ? 'Join Farm Fresh Direct to buy or sell'
+              ? sellerIntent
+                ? 'Free to join. Set up your farm in minutes.'
+                : 'Join Farm Fresh Direct to buy or sell'
               : mode === 'forgot'
                 ? "We'll email you a link to choose a new one"
                 : 'Sign in to Farm Fresh Direct'}
@@ -346,6 +372,7 @@ function LoginContent() {
         )}
           </>
         )}
+      </div>
       </div>
     </div>
   );
