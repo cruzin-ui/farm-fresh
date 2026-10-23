@@ -97,3 +97,23 @@ h3,
     padding: 16px;
   }
 }
+
+/* A farm's public page: a warm two-tone look, light cream with deep green.
+   The page's own cards, and the farm sections inside it, pick these up
+   without each one needing its own colors. */
+.farm-theme {
+  --farm-cream: #f6eedb;
+  --farm-card: #fffcf4;
+  --farm-ink: #064e3b;
+  --color-gray-100: #f1eadb;
+  --color-gray-200: #e8ddc6;
+  background-color: var(--farm-cream);
+}
+.farm-theme .bg-white {
+  background-color: var(--farm-card);
+}
+.farm-theme h1,
+.farm-theme h2.text-gray-900,
+.farm-theme h3.text-gray-900 {
+  color: var(--farm-ink);
+}

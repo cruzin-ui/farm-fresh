@@ -64,7 +64,7 @@ export default function FarmAppearances({ farmerId, farmName }: { farmerId: stri
       {ordersAhead && (
         <p className="text-xs text-emerald-900 bg-emerald-50 border border-emerald-100 rounded-lg p-2 flex items-start gap-1.5">
           <ShoppingBag className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
-          Order ahead from their listings below and choose a market pickup at checkout. Your order will be waiting at their
+          Order ahead from their listings above and choose a market pickup at checkout. Your order will be waiting at their
           stand.
         </p>
       )}
