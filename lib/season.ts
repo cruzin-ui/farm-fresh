@@ -20,6 +20,14 @@ const SUMMER_STARTS = 621;
 const FALL_STARTS = 922;
 const WINTER_STARTS = 1221;
 
+// The same dates in words, shown when hovering over the season's icon.
+export const SEASON_DATES: Record<Season, string> = {
+  spring: 'Mar 20 – Jun 20',
+  summer: 'Jun 21 – Sep 21',
+  fall: 'Sep 22 – Dec 20',
+  winter: 'Dec 21 – Mar 19',
+};
+
 const PREVIEW_KEY = 'ffd-season-preview';
 
 // Kept as plain, old-style JavaScript because it runs as written in the

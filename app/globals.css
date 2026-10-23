@@ -103,14 +103,14 @@ h3,
    behind a farm's page), a card colour, warm or cool greys for borders and
    light fills, and one accent. The FFD green stays the same all year.
 
-   The accent is decoration only (the badge on the logo and the line along
-   the top of the header). Amber and red stay reserved for warnings and
+   The accent is decoration only: the line along the top of the header, in
+   the same colour as the season's icon by the site name. Amber and red stay reserved for warnings and
    problems, so a season's accent never stands in for those. */
 :root[data-season='spring'] {
   --background: #f7faf1;
   --season-panel: #ecf3df;
   --season-card: #fefffb;
-  --season-accent: #be185d;
+  --season-accent: #9333ea;
   --color-gray-50: #f5f8ee;
   --color-gray-100: #eaf1df;
   --color-gray-200: #d9e5c8;
@@ -119,7 +119,7 @@ h3,
   --background: #fdfaec;
   --season-panel: #f9f0cf;
   --season-card: #fffef8;
-  --season-accent: #a16207;
+  --season-accent: #eab308;
   --color-gray-50: #fcf8e9;
   --color-gray-100: #f6eed3;
   --color-gray-200: #ebdfb6;
@@ -128,7 +128,7 @@ h3,
   --background: #fbf7ee;
   --season-panel: #f6eedb;
   --season-card: #fffcf4;
-  --season-accent: #c2410c;
+  --season-accent: #ea580c;
   --color-gray-50: #faf5ea;
   --color-gray-100: #f1eadb;
   --color-gray-200: #e8ddc6;
@@ -137,7 +137,7 @@ h3,
   --background: #f4f7f6;
   --season-panel: #e6eeeb;
   --season-card: #fcfefd;
-  --season-accent: #9f1239;
+  --season-accent: #0ea5e9;
   --color-gray-50: #f2f6f4;
   --color-gray-100: #e7eeeb;
   --color-gray-200: #d6e1dc;
@@ -159,15 +159,14 @@ h3,
   border-top: 3px solid var(--season-accent);
 }
 
-/* The seasonal badge on the logo (components/SeasonIcon.tsx): only the
-   current season's icon shows, and none at all before a season is set. */
+/* The seasonal icon after the site name (components/SeasonIcon.tsx): only
+   the current season's icon shows, and none at all before a season is set. */
 .season-badge,
 .season-icon {
   display: none;
 }
 :root[data-season] .season-badge {
-  display: flex;
-  color: var(--season-accent);
+  display: inline-flex;
 }
 :root[data-season='spring'] [data-season-icon='spring'],
 :root[data-season='summer'] [data-season-icon='summer'],
@@ -184,4 +183,12 @@ h3,
 }
 .farm-theme h1 {
   color: var(--color-emerald-900);
+}
+
+/* On the narrowest phones the header has no room to spare beside the cart and
+   menu buttons, so the seasonal icon is left out there. */
+@media (max-width: 370px) {
+  :root[data-season] .season-badge {
+    display: none;
+  }
 }
