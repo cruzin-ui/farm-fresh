@@ -98,22 +98,90 @@ h3,
   }
 }
 
-/* A farm's public page: a warm two-tone look, light cream with deep green.
-   The page's own cards, and the farm sections inside it, pick these up
-   without each one needing its own colors. */
-.farm-theme {
-  --farm-cream: #f6eedb;
-  --farm-card: #fffcf4;
-  --farm-ink: #064e3b;
+/* Seasonal colours. lib/season.ts sets data-season on <html> from the date;
+   each season has its own page background, a deeper "panel" tone (used
+   behind a farm's page), a card colour, warm or cool greys for borders and
+   light fills, and one accent. The FFD green stays the same all year.
+
+   The accent is decoration only (the badge on the logo and the line along
+   the top of the header). Amber and red stay reserved for warnings and
+   problems, so a season's accent never stands in for those. */
+:root[data-season='spring'] {
+  --background: #f7faf1;
+  --season-panel: #ecf3df;
+  --season-card: #fefffb;
+  --season-accent: #be185d;
+  --color-gray-50: #f5f8ee;
+  --color-gray-100: #eaf1df;
+  --color-gray-200: #d9e5c8;
+}
+:root[data-season='summer'] {
+  --background: #fdfaec;
+  --season-panel: #f9f0cf;
+  --season-card: #fffef8;
+  --season-accent: #a16207;
+  --color-gray-50: #fcf8e9;
+  --color-gray-100: #f6eed3;
+  --color-gray-200: #ebdfb6;
+}
+:root[data-season='fall'] {
+  --background: #fbf7ee;
+  --season-panel: #f6eedb;
+  --season-card: #fffcf4;
+  --season-accent: #c2410c;
+  --color-gray-50: #faf5ea;
   --color-gray-100: #f1eadb;
   --color-gray-200: #e8ddc6;
-  background-color: var(--farm-cream);
 }
-.farm-theme .bg-white {
-  background-color: var(--farm-card);
+:root[data-season='winter'] {
+  --background: #f4f7f6;
+  --season-panel: #e6eeeb;
+  --season-card: #fcfefd;
+  --season-accent: #9f1239;
+  --color-gray-50: #f2f6f4;
+  --color-gray-100: #e7eeeb;
+  --color-gray-200: #d6e1dc;
 }
-.farm-theme h1,
-.farm-theme h2.text-gray-900,
-.farm-theme h3.text-gray-900 {
-  color: var(--farm-ink);
+/* Grey text is one notch darker on the tinted backgrounds, so it stays above
+   4.5:1 on all of them, including the deeper panel behind a farm's page. */
+:root[data-season] {
+  --color-gray-500: #5f6673;
+}
+:root[data-season] .bg-white {
+  background-color: var(--season-card);
+}
+:root[data-season] h1.text-gray-900,
+:root[data-season] h2.text-gray-900,
+:root[data-season] h3.text-gray-900 {
+  color: var(--color-emerald-900);
+}
+:root[data-season] .site-header {
+  border-top: 3px solid var(--season-accent);
+}
+
+/* The seasonal badge on the logo (components/SeasonIcon.tsx): only the
+   current season's icon shows, and none at all before a season is set. */
+.season-badge,
+.season-icon {
+  display: none;
+}
+:root[data-season] .season-badge {
+  display: flex;
+  color: var(--season-accent);
+}
+:root[data-season='spring'] [data-season-icon='spring'],
+:root[data-season='summer'] [data-season-icon='summer'],
+:root[data-season='fall'] [data-season-icon='fall'],
+:root[data-season='winter'] [data-season-icon='winter'] {
+  display: block;
+}
+
+/* A farm's public page sits on the season's deeper panel tone, so it reads
+   as the farm's own space; its headings, including the farm's name, are
+   green. */
+.farm-theme {
+  background-color: var(--season-panel, #f6eedb);
+}
+.farm-theme h1 {
+  color: var(--color-emerald-900);
 }
