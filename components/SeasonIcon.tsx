@@ -22,18 +22,16 @@ function SpringFlower() {
   );
 }
 
-// Fall: a pumpkin-orange maple leaf, tilted as if it's falling. Drawn here
-// because the icon set has no maple leaf.
-function MapleLeaf() {
+// Fall: an orange pumpkin with a green stem and a curl of vine. Drawn here
+// because the icon set has no pumpkin.
+function Pumpkin() {
   return (
     <svg viewBox="0 0 24 24" className="w-5 h-5">
-      <g transform="rotate(-18 12 12)" fill="#ea580c" stroke="#ea580c" strokeLinecap="round" strokeLinejoin="round">
-        <path
-          strokeWidth={0.6}
-          d="M12 2 13.6 5.2 15.4 4.3 14.8 8.4 17.4 5.6 18.1 7.2 21 6.6 20 9.6 21.5 10.4 16.9 14 17.4 15.6 12.6 15 11.4 15 6.6 15.6 7.1 14 2.5 10.4 4 9.6 3 6.6 5.9 7.2 6.6 5.6 9.2 8.4 8.6 4.3 10.4 5.2Z"
-        />
-        <path d="M12 14.5v6.5" fill="none" strokeWidth={2} />
-      </g>
+      <path d="M12 9.5c0-2.2.5-3.8 1.8-5" stroke="#4d7c0f" strokeWidth={2.2} strokeLinecap="round" fill="none" />
+      <path d="M13.6 6.4c1.4-1.6 3.8-1.4 4 .3.1 1-1 1.4-1.6.8" stroke="#65a30d" strokeWidth={1.2} strokeLinecap="round" fill="none" />
+      <ellipse cx="7.8" cy="15" rx="5.2" ry="6" fill="#ea580c" />
+      <ellipse cx="16.2" cy="15" rx="5.2" ry="6" fill="#ea580c" />
+      <ellipse cx="12" cy="15" rx="4.2" ry="6.4" fill="#f97316" stroke="#c2410c" strokeWidth={1} />
     </svg>
   );
 }
@@ -42,7 +40,7 @@ const ICONS: Record<Season, ReactNode> = {
   spring: <SpringFlower />,
   // A yellow sun with a filled centre.
   summer: <Sun className="w-5 h-5" color="#eab308" fill="#fde047" strokeWidth={2.25} />,
-  fall: <MapleLeaf />,
+  fall: <Pumpkin />,
   // An icy blue snowflake.
   winter: <Snowflake className="w-5 h-5" color="#0ea5e9" strokeWidth={2.25} />,
 };
