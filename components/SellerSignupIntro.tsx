@@ -132,6 +132,10 @@ export default function SellerSignupIntro({ compact }: { compact: boolean }) {
         <p className="mt-2 text-sm text-gray-600">
           Post what you grow, get paid before you pick, and let buyers nearby find you. Setting up takes a few minutes.
         </p>
+        <p className="mt-2 text-sm font-semibold text-emerald-900">
+          No subscriptions, no startup costs, and automatic record keeping: every sale is logged for you, with a yearly
+          report to download at tax time.
+        </p>
         <a href="#sign-up-form" className="md:hidden mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-800 underline">
           Skip to sign up <ArrowDown className="w-4 h-4" aria-hidden="true" />
         </a>
