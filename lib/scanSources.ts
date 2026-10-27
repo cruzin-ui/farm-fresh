@@ -6,13 +6,14 @@
 // To add a new card or flyer: add its key and label here, and put ?src=<key>
 // on the link in its QR code.
 export const SCAN_SOURCES: Record<string, string> = {
-  // Seller cards: open /why/sellers.
+  // Seller cards: open the seller sign-up page with its introduction
+  // (/login?redirect=/dashboard).
   'card-a': 'Seller business card (front A)',
   'card-b': 'Seller business card (front B)',
   // Buyer card: opens the home page.
   'buyer-card': 'Buyer business card',
   // The letter-size flyer: buyers on the front (home page), sellers on the
-  // back (/why/sellers).
+  // back (the seller sign-up page, like the seller cards).
   'flyer-buyer': 'Flyer (buyer side)',
   'flyer-seller': 'Flyer (seller side)',
 };
