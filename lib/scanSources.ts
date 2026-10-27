@@ -16,6 +16,8 @@ export const SCAN_SOURCES: Record<string, string> = {
   // back (the seller sign-up page, like the seller cards).
   'flyer-buyer': 'Flyer (buyer side)',
   'flyer-seller': 'Flyer (seller side)',
+  // The 4 x 6 in buyer postcard: both sides open the home page.
+  'postcard-buyer': 'Buyer postcard',
 };
 
 export const isScanSource = (value: unknown): value is string =>
