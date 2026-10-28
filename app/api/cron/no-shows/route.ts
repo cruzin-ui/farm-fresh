@@ -25,7 +25,9 @@ function adminRecipients() {
     .filter(Boolean);
 }
 
-// Run on a schedule by Vercel Cron (see vercel.json). It does two jobs.
+// Run every hour by Vercel Cron (see vercel.json), so deadlines are acted on
+// within the hour. Each reminder is sent once (seller_reminded_at,
+// buyer_reminded_at), so running often doesn't repeat emails. It does two jobs.
 //
 // Pickup deadlines (see lib/pickupRules.ts): reminds a seller the day before
 // an order has to be marked ready, cancels and fully refunds an order that
