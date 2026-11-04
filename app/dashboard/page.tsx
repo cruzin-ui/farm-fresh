@@ -95,6 +95,8 @@ import {
   Repeat,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import WholesaleFields, { NO_WHOLESALE, wholesaleDraftFrom, type WholesaleDraft } from '@/components/WholesaleFields';
+import { readWholesaleOffer } from '@/lib/wholesale';
 import { loadConnectAndInitialize } from '@stripe/connect-js/pure';
 import type { StripeConnectInstance } from '@stripe/connect-js';
 import { ConnectComponentsProvider, ConnectAccountOnboarding } from '@stripe/react-connect-js';
@@ -166,6 +168,10 @@ const TOUR_STEPS: (TourStep & { tab: DashboardTab })[] = [
     body: "Step-by-step answers for things like running short on a crop or a buyer not showing up, plus this tour whenever you want it again. That's everything. You're ready to post your first harvest.",
   },
 ];
+
+// " · 2 cases, wholesale" after an order bought by the case.
+const wholesaleNote = (order: any) =>
+  order?.wholesale_cases ? ` · ${order.wholesale_cases} case${order.wholesale_cases === 1 ? '' : 's'}, wholesale` : '';
 
 export default function SellerDashboardPage() {
   const router = useRouter();
@@ -266,6 +272,8 @@ export default function SellerDashboardPage() {
   const [description, setDescription] = useState('');
   const [unitType, setUnitType] = useState('lbs');
   const [pricePerUnit, setPricePerUnit] = useState('');
+  // Also sold by the case to approved businesses.
+  const [wholesale, setWholesale] = useState<WholesaleDraft>(NO_WHOLESALE);
   const [availableQuantity, setAvailableQuantity] = useState('');
   const [harvestReadyDate, setHarvestReadyDate] = useState('');
   const [harvestEndDate, setHarvestEndDate] = useState('');
@@ -607,6 +615,7 @@ export default function SellerDashboardPage() {
     setDescription('');
     setUnitType('lbs');
     setPricePerUnit('');
+    setWholesale(NO_WHOLESALE);
     setAvailableQuantity('');
     setHarvestReadyDate('');
     setHarvestEndDate('');
@@ -638,6 +647,12 @@ export default function SellerDashboardPage() {
     setDescription(item.description || '');
     setUnitType(item.unit_type || 'lbs');
     setPricePerUnit(item.price_per_unit != null ? String(item.price_per_unit) : '');
+    // The wholesale offer isn't public, so it is fetched for the farm.
+    setWholesale(NO_WHOLESALE);
+    postWithAuth('/api/wholesale/listing', { listingId: item.id })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data?.own && setWholesale(wholesaleDraftFrom(data.offer)))
+      .catch(() => undefined);
     setAvailableQuantity(item.available_quantity != null ? String(item.available_quantity) : '');
     setHarvestReadyDate(item.harvest_ready_date || '');
     setHarvestEndDate(item.harvest_end_date || '');
@@ -1271,8 +1286,11 @@ export default function SellerDashboardPage() {
       if (editingListingId) {
         const addressIssue = pickupProblem(ownPickup);
         if (addressIssue) throw new Error(addressIssue);
+        const wholesaleCheck = readWholesaleOffer(wholesale);
+        if ('error' in wholesaleCheck) throw new Error(wholesaleCheck.error);
         const res = await postWithAuth('/api/listings/update', {
           listingId: editingListingId,
+          wholesale,
           // An address of its own, or null to use the farm's.
           pickup: ownPickup,
           fields: {
@@ -1303,6 +1321,7 @@ export default function SellerDashboardPage() {
       // the same crop and enforces the cap on listings on sale at once.
       const createRes = await postWithAuth('/api/listings/create', {
         acceptTerms: sellerTermsChecked,
+        wholesale,
         fields: {
           title,
           variety,
@@ -1327,6 +1346,7 @@ export default function SellerDashboardPage() {
       setVariety('');
       setDescription('');
       setPricePerUnit('');
+      setWholesale(NO_WHOLESALE);
       setAvailableQuantity('');
       setHarvestReadyDate('');
       setHarvestEndDate('');
@@ -2190,6 +2210,14 @@ export default function SellerDashboardPage() {
                     </div>
                   </div>
 
+                  <WholesaleFields
+                    value={wholesale}
+                    onChange={setWholesale}
+                    unitType={unitType}
+                    retailPrice={Number(pricePerUnit) || 0}
+                    idPrefix="dash-wholesale"
+                  />
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="dash-harvest-date" className="block text-xs font-semibold text-gray-700 mb-1">
@@ -2438,7 +2466,7 @@ export default function SellerDashboardPage() {
                               {items.map((item) => (
                                 <li key={item.id} className="py-2">
                                   <p className="text-sm font-bold text-gray-900">
-                                    {item.reserved_quantity} {item.listing_unit_type} of {item.listing_title}
+                                    {item.reserved_quantity} {item.listing_unit_type} of {item.listing_title}{wholesaleNote(item)}
                                   </p>
                                   <p
                                     className={`text-xs ${
@@ -2454,7 +2482,7 @@ export default function SellerDashboardPage() {
                         ) : (
                           <>
                             <h3 className="text-base font-bold text-gray-900">
-                              {items[0].reserved_quantity} {items[0].listing_unit_type} of {items[0].listing_title}
+                              {items[0].reserved_quantity} {items[0].listing_unit_type} of {items[0].listing_title}{wholesaleNote(items[0])}
                             </h3>
 
                             <p
@@ -2673,7 +2701,7 @@ export default function SellerDashboardPage() {
                             <ul className="mt-1 text-xs text-red-950 list-disc pl-5">
                               {items.map((o) => (
                                 <li key={o.id}>
-                                  {o.reserved_quantity} {o.listing_unit_type} of {o.listing_title}
+                                  {o.reserved_quantity} {o.listing_unit_type} of {o.listing_title}{wholesaleNote(o)}
                                 </li>
                               ))}
                             </ul>
@@ -2787,7 +2815,7 @@ export default function SellerDashboardPage() {
                           <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
                             {several && (
                               <p className="text-sm font-bold text-red-950">
-                                {order.reserved_quantity} {order.listing_unit_type} of {order.listing_title}
+                                {order.reserved_quantity} {order.listing_unit_type} of {order.listing_title}{wholesaleNote(order)}
                               </p>
                             )}
                             <div>

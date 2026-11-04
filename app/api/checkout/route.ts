@@ -103,18 +103,20 @@ export async function POST(request: Request) {
     // it later even if the buyer's browser never comes back. One entry per
     // item: listing, quantity, produce subtotal, fee share and tax, in cents —
     // then, only for carts picked up in several zip codes, the tax calculation
-    // the item belongs to, and for an item picked up at a farmers market, which
-    // market and date.
+    // the item belongs to, for an item picked up at a farmers market, which
+    // market and date, and for an item bought wholesale, how many cases. The
+    // quantity is always in the listing's own units.
     const itemMetadata: Record<string, string> = {};
     cart.lines.forEach((line, i) => {
       itemMetadata[`item_${i}`] = [
         line.listingId,
-        line.quantity,
+        line.orderQuantity,
         line.subtotalCents,
         line.feeCents,
         line.taxCents,
         cart.manualTaxCalculationByListing.get(line.listingId) || '',
         line.market?.key || '',
+        line.wholesale ? line.quantity : '',
       ].join(':');
     });
 
@@ -145,6 +147,8 @@ export async function POST(request: Request) {
         // The platform's cut of each farmer's share, fixed at the time of purchase.
         seller_fee_rate: String(SELLER_FEE_RATE),
         item_count: String(cart.lines.length),
+        // The resale certificate that made the wholesale items tax-free.
+        ...(cart.exemptCertificateId ? { tax_exempt_certificate: cart.exemptCertificateId } : {}),
         ...itemMetadata,
       },
     });

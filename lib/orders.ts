@@ -13,6 +13,7 @@ import { bumpDailyCount } from '@/lib/dailyCounts';
 import { formatBoxDate } from '@/lib/csaSchedule';
 import { BUYER_NAME_KEY, usableBuyerName } from '@/lib/buyerName';
 import { recordOrderShares, SHARES_METADATA_KEY } from '@/lib/orderShares';
+import { casesText } from '@/lib/wholesale';
 import { appearanceEnd, parseMarketKey, pickupLabel, placeLine, type Appearance } from '@/lib/appearances';
 
 // One item of a checkout, as saved on the payment by /api/checkout.
@@ -27,6 +28,9 @@ type CheckoutLine = {
   taxCalculationId: string | null;
   // Set when the buyer picks this item up at one of the farm's markets.
   market: { appearanceId: string; date: string } | null;
+  // Set when bought wholesale: how many cases. `quantity` is still in the
+  // listing's own units.
+  cases: number | null;
 };
 
 // True for payments created by our checkout (and not, say, something made by
@@ -43,7 +47,7 @@ function checkoutLines(paymentIntent: Stripe.PaymentIntent): CheckoutLine[] {
   if (count > 0) {
     const lines: CheckoutLine[] = [];
     for (let i = 0; i < count; i++) {
-      const [listingId, quantity, subtotalCents, feeCents, taxCents, taxCalculationId, marketKey] = String(
+      const [listingId, quantity, subtotalCents, feeCents, taxCents, taxCalculationId, marketKey, cases] = String(
         metadata[`item_${i}`] || ''
       ).split(':');
       if (!listingId) throw new Error(`Payment ${paymentIntent.id} is missing the details of item ${i + 1}.`);
@@ -55,6 +59,7 @@ function checkoutLines(paymentIntent: Stripe.PaymentIntent): CheckoutLine[] {
         taxCents: Number(taxCents) || 0,
         taxCalculationId: taxCalculationId || null,
         market: parseMarketKey(marketKey),
+        cases: Number(cases) > 0 ? Number(cases) : null,
       });
     }
     return lines;
@@ -73,18 +78,23 @@ function checkoutLines(paymentIntent: Stripe.PaymentIntent): CheckoutLine[] {
       taxCents,
       taxCalculationId: null,
       market: null,
+      cases: null,
     },
   ];
 }
 
-const itemText = (item: { quantity: number; unitType: string; title: string }) =>
-  `${item.quantity} ${escapeHtml(item.unitType)} of ${escapeHtml(item.title)}`;
+// "2 cases (40 lbs)" for an item bought wholesale, otherwise "40 lbs".
+const amountText = (item: { quantity: number; unitType: string; cases?: number | null }) =>
+  item.cases ? casesText(item.cases, item.quantity / item.cases, item.unitType) : `${item.quantity} ${item.unitType}`;
+
+const itemText = (item: { quantity: number; unitType: string; title: string; cases?: number | null }) =>
+  `${escapeHtml(amountText(item))} of ${escapeHtml(item.title)}`;
 
 // The seller's email deliberately leaves out the pickup code — they only get
 // it from the buyer at pickup, and need it to release their payout.
 async function sendSellerNotification(params: {
   sellerEmail: string;
-  items: { quantity: number; unitType: string; title: string; subtotalCents: number; readyBy: string }[];
+  items: { quantity: number; unitType: string; title: string; subtotalCents: number; readyBy: string; cases?: number | null }[];
   buyerEmail: string | null;
   // The buyer's name, if they gave one.
   buyerName?: string | null;
@@ -102,7 +112,7 @@ async function sendSellerNotification(params: {
     subject: csaBoxDate
       ? `Farm Box paid: ${items[0].title} for ${formatBoxDate(csaBoxDate)}`
       : items.length === 1
-        ? `New order: ${items[0].quantity} ${items[0].unitType} of ${items[0].title}`
+        ? `New order: ${amountText(items[0])} of ${items[0].title}`
         : `New order: ${items.length} items from one buyer`,
     html: `
       <div style="font-family: sans-serif; max-width: 480px;">
@@ -145,7 +155,7 @@ async function sendBuyerConfirmation(params: {
     code: string;
     pickupArea: string;
     market?: string | null;
-    items: { quantity: number; unitType: string; title: string; readyBy: string }[];
+    items: { quantity: number; unitType: string; title: string; readyBy: string; cases?: number | null }[];
   }[];
   orderLink: string | null;
   siteUrl?: string;
@@ -176,7 +186,7 @@ async function sendBuyerConfirmation(params: {
     subject: csaBoxDate
       ? `Your ${allItems[0].title} box for ${formatBoxDate(csaBoxDate)} is paid`
       : allItems.length === 1
-        ? `Order confirmed: ${allItems[0].quantity} ${allItems[0].unitType} of ${allItems[0].title}`
+        ? `Order confirmed: ${amountText(allItems[0])} of ${allItems[0].title}`
         : `Order confirmed: ${allItems.length} items from ${farms.length === 1 ? farms[0].farmName : `${farms.length} farms`}`,
     html: `
       <div style="font-family: sans-serif; max-width: 520px;">
@@ -280,6 +290,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
   }
 
   const sellerFeeRate = Number(paymentIntent.metadata.seller_fee_rate) || 0;
+  const exemptCertificateId = paymentIntent.metadata.tax_exempt_certificate || null;
 
   let buyerEmail: string | null = paymentIntent.metadata.buyer_email || null;
   // The name the farmer sees: from checkout, or (for Farm Boxes, charged
@@ -368,6 +379,10 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
           original_total_amount: totalPaid,
           original_tax_amount: line.taxCents / 100,
           seller_fee_rate: sellerFeeRate,
+          // Bought wholesale: how many cases, and how big each was.
+          ...(line.cases ? { wholesale_cases: line.cases, wholesale_case_size: Math.round(line.quantity / line.cases) } : {}),
+          // The resale certificate that made a wholesale item tax-free.
+          ...(line.cases && exemptCertificateId ? { tax_exempt_certificate_id: exemptCertificateId } : {}),
           deposit_amount: totalPaid,
           authorized_amount: totalPaid,
           balance_due_at_pickup: 0.0,
@@ -484,7 +499,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     pickupArea: string;
     // Picked up at a farmers market: where and when.
     market: string | null;
-    items: { quantity: number; unitType: string; title: string; subtotalCents: number; readyBy: string }[];
+    items: { quantity: number; unitType: string; title: string; subtotalCents: number; readyBy: string; cases?: number | null }[];
   }[] = [];
 
   for (const line of lines) {
@@ -507,6 +522,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     const market = marketFor(line);
     if (market && line.market) farm.market = pickupLabel(market, line.market.date);
     farm.items.push({
+      cases: line.cases,
       quantity: line.quantity,
       unitType: listing?.unit_type || 'units',
       title: listing?.title || 'your order',

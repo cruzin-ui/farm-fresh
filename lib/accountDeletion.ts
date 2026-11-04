@@ -13,6 +13,8 @@ import { partnerLeaves } from '@/lib/sharedBoxes';
 // each sale and our accounts and taxes depend on. Those orders are detached
 // from the account. A seller's Stripe account isn't touched, so money still
 // owed to them reaches their bank; they can close it with Stripe themselves.
+// A business's wholesale account goes too, but any resale certificates it
+// uploaded are kept: they are the record behind its tax-free purchases.
 
 const OPEN_STATUSES = ['pending_pickup', 'ready_for_pickup'];
 
@@ -139,6 +141,9 @@ export async function deleteAccount(user: User) {
     }
     await supabaseAdmin.from('buyer_stripe_customers').delete().eq('user_id', userId);
   }
+
+  // A wholesale account. (Its resale certificates are kept; see above.)
+  await supabaseAdmin.from('wholesale_accounts').delete().eq('user_id', userId);
 
   // Favorites, both ways.
   await supabaseAdmin.from('farm_follows').delete().eq('user_id', userId);

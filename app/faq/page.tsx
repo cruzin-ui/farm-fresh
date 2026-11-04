@@ -3,6 +3,7 @@ import Link from 'next/link';
 import React from 'react';
 import { HelpCircle } from 'lucide-react';
 import FaqBrowser from '@/components/FaqBrowser';
+import { WHOLESALE_FEE_LABEL, CERTIFICATE_REMINDER_DAYS } from '@/lib/wholesale';
 import { BUYER_FEE_LABEL, SELLER_KEEPS_PERCENT, PLATFORM_KEEPS_CENTS_PER_DOLLAR, SELLER_FEE_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
@@ -36,6 +37,10 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'Are there any fees?',
     answer: `Buyers pay a service fee of ${BUYER_FEE_LABEL} on top of the produce price. It includes card processing, which is paid out of it; after processing, Farm Fresh Direct keeps about ${PLATFORM_KEEPS_CENTS_PER_DOLLAR} cents of every dollar of produce sold, from the buyer's and seller's fees together. The fee is charged once per checkout, however many items are in your cart. Where sales tax applies, it is added too. You'll see the exact amounts at checkout before you pay.`,
+  },
+  {
+    question: 'Do farms sell wholesale to businesses?',
+    answer: `Many do. Restaurants, grocers, co-ops, caterers and florists can apply for a wholesale account on their account page. Once we approve it, listings that a farm sells by the case show a Wholesale box with the case price, and wholesale items carry a lower fee (${WHOLESALE_FEE_LABEL} per checkout). If you resell what you buy, you can upload your Arizona resale certificate (Form 5000A) with its expiration date; once we've checked it, your wholesale purchases are tax-free until it expires, and we remind you ${CERTIFICATE_REMINDER_DAYS} days before.`,
   },
   {
     question: 'Can I buy from more than one farm at once?',

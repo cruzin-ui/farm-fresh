@@ -11,6 +11,8 @@ type PickListOrder = {
   status: string;
   created_at: string;
   reserved_quantity: number;
+  // Set when bought by the case (wholesale).
+  wholesale_cases?: number | null;
   listing_title: string;
   listing_unit_type: string;
   ready_by?: string | null;
@@ -30,7 +32,10 @@ const time = (date?: string | null) => (date ? new Date(date).getTime() : Number
 // A box to tick with a pen on the printed sheet.
 const TickBox = () => <span aria-hidden="true" className="inline-block w-4 h-4 border-2 border-gray-400 rounded-sm shrink-0" />;
 
-const itemText = (order: PickListOrder) => `${order.reserved_quantity} ${order.listing_unit_type} ${order.listing_title}`;
+const itemText = (order: PickListOrder) =>
+  `${order.reserved_quantity} ${order.listing_unit_type} ${order.listing_title}${
+    order.wholesale_cases ? ` (${order.wholesale_cases} case${order.wholesale_cases === 1 ? '' : 's'}, wholesale)` : ''
+  }`;
 
 // The seller's working sheet, kept to three short lists: what to harvest and
 // by when, what goes in each buyer's bag, and what is already ready and

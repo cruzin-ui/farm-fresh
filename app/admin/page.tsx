@@ -24,11 +24,13 @@ import {
   ChevronDown,
   Package,
   CalendarDays,
+  Briefcase,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import AdminCsa from '@/components/AdminCsa';
 import AdminAppearances from '@/components/AdminAppearances';
+import AdminWholesale from '@/components/AdminWholesale';
 
 type AdminSeller = {
   farmer_id: string;
@@ -225,7 +227,8 @@ type AdminSection =
   | 'activity'
   | 'insights'
   | 'csa'
-  | 'markets';
+  | 'markets'
+  | 'wholesale';
 
 type AdminListing = {
   id: string;
@@ -961,6 +964,7 @@ export default function AdminPage() {
     { id: 'listings', label: 'Listings', icon: Store },
     { id: 'csa', label: 'Farm Boxes (CSA)', icon: Package },
     { id: 'markets', label: 'Markets & growing', icon: CalendarDays },
+    { id: 'wholesale', label: 'Wholesale', icon: Briefcase },
     { id: 'sellers', label: 'Sellers', icon: Users, count: flaggedSellers.length, urgent: true },
     { id: 'buyers', label: 'Buyers', icon: ShoppingBasket, count: flaggedBuyers.length, urgent: true },
     { id: 'reviews', label: 'Reviews', icon: Star },
@@ -2395,6 +2399,7 @@ export default function AdminPage() {
           {/* FARM BOXES */}
           {section === 'csa' && <AdminCsa />}
           {section === 'markets' && <AdminAppearances />}
+          {section === 'wholesale' && <AdminWholesale />}
 
           {/* SUSPENDED & BLOCKED */}
           {section === 'blocks' && (

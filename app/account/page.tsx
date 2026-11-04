@@ -9,6 +9,7 @@ import { resizeImage } from '@/lib/resizeImage';
 import { PROFILE_PHOTO_KEY } from '@/lib/accountEvents';
 import { BUYER_NAME_KEY, BUYER_NAME_MAX, cleanBuyerName } from '@/lib/buyerName';
 import CameraCapture from '@/components/CameraCapture';
+import WholesaleAccount from '@/components/WholesaleAccount';
 import { postWithAuth } from '@/lib/authedFetch';
 
 // Account settings for any signed-in user, buyer or seller: the profile
@@ -328,6 +329,8 @@ export default function AccountPage() {
           </>
         )}
       </section>
+
+      <WholesaleAccount />
 
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4">
         <div>

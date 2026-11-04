@@ -7,6 +7,8 @@ import { describeUsualPickup } from '@/lib/pickupRules';
 import { marketOptionsFor, type MarketOption } from '@/lib/appearancesServer';
 import { parseMarketKey } from '@/lib/appearances';
 import { formatBoxDate } from '@/lib/csaSchedule';
+import { caseLabel } from '@/lib/wholesale';
+import { wholesaleBuyer, wholesaleOffersFor } from '@/lib/wholesaleServer';
 
 // SERVER-ONLY. Prices a buyer's cart. Used both to show the checkout page its
 // totals and to create the charge, so the two always agree — and so nothing
@@ -14,7 +16,9 @@ import { formatBoxDate } from '@/lib/csaSchedule';
 
 export const MAX_CART_LINES = 20;
 
-export type CartRequestItem = { listingId: string; quantity: number };
+// `wholesale` items are bought by the case, and their quantity is a number of
+// cases.
+export type CartRequestItem = { listingId: string; quantity: number; wholesale?: boolean };
 
 export type PricedLine = {
   listingId: string;
@@ -41,6 +45,16 @@ export type PricedLine = {
   // When the buyer chose to pick up at one of the farm's markets: which one,
   // and how it reads. Null for pickup at the farm.
   market: { key: string; label: string } | null;
+  // Bought wholesale: then `pricePerUnit`, `quantity`, `available` and
+  // `unitType` are all per case ("case of 20 lbs"), and this says how big a
+  // case is, in the listing's own unit, and the fewest cases the farm sells.
+  wholesale: { caseSize: number; minCases: number; listingUnit: string } | null;
+  // How much of the listing this takes, in the listing's own units: the
+  // quantity, or cases x case size. It is what the order records.
+  orderQuantity: number;
+  // Tax-exempt: bought wholesale by a business with an approved resale
+  // certificate.
+  taxExempt: boolean;
 };
 
 // The buyer's choice of where to pick up from each farm: farm id to a market
@@ -67,20 +81,23 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Reads the cart sent by the browser. Returns null if it isn't a usable list
 // of listings and whole-number quantities. The same listing listed twice is
-// combined into one line.
+// combined into one line; it can't be in the cart both by the case and not.
 export function parseCartItems(raw: unknown): CartRequestItem[] | null {
   if (!Array.isArray(raw) || raw.length === 0) return null;
 
-  const quantities = new Map<string, number>();
+  const items = new Map<string, CartRequestItem>();
   for (const entry of raw) {
     const listingId = typeof entry?.listingId === 'string' ? entry.listingId : '';
     const quantity = Number(entry?.quantity);
+    const wholesale = entry?.wholesale === true;
     if (!UUID.test(listingId) || !Number.isInteger(quantity) || quantity < 1) return null;
-    quantities.set(listingId, (quantities.get(listingId) || 0) + quantity);
+    const existing = items.get(listingId);
+    if (existing && Boolean(existing.wholesale) !== wholesale) return null;
+    items.set(listingId, { listingId, quantity: (existing?.quantity || 0) + quantity, ...(wholesale ? { wholesale } : {}) });
   }
 
-  if (quantities.size > MAX_CART_LINES) return null;
-  return [...quantities].map(([listingId, quantity]) => ({ listingId, quantity }));
+  if (items.size > MAX_CART_LINES) return null;
+  return [...items.values()];
 }
 
 // `buyerId` is the signed-in buyer, if there is one: they can't buy from their
@@ -117,23 +134,39 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
   // The markets each farm's buyers can order ahead for.
   const marketOptions = await marketOptionsFor(farmerIds as string[]);
 
+  // Wholesale items: the offers, and whether this buyer may buy them (and
+  // tax-free).
+  const wholesaleIds = items.filter((item) => item.wholesale).map((item) => item.listingId);
+  const offers = await wholesaleOffersFor(wholesaleIds);
+  const buyer = wholesaleIds.length ? await wholesaleBuyer(buyerId) : { approved: false, exemptCertificateId: null };
+
   const lines: PricedLine[] = items.map((item) => {
     const listing = listingById.get(item.listingId);
     const seller = listing?.farmer_id ? sellerById.get(listing.farmer_id) : null;
-    // Rounded down: orders are whole units, so a leftover fraction can't be bought.
-    const available = listing ? Math.max(0, Math.floor(Number(listing.available_quantity ?? 0))) : 0;
+    const offer = item.wholesale ? offers.get(item.listingId) : undefined;
+    const listingUnit = listing?.unit_type || 'units';
+    // Rounded down: orders are whole units (or whole cases), so a leftover
+    // fraction can't be bought.
+    const availableUnits = listing ? Math.max(0, Math.floor(Number(listing.available_quantity ?? 0))) : 0;
+    const available = offer ? Math.floor(availableUnits / offer.caseSize) : availableUnits;
 
     let problem: string | null = null;
-    if (!listing) {
+    if (item.wholesale && !buyer.approved) {
+      problem = 'Wholesale prices are for approved business accounts. Please remove it, or add it at the retail price.';
+    } else if (item.wholesale && !offer) {
+      problem = "This farm no longer sells this by the case. Please remove it, or add it at the retail price.";
+    } else if (offer && item.quantity < offer.minCases) {
+      problem = `The farm's minimum is ${offer.minCases} cases. Please raise the quantity.`;
+    } else if (!listing) {
       problem = 'This listing is no longer available. Please remove it.';
     } else if (buyerId && listing.farmer_id === buyerId) {
       problem = "This is your own listing, and you can't buy from yourself. Please remove it.";
     } else if (listing.status === 'removed' || !isAllowedCategory(listing.category)) {
       problem = 'This kind of item is no longer sold on Farm Fresh Direct. Please remove it.';
     } else if (available < 1) {
-      problem = 'Sold out. Please remove it.';
+      problem = offer ? 'Not enough left for a full case. Please remove it.' : 'Sold out. Please remove it.';
     } else if (item.quantity > available) {
-      problem = `Only ${available} left. Please lower the quantity.`;
+      problem = `Only ${available}${offer ? ` case${available === 1 ? '' : 's'}` : ''} left. Please lower the quantity.`;
     } else if (suspended.has(listing.farmer_id)) {
       problem = "This farm isn't taking orders right now. Please remove it.";
     } else if (!seller?.stripe_account_id || !seller.stripe_onboarding_complete) {
@@ -154,9 +187,12 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
     return {
       listingId: item.listingId,
       title: listing?.title || 'Listing no longer available',
-      unitType: listing?.unit_type || 'units',
-      pricePerUnit: Number(listing?.price_per_unit ?? 0),
+      unitType: offer ? caseLabel(offer.caseSize, listingUnit) : listingUnit,
+      pricePerUnit: offer ? offer.casePrice : Number(listing?.price_per_unit ?? 0),
       quantity: item.quantity,
+      wholesale: offer ? { caseSize: offer.caseSize, minCases: offer.minCases, listingUnit } : null,
+      orderQuantity: offer ? item.quantity * offer.caseSize : item.quantity,
+      taxExempt: Boolean(offer && buyer.exemptCertificateId),
       available,
       farmerId: listing?.farmer_id || null,
       farmName: seller?.farm_name || 'Local Farm',
@@ -173,7 +209,7 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
   });
 
   const good = lines.filter((line) => !line.problem);
-  const totals = calculateCartTotals(good);
+  const totals = calculateCartTotals(good.map((line) => ({ ...line, wholesale: Boolean(line.wholesale) })));
 
   // Sales tax, if tax collection is switched on (zero otherwise).
   const tax = await calculateCartTax(
@@ -185,6 +221,7 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
         pickupZip: (line.market && marketOptions.get(line.farmerId || '')?.find((o) => o.key === line.market!.key)?.zip) || pickupZipByListing.get(line.listingId) || listing?.zip_code,
         subtotalCents: totals.lines[i].subtotalCents,
         feeCents: totals.lines[i].feeCents,
+        exempt: line.taxExempt,
       };
     })
   );
@@ -200,6 +237,12 @@ export async function priceCart(items: CartRequestItem[], buyerId?: string | nul
     lines,
     subtotalCents: totals.subtotalCents,
     feeCents: totals.feeCents,
+    // The fee in two parts, for showing which is which.
+    retailFeeCents: totals.retailFeeCents,
+    wholesaleFeeCents: totals.wholesaleFeeCents,
+    // The resale certificate that makes this cart's wholesale items tax-free,
+    // if it does.
+    exemptCertificateId: good.some((line) => line.taxExempt) ? buyer.exemptCertificateId : null,
     taxCents: tax.taxCents,
     totalCents: totals.totalCents + tax.taxCents,
     calculationId: tax.calculationId,

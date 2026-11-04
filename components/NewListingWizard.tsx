@@ -13,6 +13,8 @@ import { CARD_LISTING_TAGS } from '@/lib/listingTags';
 import { CategoryNotice, PlantFields, HighlightsPicker } from '@/components/ListingFormParts';
 import { unitOptionsFor, usualUnit, unitSingular } from '@/lib/units';
 import ListingPickupChooser, { pickupProblem, type PickupChoice } from '@/components/ListingPickupChooser';
+import WholesaleFields, { NO_WHOLESALE, type WholesaleDraft } from '@/components/WholesaleFields';
+import { readWholesaleOffer } from '@/lib/wholesale';
 
 // Posting a new listing one question at a time, so it works well on a phone:
 // category, name, photo, price, when, extras, then a preview to check before
@@ -57,6 +59,9 @@ type Draft = {
   reusedImageUrl: string | null;
   // An address just for this listing, or null for the farm's.
   ownPickup: PickupChoice | null;
+  // Also sold by the case to approved businesses. (Missing from drafts saved
+  // before wholesale existed.)
+  wholesale?: WholesaleDraft;
   // Started from an earlier listing ("post again"): the quick screen is the
   // way back from the preview.
   quick?: boolean;
@@ -80,6 +85,7 @@ const EMPTY: Draft = {
   tags: [],
   reusedImageUrl: null,
   ownPickup: null,
+  wholesale: NO_WHOLESALE,
   quick: false,
 };
 
@@ -275,6 +281,8 @@ export default function NewListingWizard({
       const quantity = Number(d.quantity);
       if (d.price === '' || !Number.isFinite(price) || price < 0) return 'Enter a price.';
       if (!Number.isInteger(quantity) || quantity < 1) return 'Enter how many you have, as a whole number of at least 1.';
+      const wholesale = readWholesaleOffer(d.wholesale);
+      if ('error' in wholesale) return wholesale.error;
     }
     if (step === 'when') {
       if (!d.readyDate) return isPlant ? 'Choose the ready date.' : 'Choose the harvest date.';
@@ -322,6 +330,7 @@ export default function NewListingWizard({
       const res = await postWithAuth('/api/listings/create', {
         acceptTerms: termsChecked,
         ...(d.ownPickup ? { pickup: d.ownPickup } : {}),
+        wholesale: d.wholesale || NO_WHOLESALE,
         fields: {
           title: d.title.trim(),
           variety: d.variety.trim(),
@@ -762,6 +771,13 @@ export default function NewListingWizard({
               )}{' '}
               Buyers order whole {d.unitType}; for smaller amounts, pick a smaller unit.
             </p>
+            <WholesaleFields
+              value={d.wholesale || NO_WHOLESALE}
+              onChange={(wholesale) => set({ wholesale })}
+              unitType={d.unitType}
+              retailPrice={Number(d.price) || 0}
+              idPrefix="wiz-wholesale"
+            />
           </>
         )}
 

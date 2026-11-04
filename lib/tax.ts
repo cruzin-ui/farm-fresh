@@ -51,7 +51,13 @@ export type TaxLine = {
   subtotalCents: number;
   // This item's share of the buyer's service fee.
   feeCents: number;
+  // Bought wholesale by a business with an approved, unexpired resale
+  // certificate: the goods are exempt. The fee is still taxed as usual.
+  exempt?: boolean;
 };
+
+// For goods sold tax-free for resale.
+const NONTAXABLE = 'txcd_00000000';
 
 // Works out the sales tax on a cart, item by item. Orders are collected in
 // person, so each item is taxed where it is picked up — its listing's zip
@@ -100,7 +106,7 @@ export async function calculateCartTax(lines: TaxLine[]): Promise<{
           {
             amount: line.subtotalCents,
             reference: produceReference(index),
-            tax_code: CATEGORY_TAX_CODES[line.category || ''] || DEFAULT_TAX_CODE,
+            tax_code: line.exempt ? NONTAXABLE : CATEGORY_TAX_CODES[line.category || ''] || DEFAULT_TAX_CODE,
             tax_behavior: 'exclusive' as const,
           },
         ];
