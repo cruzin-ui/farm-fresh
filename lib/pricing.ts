@@ -1,3 +1,5 @@
+import { WHOLESALE_FEE_RATE, WHOLESALE_FEE_CAP_CENTS } from '@/lib/wholesale';
+
 // Buyer service fee: a percentage of the produce subtotal plus a fixed amount.
 // The fixed part is what keeps small orders from costing the platform money.
 // Two per-payment charges from Stripe have to come out of it: roughly 30¢ of
@@ -38,24 +40,45 @@ export const MIN_CHARGE_CENTS = 50;
 // fixed amount — and then shared out across the items in proportion to their
 // price. An item's share is what comes back to the buyer, along with its
 // price, if that item alone is later cancelled.
-export function calculateCartTotals(lines: { pricePerUnit: number; quantity: number }[]) {
+//
+// Items bought wholesale (by the case, by an approved business) have their own
+// lower fee instead: a percentage with no fixed part, capped per checkout,
+// shared out across just those items.
+export function calculateCartTotals(lines: { pricePerUnit: number; quantity: number; wholesale?: boolean }[]) {
   const subtotals = lines.map((line) => Math.round(line.pricePerUnit * line.quantity * 100));
   const subtotalCents = subtotals.reduce((sum, cents) => sum + cents, 0);
-  const feeCents = lines.length ? Math.round(subtotalCents * BUYER_FEE_RATE) + BUYER_FEE_FIXED_CENTS : 0;
+  const fees = subtotals.map(() => 0);
 
-  // Round each share down, then hand out the leftover cents one at a time so
-  // the shares always add up to the fee exactly.
-  const fees = subtotals.map((cents) => (subtotalCents > 0 ? Math.floor((feeCents * cents) / subtotalCents) : 0));
-  let leftover = feeCents - fees.reduce((sum, cents) => sum + cents, 0);
-  for (let i = 0; leftover > 0 && fees.length > 0; i = (i + 1) % fees.length) {
-    fees[i] += 1;
-    leftover -= 1;
-  }
+  const shareOut = (indexes: number[], feeCents: number) => {
+    const groupCents = indexes.reduce((sum, i) => sum + subtotals[i], 0);
+    // Round each share down, then hand out the leftover cents one at a time so
+    // the shares always add up to the fee exactly.
+    for (const i of indexes) fees[i] = groupCents > 0 ? Math.floor((feeCents * subtotals[i]) / groupCents) : 0;
+    let leftover = feeCents - indexes.reduce((sum, i) => sum + fees[i], 0);
+    for (let k = 0; leftover > 0 && indexes.length > 0; k = (k + 1) % indexes.length) {
+      fees[indexes[k]] += 1;
+      leftover -= 1;
+    }
+  };
+
+  const retail = lines.flatMap((line, i) => (line.wholesale ? [] : [i]));
+  const wholesale = lines.flatMap((line, i) => (line.wholesale ? [i] : []));
+  const retailCents = retail.reduce((sum, i) => sum + subtotals[i], 0);
+  const wholesaleCents = wholesale.reduce((sum, i) => sum + subtotals[i], 0);
+  const retailFeeCents = retail.length ? Math.round(retailCents * BUYER_FEE_RATE) + BUYER_FEE_FIXED_CENTS : 0;
+  const wholesaleFeeCents = wholesale.length
+    ? Math.min(Math.round(wholesaleCents * WHOLESALE_FEE_RATE), WHOLESALE_FEE_CAP_CENTS)
+    : 0;
+  shareOut(retail, retailFeeCents);
+  shareOut(wholesale, wholesaleFeeCents);
+  const feeCents = retailFeeCents + wholesaleFeeCents;
 
   return {
     lines: subtotals.map((cents, i) => ({ subtotalCents: cents, feeCents: fees[i] })),
     subtotalCents,
     feeCents,
+    retailFeeCents,
+    wholesaleFeeCents,
     totalCents: subtotalCents + feeCents,
   };
 }

@@ -25,6 +25,7 @@ import TurnstileBox from '@/components/TurnstileBox';
 import DistanceFromYou from '@/components/DistanceFromYou';
 import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
 import { BUYER_FEE_LABEL, MIN_CHARGE_CENTS } from '@/lib/pricing';
+import { WHOLESALE_FEE_LABEL } from '@/lib/wholesale';
 import { BUYER_NAME_KEY, BUYER_NAME_MAX } from '@/lib/buyerName';
 import { useCart, addToCart, setCartQuantity, removeFromCart, clearCart, type CartItem } from '@/lib/cart';
 
@@ -59,6 +60,8 @@ type QuoteLine = {
   problem: string | null;
   // Set when this item is to be picked up at one of the farm's markets.
   market?: { key: string; label: string } | null;
+  // Set when bought by the case; the price, quantity and unit are per case.
+  wholesale?: { caseSize: number; minCases: number; listingUnit: string } | null;
 };
 
 type Quote = {
@@ -67,6 +70,11 @@ type Quote = {
   lines: QuoteLine[];
   subtotalCents: number;
   feeCents: number;
+  // The fee in two parts: retail items, and items bought wholesale.
+  retailFeeCents?: number;
+  wholesaleFeeCents?: number;
+  // True when the wholesale items are tax-free (resale certificate on file).
+  taxExempt?: boolean;
   taxCents: number;
   totalCents: number;
   ok: boolean;
@@ -508,8 +516,14 @@ function CheckoutContent() {
                       <Link href={`/listings/${line.listingId}`} className="font-bold text-gray-900 hover:underline break-words">
                         {line.title}
                       </Link>
+                      {line.wholesale && (
+                        <span className="ml-2 align-middle text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-900 border border-amber-300 rounded px-1.5 py-0.5">
+                          Wholesale
+                        </span>
+                      )}
                       <p className="text-xs text-gray-500 mt-0.5">
                         ${line.pricePerUnit.toFixed(2)} per {line.unitType} · {line.available} available
+                        {line.wholesale && line.wholesale.minCases > 1 && <> · minimum {line.wholesale.minCases} cases</>}
                       </p>
                     </div>
                     <p className="text-sm font-bold text-gray-900 shrink-0">
@@ -528,7 +542,7 @@ function CheckoutContent() {
                         max={line.available}
                         onChange={(quantity) => setCartQuantity(line.listingId, quantity)}
                       />
-                      <span className="text-xs text-gray-600">{line.unitType}</span>
+                      <span className="text-xs text-gray-600">{line.wholesale ? 'cases' : line.unitType}</span>
                     </div>
                     <button
                       type="button"
@@ -564,13 +578,30 @@ function CheckoutContent() {
               <span>Produce Subtotal:</span>
               <span className="font-semibold">{quoteReady ? dollars(quote.subtotalCents) : pending}</span>
             </div>
-            <div className="flex justify-between items-center text-gray-700">
-              <span>Platform & Processing Fee ({BUYER_FEE_LABEL}, once per checkout):</span>
-              <span className="font-semibold">{quoteReady ? dollars(quote.feeCents) : pending}</span>
-            </div>
+            {(quote.wholesaleFeeCents || 0) > 0 && (quote.retailFeeCents || 0) > 0 ? (
+              <>
+                <div className="flex justify-between items-center text-gray-700">
+                  <span>Platform & Processing Fee, retail items ({BUYER_FEE_LABEL}):</span>
+                  <span className="font-semibold">{quoteReady ? dollars(quote.retailFeeCents!) : pending}</span>
+                </div>
+                <div className="flex justify-between items-center text-gray-700">
+                  <span>Wholesale Fee ({WHOLESALE_FEE_LABEL}):</span>
+                  <span className="font-semibold">{quoteReady ? dollars(quote.wholesaleFeeCents!) : pending}</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between items-center text-gray-700">
+                <span>
+                  {(quote.wholesaleFeeCents || 0) > 0
+                    ? `Wholesale Fee (${WHOLESALE_FEE_LABEL}):`
+                    : `Platform & Processing Fee (${BUYER_FEE_LABEL}, once per checkout):`}
+                </span>
+                <span className="font-semibold">{quoteReady ? dollars(quote.feeCents) : pending}</span>
+              </div>
+            )}
             {quote.taxEnabled && (
               <div className="flex justify-between items-center text-gray-700">
-                <span>Sales Tax:</span>
+                <span>Sales Tax{quote.taxExempt ? ' (wholesale items exempt: resale certificate on file)' : ''}:</span>
                 <span className="font-semibold">{quoteReady ? dollars(quote.taxCents) : pending}</span>
               </div>
             )}

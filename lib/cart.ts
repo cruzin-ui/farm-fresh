@@ -6,7 +6,9 @@ import { useSyncExternalStore } from 'react';
 // works for guests too. It holds only which listings and how many — prices and
 // availability are always looked up fresh at checkout.
 
-export type CartItem = { listingId: string; quantity: number };
+// A `wholesale` item is bought by the case (approved businesses only), and
+// its quantity is a number of cases.
+export type CartItem = { listingId: string; quantity: number; wholesale?: true };
 
 // Matches the limit the server enforces in lib/checkoutCart.ts.
 export const MAX_CART_LINES = 20;
@@ -28,9 +30,9 @@ function parse(raw: string): CartItem[] {
   try {
     const items = JSON.parse(raw);
     if (!Array.isArray(items)) return [];
-    return items.filter(
-      (item) => typeof item?.listingId === 'string' && Number.isInteger(item?.quantity) && item.quantity > 0
-    );
+    return items
+      .filter((item) => typeof item?.listingId === 'string' && Number.isInteger(item?.quantity) && item.quantity > 0)
+      .map((item) => ({ listingId: item.listingId, quantity: item.quantity, ...(item.wholesale === true ? { wholesale: true as const } : {}) }));
   } catch {
     return [];
   }
@@ -47,17 +49,22 @@ function writeCart(items: CartItem[]) {
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
-// Adds to what is already in the cart for that listing. Returns false if the
-// cart is full.
-export function addToCart(listingId: string, quantity = 1) {
+// Adds to what is already in the cart for that listing. A listing is in the
+// cart either by the case or not, so adding it the other way replaces it.
+// Returns false if the cart is full.
+export function addToCart(listingId: string, quantity = 1, wholesale = false) {
   const items = readCart();
   const existing = items.find((item) => item.listingId === listingId);
 
-  if (existing) {
+  if (existing && Boolean(existing.wholesale) === wholesale) {
     existing.quantity += quantity;
+  } else if (existing) {
+    existing.quantity = quantity;
+    if (wholesale) existing.wholesale = true;
+    else delete existing.wholesale;
   } else {
     if (items.length >= MAX_CART_LINES) return false;
-    items.push({ listingId, quantity });
+    items.push({ listingId, quantity, ...(wholesale ? { wholesale: true as const } : {}) });
   }
 
   writeCart(items);

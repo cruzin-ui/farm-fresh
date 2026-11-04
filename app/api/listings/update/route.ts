@@ -9,6 +9,8 @@ import { getFarmPickup } from '@/lib/farmPickupAddress';
 import { readPickupInput, setListingPickup } from '@/lib/listingPickup';
 import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { alertAdmin } from '@/lib/alerts';
+import { readWholesaleOffer } from '@/lib/wholesale';
+import { saveWholesaleOffer } from '@/lib/wholesaleServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -170,6 +172,17 @@ export async function POST(request: Request) {
 
     if (newPickup) {
       await setListingPickup(listingId, user.id, newPickup);
+    }
+
+    // Sold by the case to approved businesses: `wholesale` is the offer, or
+    // off to stop. Left out, it stays as it is. Orders already placed keep
+    // the case price they were bought at.
+    if ('wholesale' in body) {
+      const wholesale = readWholesaleOffer(body.wholesale);
+      if ('error' in wholesale) {
+        return NextResponse.json({ error: wholesale.error }, { status: 400 });
+      }
+      await saveWholesaleOffer(listingId, wholesale.offer);
     }
 
     if (Object.keys(update).length === 0) {

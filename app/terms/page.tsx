@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BUYER_FEE_LABEL, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
+import { WHOLESALE_FEE_LABEL } from '@/lib/wholesale';
 import { LEGAL_LAST_UPDATED, OPERATOR_DESCRIPTION } from '@/lib/legal';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
 import { CHARGE_DAYS_BEFORE } from '@/lib/csaSchedule';
@@ -66,6 +67,12 @@ export default function TermsPage() {
             however many items it includes, and any sales tax that applies. Both are shown at checkout before
             you pay. Payments are processed by Stripe. We hold your payment and release each seller&apos;s share
             to them when their item is picked up.
+          </p>
+          <p className="mt-2">
+            Businesses we approve for wholesale can buy items by the case at the seller&apos;s wholesale price. Those
+            items carry a wholesale fee of {WHOLESALE_FEE_LABEL} per checkout instead of the service fee. They are
+            sold without sales tax only while the business has a current resale certificate that we have accepted;
+            the business is responsible for the certificate being accurate and for using the items as it states.
           </p>
         </section>
 

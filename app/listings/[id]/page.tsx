@@ -14,6 +14,7 @@ import { describeUsualPickup } from '@/lib/pickupRules';
 import FollowFarmButton from '@/components/FollowFarmButton';
 import DistanceFromYou from '@/components/DistanceFromYou';
 import ListingMarketPickup from '@/components/ListingMarketPickup';
+import WholesaleBuy from '@/components/WholesaleBuy';
 import Photo from '@/components/Photo';
 import { ListingPageSkeleton } from '@/components/Skeletons';
 import { PLANTS_CATEGORY, SUN_NEEDS, WATER_NEEDS, nativeLabel } from '@/lib/plants';
@@ -113,7 +114,8 @@ export default function ListingDetailPage() {
 
   // What can still be added: what's available, less what is already in the cart.
   const maxQty = availableQty;
-  const inCart = cartItems.find((item) => item.listingId === listing.id)?.quantity || 0;
+  // (Cases of it bought wholesale are counted separately, below.)
+  const inCart = cartItems.find((item) => item.listingId === listing.id && !item.wholesale)?.quantity || 0;
   const roomLeft = availableQty - inCart;
   const chosenQty = Math.min(Math.max(1, parseInt(addQuantity, 10) || 1), Math.max(1, roomLeft));
 
@@ -392,6 +394,8 @@ export default function ListingDetailPage() {
                     {cartMessage}
                   </p>
                 )}
+
+                <WholesaleBuy listingId={listing.id} unitType={unitType} availableUnits={availableQty} />
               </>
             )}
             <p className="text-xs text-gray-400 text-center">

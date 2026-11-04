@@ -12,6 +12,8 @@ import { cleanPlantFields } from '@/lib/plantFields';
 import { readPickupInput, publicPlace } from '@/lib/listingPickup';
 import { isAllowedUnit, unitRuleText, usualUnit } from '@/lib/units';
 import { alertAdmin } from '@/lib/alerts';
+import { readWholesaleOffer } from '@/lib/wholesale';
+import { saveWholesaleOffer } from '@/lib/wholesaleServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,6 +83,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: own.error }, { status: 400 });
     }
     const pickup = own ? own.pickup : farmPickup;
+
+    // Sold by the case to approved businesses too, if the seller chose to.
+    const wholesale = readWholesaleOffer(body.wholesale);
+    if ('error' in wholesale) {
+      return NextResponse.json({ error: wholesale.error }, { status: 400 });
+    }
 
     // Pot size, sun, water and native, for Plants & Seedlings only.
     const plant = await cleanPlantFields(fields, fields.category, pickup.zip);
@@ -166,6 +174,7 @@ export async function POST(request: Request) {
 
     try {
       await saveListingPickupAddress(listing.id, user.id, pickup.address);
+      if (wholesale.offer) await saveWholesaleOffer(listing.id, wholesale.offer);
     } catch (addressError) {
       await supabaseAdmin.from('produce_listings').delete().eq('id', listing.id);
       throw addressError;

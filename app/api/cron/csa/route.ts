@@ -13,6 +13,7 @@ import {
 import { alertAdmin } from '@/lib/alerts';
 import { askPartners, isShared, settleWeek } from '@/lib/sharedBoxes';
 import { sendAppearanceReminders } from '@/lib/appearancesServer';
+import { sendCertificateReminders } from '@/lib/wholesaleServer';
 
 export const dynamic = 'force-dynamic';
 // Charging every member can take a while.
@@ -45,7 +46,7 @@ export async function GET(request: Request) {
 
   const today = todayInArizona();
   const siteUrl = siteUrlFrom(request);
-  const tally = { reminded: 0, paid: 0, failed: 0, farmSkipped: 0, partnersAsked: 0, marketReminders: 0 };
+  const tally = { reminded: 0, paid: 0, failed: 0, farmSkipped: 0, partnersAsked: 0, marketReminders: 0, certificateReminders: 0 };
 
   try {
     const { data: planRows } = await supabaseAdmin
@@ -119,6 +120,14 @@ export async function GET(request: Request) {
       tally.marketReminders = await sendAppearanceReminders(today, siteUrl);
     } catch (err) {
       await alertAdmin('market reminders', err);
+    }
+
+    // Businesses whose resale certificate is about to expire. (Also not a
+    // Farm Box job.)
+    try {
+      tally.certificateReminders = await sendCertificateReminders(today, siteUrl);
+    } catch (err) {
+      await alertAdmin('resale certificate reminders', err);
     }
 
     // Seasons that have finished are closed off.
