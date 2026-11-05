@@ -31,6 +31,7 @@ import { postWithAuth } from '@/lib/authedFetch';
 import AdminCsa from '@/components/AdminCsa';
 import AdminAppearances from '@/components/AdminAppearances';
 import AdminWholesale from '@/components/AdminWholesale';
+import AdminFaqSearches from '@/components/AdminFaqSearches';
 
 type AdminSeller = {
   farmer_id: string;
@@ -2392,6 +2393,8 @@ export default function AdminPage() {
                       where they come from, see Web Analytics in your Vercel project.
                     </p>
                   </div>
+
+                  <AdminFaqSearches />
                 </div>
               );
             })()}

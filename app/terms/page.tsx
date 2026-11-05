@@ -131,9 +131,23 @@ export default function TermsPage() {
               {NO_SHOW_FEE} restocking fee; the rest of what you paid for the produce is refunded.
             </li>
             <li>
-              <strong>If there is a problem with your order at pickup,</strong> do not give the seller your
-              pickup code, and tell us using Report a problem on your order page or the Contact Us page. Once
-              the code has been given, the seller has been paid, and any refund is at our discretion.
+              <strong>If there is a problem with your order at pickup,</strong> such as an item that is spoiled,
+              damaged, the wrong item or not as the listing described it, do not give the seller your pickup
+              code, and tell us using Report a problem on your order page or the Contact Us page. We will hear
+              from you and the seller, and if we find the item was not supplied as described, the order is
+              cancelled and you are refunded in full, including the service fee.
+            </li>
+            <li>
+              <strong>If you decline an item at pickup that is as described,</strong> for example because you
+              have changed your mind, it is treated as a cancellation more than {FREE_CANCELLATION_HOURS} hours
+              after ordering: you are refunded what you paid for the produce less a {NO_SHOW_FEE} restocking
+              fee, which the seller keeps, and the service fee is not refunded.
+            </li>
+            <li>
+              <strong>If you find a problem after pickup,</strong> report it within 24 hours of pickup using
+              Trouble with this order? on your order page, and send us a photo if we ask for one. Once the code
+              has been given the seller has been paid, so we look at each case and may refund all or part of the
+              item. A report made later than 24 hours after pickup is at our discretion.
             </li>
             <li>
               <strong>If you believe a charge is wrong,</strong> contact us first so we can put it right. If
