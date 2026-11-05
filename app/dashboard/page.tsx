@@ -1771,14 +1771,21 @@ export default function SellerDashboardPage() {
             </div>
           )}
 
-          {activeTab === 'listings' && (
+          {/* Only until all three steps are done; the tour stays in Help. */}
+          {activeTab === 'listings' && farmPickupLoaded && !setupComplete && (
             <details
-              open={guideOpen ?? !setupComplete}
+              open={guideOpen ?? true}
               onToggle={(e) => setGuideOpen(e.currentTarget.open)}
-              className="mb-6 bg-emerald-50 border border-emerald-200 rounded-2xl"
+              className="mb-6 bg-amber-50 border-2 border-amber-400 rounded-2xl shadow-sm"
             >
-              <summary className="cursor-pointer select-none px-5 py-4 text-sm font-bold text-emerald-950">
-                Getting set up{setupComplete ? ' — all done' : ' — finish these steps to start selling'}
+              <summary className="cursor-pointer select-none px-5 py-4 text-sm font-bold text-amber-950">
+                <AlertCircle className="inline w-5 h-5 text-amber-600 mr-1.5 -mt-0.5 align-middle" aria-hidden="true" />
+                <span>
+                  Getting set up — finish these steps to start selling
+                  <span className="ml-2 font-semibold text-amber-800">
+                    ({[profileDone, payoutsDone, listingDone].filter(Boolean).length} of 3 done)
+                  </span>
+                </span>
               </summary>
 
               <div className="px-5 pb-5 space-y-5 text-sm text-gray-700">
