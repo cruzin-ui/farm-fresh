@@ -140,6 +140,40 @@ const BUYER_FAQS: Faq[] = [
     ),
   },
   {
+    question: 'How do refunds work?',
+    answer: (
+      <ul className="list-disc pl-5 space-y-1.5">
+        <li>
+          <strong>The farm cancels, reduces or doesn&apos;t have your order ready in time:</strong> you&apos;re
+          refunded in full for what you don&apos;t get, including the service fee.
+        </li>
+        <li>
+          <strong>You cancel before pickup:</strong> you&apos;re refunded what you paid for the produce; the service
+          fee isn&apos;t refunded. After {FREE_CANCELLATION_HOURS} hours from ordering, the farmer also keeps a{' '}
+          {NO_SHOW_FEE} restocking fee. An order you never collect is treated the same way.
+        </li>
+        <li>
+          <strong>Something&apos;s wrong at pickup</strong> (spoiled, damaged, the wrong item, or not what the listing
+          described): don&apos;t give your pickup code. Use <strong>Report a problem</strong> on the order. We check
+          with you and the farm, and if it wasn&apos;t as described you get a full refund, including the service fee.
+        </li>
+        <li>
+          <strong>You decide at pickup you don&apos;t want it,</strong> and nothing is wrong with it: it&apos;s treated
+          like a late cancellation, so you&apos;re refunded the produce less the {NO_SHOW_FEE} restocking fee.
+        </li>
+        <li>
+          <strong>You find a problem after pickup:</strong> tell us within 24 hours using{' '}
+          <strong>Trouble with this order?</strong> on the order, and send a photo if we ask. We look at each case
+          and may refund all or part of the item.
+        </li>
+        <li>
+          <strong>Farm Boxes:</strong> skip or cancel before the charge day and you&apos;re never charged. Once a box
+          is charged, it follows the same rules as any order.
+        </li>
+      </ul>
+    ),
+  },
+  {
     question: "What if the farmer doesn't have what I ordered?",
     answer:
       "Harvests are unpredictable. If a farmer has less than expected they can reduce or cancel your order, and you're refunded automatically for whatever you don't receive. We'll email you when that happens. If what's left no longer works for you, you can cancel the rest of what you ordered from that farm for a full refund, including the service fee, at any time before pickup: open the order, tap More options and choose Cancel.",
@@ -169,8 +203,10 @@ const BUYER_FAQS: Faq[] = [
         If there's a problem at pickup, don't hand over your pickup code — that's what releases your payment.
         Then open <strong>More options</strong> on the order, choose <strong>Report a problem</strong> and tell
         us what happened.
-        It comes to us, not to the farmer. If you've already picked up, tap{' '}
-        <strong>Trouble with this order?</strong> at the bottom of the order instead. You can also{' '}
+        It comes to us, not to the farmer. If the item was spoiled, damaged, wrong or not as described, you&apos;re
+        refunded in full, including the service fee. If you've already picked up, tap{' '}
+        <strong>Trouble with this order?</strong> at the bottom of the order within 24 hours instead; we look at
+        each case and may refund all or part of it. See <strong>How do refunds work?</strong> above. You can also{' '}
         <Link href="/contact" className="font-semibold text-emerald-800 underline">
           contact us
         </Link>
@@ -346,6 +382,10 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'What happens if a buyer cancels?',
     answer: `Buyers can cancel an order themselves any time before pickup. We email you straight away so you don't prepare it, and the quantity goes back on your listing. If you cancelled or reduced part of their order, they can cancel the rest for a full refund and there's no payment to you. Otherwise, if they cancel within ${FREE_CANCELLATION_HOURS} hours of ordering, there's no payment to you. If they cancel later than that, you're paid a ${NO_SHOW_FEE} restocking fee.`,
+  },
+  {
+    question: 'What if a buyer turns down an order at pickup?',
+    answer: `A buyer who finds an item spoiled, damaged, wrong or not as your listing described can decline it and report it to us instead of giving you their pickup code. We'll ask for your side. If it wasn't as described, the order is cancelled, the buyer is refunded in full and there's no payment to you. If the buyer turns down an item that is as described, the order is closed like one that wasn't collected and you're paid a ${NO_SHOW_FEE} restocking fee. A buyer can also report a problem within 24 hours after pickup; if we refund them for it, that amount comes back out of your payout.`,
   },
   {
     question: "What if a buyer doesn't show up?",

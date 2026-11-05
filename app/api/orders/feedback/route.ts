@@ -120,9 +120,14 @@ export async function POST(request: Request) {
         <p><strong>What the buyer wrote:</strong></p>
         <p style="white-space: pre-wrap; padding: 12px; background: #f3f4f6;">${escapeHtml(note)}</p>
         <p>
-          Nothing has been changed automatically. Contact both sides, then use the admin page: Cancel &amp; Refund
-          returns the buyer's money and, for a picked-up order, takes the payout back from the seller.
+          Nothing has been changed automatically. Contact both sides, then use the admin page, following the
+          refund policy in the Terms:
         </p>
+        <ul>
+          <li><strong>Not as described</strong> (spoiled, damaged, wrong item), reported at pickup: Cancel &amp; Refund, a full refund including the service fee.</li>
+          <li><strong>Declined at pickup but as described:</strong> close it as a no-show, so the farmer gets the restocking fee and the service fee is kept.</li>
+          <li><strong>Reported within 24 hours after pickup:</strong> a partial refund, or Cancel &amp; Refund, as the case deserves. Either takes the amount back from the seller's payout.</li>
+        </ul>
         <p><a href="${new URL(request.url).origin}/admin">Open the admin page</a></p>
       `
     );

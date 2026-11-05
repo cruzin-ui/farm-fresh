@@ -68,6 +68,11 @@ export default function PrivacyPolicyPage() {
               without building a profile of you: the counts are totals and are not tied to your name, email
               address or account.
             </li>
+            <li>
+              <strong>FAQ searches.</strong> When a search of the FAQ doesn&apos;t find an answer, we keep the words
+              searched, how often and when, so we can add the missing answer. We don&apos;t keep who searched, and a
+              search that looks like an email address or a phone or card number isn&apos;t kept at all.
+            </li>
           </ul>
         </section>
 

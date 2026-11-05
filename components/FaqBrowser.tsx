@@ -1,25 +1,78 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { ChevronDown, Search, X } from 'lucide-react';
+import { indexEntry, parseSearch, scoreEntry, searchToRecord } from '@/lib/faqSearch';
 
 export type FaqItem = { question: string; answer: React.ReactNode; text: string };
 export type FaqSection = { id: string; title: string; faqs: FaqItem[] };
 
+// When nothing matches every word of a search, how many of the nearest
+// questions to show instead.
+const CLOSEST_COUNT = 3;
+
+// How long a search has to sit unchanged before one that found nothing is
+// recorded, so half-typed words aren't.
+const RECORD_AFTER_MS = 2000;
+
 // The FAQ with a search box, and a heading per section that folds the whole
-// section away. While searching, only matching questions show, already open.
+// section away. While searching, only matching questions show, already open,
+// best match first (see lib/faqSearch). If nothing matches every word, the
+// closest few show instead, and the search is recorded for the admin page so
+// the missing answer can be added.
 export default function FaqBrowser({ sections }: { sections: FaqSection[] }) {
   const [query, setQuery] = useState('');
   const [closed, setClosed] = useState<Record<string, boolean>>({});
+  const recorded = useRef(new Set<string>());
 
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const searching = words.length > 0;
-  const matches = (faq: FaqItem) => {
-    const haystack = `${faq.question} ${faq.text}`.toLowerCase();
-    return words.every((word) => haystack.includes(word));
-  };
-  const shown = sections.map((section) => ({ ...section, faqs: searching ? section.faqs.filter(matches) : section.faqs }));
-  const resultCount = shown.reduce((sum, s) => sum + s.faqs.length, 0);
+  const indexes = useMemo(
+    () => new Map(sections.flatMap((s) => s.faqs.map((faq) => [faq, indexEntry(faq.question, faq.text)] as const))),
+    [sections]
+  );
+
+  const terms = parseSearch(query);
+  const searching = terms.length > 0;
+  const scored = sections.flatMap((section) =>
+    section.faqs.map((faq, order) => ({ section: section.id, faq, order, ...scoreEntry(indexes.get(faq)!, terms) }))
+  );
+  const exact = scored.filter((s) => s.matchesAll);
+  const closest =
+    searching && exact.length === 0
+      ? scored
+          .filter((s) => s.found >= Math.max(1, Math.ceil(terms.length / 2)))
+          .sort((a, b) => b.found - a.found || b.score - a.score)
+          .slice(0, CLOSEST_COUNT)
+      : [];
+  const results = exact.length ? exact : closest;
+  const shown = sections.map((section) => ({
+    ...section,
+    faqs: searching
+      ? results
+          .filter((r) => r.section === section.id)
+          .sort((a, b) => b.score - a.score || a.order - b.order)
+          .map((r) => r.faq)
+      : section.faqs,
+  }));
+  const resultCount = results.length;
+
+  // A search that settles with nothing matching every word is sent to be
+  // recorded, once per page visit.
+  const missed = searching && exact.length === 0 ? searchToRecord(query) : null;
+  const closestCount = closest.length;
+  useEffect(() => {
+    if (!missed || recorded.current.has(missed)) return;
+    const timer = setTimeout(() => {
+      recorded.current.add(missed);
+      fetch('/api/faq/missed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: missed, closest: closestCount }),
+        keepalive: true,
+      }).catch(() => {});
+    }, RECORD_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [missed, closestCount]);
 
   return (
     <div className="space-y-8">
@@ -50,9 +103,19 @@ export default function FaqBrowser({ sections }: { sections: FaqSection[] }) {
         </div>
         {searching && (
           <p role="status" className="mt-2 text-xs text-gray-600">
-            {resultCount === 0
-              ? 'No questions match. Try fewer or different words, or contact us.'
-              : `${resultCount} question${resultCount === 1 ? '' : 's'} found`}
+            {exact.length > 0 ? (
+              `${resultCount} question${resultCount === 1 ? '' : 's'} found`
+            ) : (
+              <>
+                {closestCount > 0
+                  ? 'No question matches all of those words. These come closest. Still stuck? '
+                  : 'No questions match. Try different words, or '}
+                <Link href="/contact" className="font-semibold text-emerald-800 underline">
+                  {closestCount > 0 ? 'Contact us' : 'contact us'}
+                </Link>
+                .
+              </>
+            )}
           </p>
         )}
       </div>

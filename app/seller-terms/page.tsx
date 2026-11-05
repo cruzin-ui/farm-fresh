@@ -119,6 +119,16 @@ export default function SellerTermsPage() {
             disputes a payment, we may hold the payout for that order, or recover a payout already made, while
             we look into it and if we find the item was not supplied as described.
           </p>
+          <p className="mt-2">
+            <strong>Problems found at or after pickup.</strong> A buyer who finds at pickup that an item is
+            spoiled, damaged, the wrong item or not as your listing described it may decline it and report it to
+            us instead of giving you their pickup code. We will ask for your side. If we find the item was not
+            supplied as described, the order is cancelled, the buyer is refunded in full and you are not paid
+            for it. If a buyer declines an item that is as described, the order is closed as if it had not been
+            collected and you are paid a restocking fee. A buyer may also report a problem within 24 hours after
+            pickup; we look at each case and may refund the buyer all or part of the item, and recover that
+            amount from your payout.
+          </p>
         </section>
 
         <section>
