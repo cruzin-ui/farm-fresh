@@ -39,24 +39,29 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .maybeSingle();
 
-    if (!profile || !String(profile.farm_name || '').trim()) {
-      return NextResponse.json(
-        { error: 'Save your farm name first, then choose your web address.' },
-        { status: 409 }
-      );
-    }
-    if (profile.slug) {
+    if (profile?.slug) {
       return NextResponse.json(
         { error: "Your farm's web address is already set. Contact us if it needs to change." },
         { status: 409 }
       );
     }
 
-    const { error } = await supabaseAdmin
-      .from('seller_profiles')
-      .update({ slug: address })
-      .eq('id', user.id)
-      .is('slug', null);
+    // The profile needn't be saved yet: the farm name typed on the form is
+    // used when there isn't a saved one. A name is still needed, since every
+    // farm page shows one.
+    const savedName = String(profile?.farm_name || '').trim();
+    const typedName = typeof body.farmName === 'string' ? body.farmName.trim().slice(0, 200) : '';
+    if (!savedName && !typedName) {
+      return NextResponse.json({ error: 'Enter your farm name, then choose your web address.' }, { status: 400 });
+    }
+
+    const { error } = profile
+      ? await supabaseAdmin
+          .from('seller_profiles')
+          .update(savedName ? { slug: address } : { slug: address, farm_name: typedName })
+          .eq('id', user.id)
+          .is('slug', null)
+      : await supabaseAdmin.from('seller_profiles').insert({ id: user.id, farm_name: typedName, slug: address });
 
     if (error) {
       // Someone else took it in the same moment.
