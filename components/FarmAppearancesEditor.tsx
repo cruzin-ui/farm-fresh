@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { CalendarDays, Plus, AlertCircle, CheckCircle2, MapPin } from 'lucide-react';
 import { postWithAuth } from '@/lib/authedFetch';
 import { todayInArizona } from '@/lib/csaSchedule';
-import { APPEARANCE_KINDS, ORDER_CUTOFF_HOUR, formatTime } from '@/lib/appearances';
+import { APPEARANCE_KINDS, ORDER_CUTOFF_HOUR, formatTime, repeatChoices, type RepeatEvery } from '@/lib/appearances';
 
 type Post = {
   id: string;
@@ -18,6 +18,7 @@ type Post = {
   startsOn: string;
   endsOn: string;
   repeatsWeekly: boolean;
+  repeatEvery: RepeatEvery;
   startTime: string;
   endTime: string;
   note: string;
@@ -36,7 +37,8 @@ type Form = {
   city: string;
   zip: string;
   startsOn: string;
-  repeatsWeekly: boolean;
+  // How it repeats; empty for a single date.
+  repeat: RepeatEvery | '';
   endsOn: string;
   startTime: string;
   endTime: string;
@@ -51,7 +53,7 @@ const EMPTY: Form = {
   city: '',
   zip: '',
   startsOn: '',
-  repeatsWeekly: false,
+  repeat: '',
   endsOn: '',
   startTime: '08:00',
   endTime: '12:00',
@@ -158,7 +160,14 @@ export default function FarmAppearancesEditor({ sellerTermsAccepted }: { sellerT
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            const json = await call({ action: 'save', appearance: form, acceptTerms }, 'save');
+            const json = await call(
+              {
+                action: 'save',
+                appearance: { ...form, repeatsWeekly: form.repeat !== '', repeatEvery: form.repeat || 'week' },
+                acceptTerms,
+              },
+              'save'
+            );
             if (json) setForm(null);
           }}
           className="border border-emerald-200 bg-emerald-50/40 rounded-2xl p-4 space-y-3"
@@ -191,21 +200,48 @@ export default function FarmAppearancesEditor({ sellerTermsAccepted }: { sellerT
               <input id="ap-zip" required inputMode="numeric" maxLength={5} {...field('zip')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
             </div>
             <div>
-              <label htmlFor="ap-date" className="block text-xs font-semibold text-gray-700 mb-1">{form.repeatsWeekly ? 'First date *' : 'Date *'}</label>
-              <input id="ap-date" type="date" required {...field('startsOn')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
+              <label htmlFor="ap-date" className="block text-xs font-semibold text-gray-700 mb-1">{form.repeat ? 'First date *' : 'Date *'}</label>
+              <input
+                id="ap-date"
+                type="date"
+                required
+                value={form.startsOn}
+                onChange={(e) => {
+                  const startsOn = e.target.value;
+                  setForm((current) => {
+                    if (!current) return current;
+                    // A monthly choice may not fit the new date (it's no longer
+                    // the last Saturday, say); fall back to the nearest that does.
+                    const values = repeatChoices(startsOn).map((c) => c.value);
+                    const repeat = values.includes(current.repeat)
+                      ? current.repeat
+                      : values.includes('month')
+                        ? 'month'
+                        : values.includes('month_last')
+                          ? 'month_last'
+                          : 'week';
+                    return { ...current, startsOn, repeat };
+                  });
+                }}
+                className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+              />
             </div>
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 text-sm text-gray-700 pb-2">
-                <input
-                  type="checkbox"
-                  checked={form.repeatsWeekly}
-                  onChange={(e) => setForm((current) => (current ? { ...current, repeatsWeekly: e.target.checked } : current))}
-                  className="w-4 h-4"
-                />
-                Every week on this day
-              </label>
+            <div>
+              <label htmlFor="ap-repeat" className="block text-xs font-semibold text-gray-700 mb-1">Repeats</label>
+              <select
+                id="ap-repeat"
+                value={form.repeat}
+                onChange={(e) => setForm((current) => (current ? { ...current, repeat: e.target.value as RepeatEvery | '' } : current))}
+                className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+              >
+                {repeatChoices(form.startsOn).map((choice) => (
+                  <option key={choice.value} value={choice.value}>
+                    {choice.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            {form.repeatsWeekly && (
+            {form.repeat && (
               <div>
                 <label htmlFor="ap-end" className="block text-xs font-semibold text-gray-700 mb-1">Last date *</label>
                 <input id="ap-end" type="date" required {...field('endsOn')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
@@ -330,7 +366,7 @@ export default function FarmAppearancesEditor({ sellerTermsAccepted }: { sellerT
                       city: post.city,
                       zip: post.zip,
                       startsOn: post.startsOn,
-                      repeatsWeekly: post.repeatsWeekly,
+                      repeat: post.repeatsWeekly ? post.repeatEvery : '',
                       endsOn: post.endsOn,
                       startTime: post.startTime,
                       endTime: post.endTime,
@@ -391,7 +427,7 @@ export default function FarmAppearancesEditor({ sellerTermsAccepted }: { sellerT
                           }}
                           className="ml-1 font-semibold text-gray-600 underline"
                         >
-                          Not there this week?
+                          Not there this time?
                         </button>
                       )}
                     </li>

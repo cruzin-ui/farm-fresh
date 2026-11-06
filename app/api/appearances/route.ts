@@ -30,7 +30,7 @@ export const dynamic = 'force-dynamic';
 //   { action: 'get' }
 //   { action: 'save', appearance: {...}, acceptTerms? }   — add or edit
 //   { action: 'remove', id, reason, cancelOrders? }        — take it down
-//   { action: 'skip' | 'unskip', id, date, reason?, cancelOrders? } — one week of a weekly post
+//   { action: 'skip' | 'unskip', id, date, reason?, cancelOrders? } — one date of a repeating post
 // Removing a post, or skipping a date, that buyers have orders to pick up at
 // needs cancelOrders: true; those orders are then cancelled and refunded.
 export async function POST(request: Request) {
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
           .maybeSingle();
         if (!existing) return NextResponse.json({ error: 'Post not found.' }, { status: 404 });
         // Buyers who ordered for pickup here were told where and when.
-        const moved = ['address', 'zip', 'starts_on', 'ends_on', 'repeats_weekly', 'start_time', 'end_time'].some(
+        const moved = ['address', 'zip', 'starts_on', 'ends_on', 'repeats_weekly', 'repeat_every', 'start_time', 'end_time'].some(
           (field) => (existing as any)[field] !== (values as any)[field]
         );
         if (moved && (await openMarketOrders(existing.id)).length > 0) {
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
     if (body.action === 'skip' || body.action === 'unskip') {
       const date = String(body.date || '');
       if (!appearance.repeats_weekly || !isAppearanceDate(appearance, date) || date < today) {
-        return NextResponse.json({ error: 'That isn’t an upcoming date of this weekly post.' }, { status: 400 });
+        return NextResponse.json({ error: 'That isn’t an upcoming date of this post.' }, { status: 400 });
       }
       if (body.action === 'unskip') {
         await supabaseAdmin.from('farm_appearance_skips').delete().eq('appearance_id', appearance.id).eq('skip_date', date);
@@ -189,6 +189,7 @@ async function overview(farmerId: string, today: string) {
       startsOn: a.starts_on,
       endsOn: a.ends_on,
       repeatsWeekly: a.repeats_weekly,
+      repeatEvery: a.repeat_every || 'week',
       startTime: a.start_time,
       endTime: a.end_time,
       note: a.note,

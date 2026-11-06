@@ -163,7 +163,7 @@ export default function AddressAutocomplete({
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         onKeyDown={handleKeyDown}
-        className="w-full px-4 py-2 border rounded-lg text-sm"
+        className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 focus:outline-none"
       />
 
       {showList && (

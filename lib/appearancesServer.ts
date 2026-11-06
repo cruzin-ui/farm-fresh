@@ -9,6 +9,9 @@ import { addDays, formatBoxDate, isDay, todayInArizona } from '@/lib/csaSchedule
 import {
   APPEARANCE_KINDS,
   MAX_WEEKLY_DAYS,
+  REPEAT_EVERY,
+  type RepeatEvery,
+  weekOfMonth,
   appearanceDates,
   describeSchedule,
   formatTimes,
@@ -38,6 +41,8 @@ export function readAppearanceInput(raw: unknown, today: string): { values: Appe
   const zip = text(input.zip, 10).replace(/\D/g, '').slice(0, 5);
   const startsOn = text(input.startsOn, 10);
   const repeatsWeekly = input.repeatsWeekly === true;
+  // Older pages sent only repeatsWeekly, meaning every week.
+  const repeatEvery = (REPEAT_EVERY as readonly string[]).includes(String(input.repeatEvery)) ? (input.repeatEvery as RepeatEvery) : 'week';
   const endsOn = repeatsWeekly ? text(input.endsOn, 10) : startsOn;
   const startTime = text(input.startTime, 5);
   const endTime = text(input.endTime, 5);
@@ -52,8 +57,14 @@ export function readAppearanceInput(raw: unknown, today: string): { values: Appe
   if (startsOn < today) return { error: 'The date can’t be in the past.' };
   if (startsOn > addDays(today, MAX_WEEKLY_DAYS)) return { error: 'Choose a date within the next year.' };
   if (repeatsWeekly) {
-    if (!isDay(endsOn) || endsOn < startsOn) return { error: 'Choose the last week you’ll be there.' };
-    if (endsOn > addDays(startsOn, MAX_WEEKLY_DAYS)) return { error: 'A weekly post can run for up to a year. Post it again after that.' };
+    if (repeatEvery === 'month' && weekOfMonth(startsOn).n === 5) {
+      return { error: 'Not every month has a 5th one of that day. Choose "Monthly on the last" instead.' };
+    }
+    if (repeatEvery === 'month_last' && !weekOfMonth(startsOn).isLast) {
+      return { error: 'For "the last one of each month", choose a first date that is the last one in its month.' };
+    }
+    if (!isDay(endsOn) || endsOn < startsOn) return { error: 'Choose the last date you’ll be there.' };
+    if (endsOn > addDays(startsOn, MAX_WEEKLY_DAYS)) return { error: 'A repeating post can run for up to a year. Post it again after that.' };
   }
   if (!isTime(startTime) || !isTime(endTime)) return { error: 'Choose the start and end times.' };
   if (endTime <= startTime) return { error: 'The end time has to be after the start time.' };
@@ -67,6 +78,7 @@ export function readAppearanceInput(raw: unknown, today: string): { values: Appe
       zip,
       starts_on: startsOn,
       repeats_weekly: repeatsWeekly,
+      repeat_every: repeatsWeekly ? repeatEvery : 'week',
       ends_on: endsOn,
       start_time: startTime,
       end_time: endTime,
