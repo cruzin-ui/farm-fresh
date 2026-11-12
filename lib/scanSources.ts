@@ -22,6 +22,9 @@ export const SCAN_SOURCES: Record<string, string> = {
   'postcard-buyer-b': 'Buyer postcard (flyer B)',
   // The one-sided 4 x 6 in seller flyer: opens the seller sign-up page.
   'postcard-seller': 'Seller postcard',
+  // The one-page letter-size seller sales sheet, handed to farmers in person:
+  // opens the seller sign-up page.
+  'sales-sheet': 'Seller sales sheet',
 };
 
 export const isScanSource = (value: unknown): value is string =>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { postWithAuth } from '@/lib/authedFetch';
 import { CalendarDays, MapPin, ShoppingBag } from 'lucide-react';
 
 type FarmEvent = {
@@ -23,11 +24,8 @@ export default function FarmAppearances({ farmerId, farmName }: { farmerId: stri
   const [events, setEvents] = useState<FarmEvent[]>([]);
 
   useEffect(() => {
-    fetch('/api/appearances/public', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ farmerId }),
-    })
+    // Signed in, so the farm's own farmer sees a preview before payouts.
+    postWithAuth('/api/appearances/public', { farmerId })
       .then((res) => res.json())
       .then((json) => setEvents(json.events || []))
       .catch(() => setEvents([]));

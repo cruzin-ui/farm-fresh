@@ -297,7 +297,7 @@ const SELLER_FAQS: Faq[] = [
           payouts are what that form uses, so keep them accurate.
         </p>
         <p className="mt-2">
-          Your Sales History in the Seller Dashboard is a record of your completed sales. If you're unsure
+          The Sales & Payouts section of your Seller Dashboard keeps a record of your completed sales. If you're unsure
           what you owe, talk to a tax professional.
         </p>
       </>
@@ -306,7 +306,7 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'What do I get besides a place to list?',
     answer:
-      'Four things beyond the sale itself. A storefront: your farm has its own page with your photo, story, growing practices, current listings and reviews, and a link you can share anywhere. Regular customers: buyers can favorite your farm to see what you post next, and reviews from real pickups build trust with new ones. Records: every order, pickup, cancellation and payout is kept in your Sales History, and your dashboard charts your earnings by week and by crop. Hassle-free Farm Boxes, our version of a CSA: offer a regular box and the site signs members up, charges each box before pickup, sends the reminders and handles skips, pauses and cancellations for you.',
+      'Four things beyond the sale itself. A storefront: your farm has its own page with your photo, story, growing practices, current listings and reviews, and a link you can share anywhere. Regular customers: buyers can favorite your farm to see what you post next, and reviews from real pickups build trust with new ones. Records: every order, pickup, cancellation and payout is kept in Sales & Payouts, along with charts of your earnings by week and by crop. Hassle-free Farm Boxes, our version of a CSA: offer a regular box and the site signs members up, charges each box before pickup, sends the reminders and handles skips, pauses and cancellations for you.',
   },
   {
     question: 'Can I offer Farm Boxes, like a CSA?',
@@ -348,7 +348,7 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'What do I need to get started?',
     answer:
-      'A farm profile and a connected payout account. Payouts are set up through Stripe from the Payouts & Settings tab of your Seller Dashboard. Buyers can only purchase from you once that is finished.',
+      'A farm profile and a connected payout account. Payouts are set up through Stripe from the Sales & Payouts section of your Seller Dashboard. Buyers can only purchase from you once that is finished.',
   },
   {
     question: 'How and when do I get paid?',
@@ -377,7 +377,7 @@ const SELLER_FAQS: Faq[] = [
   {
     question: 'How do I contact a buyer?',
     answer:
-      "Use Message Buyer on the order in your Seller Dashboard. We email the buyer your message and they reply the same way. You won't see the buyer's email address while an order is open; it appears in your Sales History once the order is picked up or closed.",
+      "Use Message Buyer on the order in your Seller Dashboard. We email the buyer your message and they reply the same way. You won't see the buyer's email address while an order is open; it appears in Sales & Payouts once the order is picked up or closed.",
   },
   {
     question: 'What happens if a buyer cancels?',

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { postWithAuth } from '@/lib/authedFetch';
 import { Sprout } from 'lucide-react';
 
 // The emoji shown for each category.
@@ -21,11 +22,8 @@ export default function FarmGrowing({ farmerId, farmName }: { farmerId: string; 
   const [crops, setCrops] = useState<{ id: string; name: string; variety: string; category: string; note: string; expected: string }[]>([]);
 
   useEffect(() => {
-    fetch('/api/growing/public', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ farmerId }),
-    })
+    // Signed in, so the farm's own farmer sees a preview before payouts.
+    postWithAuth('/api/growing/public', { farmerId })
       .then((res) => res.json())
       .then((json) => setCrops(json.crops || []))
       .catch(() => setCrops([]));

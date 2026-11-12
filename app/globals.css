@@ -6,8 +6,8 @@
   }
 }
 
+/* --background is set with the site colours, further down. */
 :root {
-  --background: #ffffff;
   --foreground: #171717;
 }
 
@@ -98,65 +98,30 @@ h3,
   }
 }
 
-/* Seasonal colours. lib/season.ts sets data-season on <html> from the date;
-   each season has its own page background, a deeper "panel" tone (used
-   behind a farm's page), a card colour, warm or cool greys for borders and
-   light fills, and one accent. The FFD green stays the same all year.
+/* The site's colours: whites and soft greens, the same all year. Pages sit
+   on a very light green, cards are white, and borders and light fills are
+   pale greens rather than plain grey. The FFD green is the main colour.
+   Amber and red stay reserved for warnings and problems.
 
-   The accent is decoration only: the line along the top of the header, in
-   the same colour as the season's icon by the site name. Amber and red stay reserved for warnings and
-   problems, so a season's accent never stands in for those. */
-:root[data-season='spring'] {
-  --background: #eef6e0;
-  --season-panel: #dcebc4;
-  --season-card: #fbfdf6;
-  --season-accent: #9333ea;
-  --color-gray-50: #eaf3da;
-  --color-gray-100: #dde9c9;
-  --color-gray-200: #c7dba9;
-}
-:root[data-season='summer'] {
-  --background: #fbf2cf;
-  --season-panel: #f5e3a3;
-  --season-card: #fffcf0;
-  --season-accent: #eab308;
-  --color-gray-50: #f9efc8;
-  --color-gray-100: #f2e4b0;
-  --color-gray-200: #e4d08a;
-}
-:root[data-season='fall'] {
-  --background: #f7ead2;
-  --season-panel: #efd9b4;
-  --season-card: #fffaf0;
-  --season-accent: #ea580c;
-  --color-gray-50: #f5e7cf;
-  --color-gray-100: #ecdcbf;
-  --color-gray-200: #dcc59e;
-}
-:root[data-season='winter'] {
-  --background: #e6eff3;
-  --season-panel: #d3e3ea;
-  --season-card: #f9fcfd;
-  --season-accent: #0ea5e9;
-  --color-gray-50: #e3edf1;
-  --color-gray-100: #d8e6ec;
-  --color-gray-200: #bdd3dc;
-}
-/* Grey text is one notch darker on the tinted backgrounds, so it stays above
-   4.5:1 on all of them, including the deeper panel behind a farm's page. */
-:root[data-season] {
+   lib/season.ts still sets data-season on <html>, but only for the seasonal
+   icon by the site name (below); the colours no longer change with it. */
+:root {
+  --background: #f3f9f5;
+  --site-panel: #e3f1e8;
+  --color-gray-50: #f1f8f3;
+  --color-gray-100: #e5f1e9;
+  --color-gray-200: #cfe4d6;
+  /* Grey text one notch darker, so it stays above 4.5:1 on the light green
+     page and the deeper panel behind a farm's page. */
   --color-gray-500: #545b67;
 }
-:root[data-season] .bg-white {
-  background-color: var(--season-card);
-}
-:root[data-season] h1.text-gray-900,
-:root[data-season] h2.text-gray-900,
-:root[data-season] h3.text-gray-900 {
+h1.text-gray-900,
+h2.text-gray-900,
+h3.text-gray-900 {
   color: var(--color-emerald-900);
 }
-:root[data-season] .site-header {
-  border-top: 3px solid var(--season-accent);
+.site-header {
+  border-top: 3px solid var(--color-emerald-700);
 }
 
 /* The seasonal icon after the site name (components/SeasonIcon.tsx): only
@@ -175,11 +140,10 @@ h3,
   display: block;
 }
 
-/* A farm's public page sits on the season's deeper panel tone, so it reads
-   as the farm's own space; its headings, including the farm's name, are
-   green. */
+/* A farm's public page sits on a deeper pale green, so it reads as the
+   farm's own space; its headings, including the farm's name, are green. */
 .farm-theme {
-  background-color: var(--season-panel, #f6eedb);
+  background-color: var(--site-panel);
 }
 .farm-theme h1 {
   color: var(--color-emerald-900);

@@ -16,6 +16,7 @@ import DistanceFromYou from '@/components/DistanceFromYou';
 import ListingMarketPickup from '@/components/ListingMarketPickup';
 import WholesaleBuy from '@/components/WholesaleBuy';
 import Photo from '@/components/Photo';
+import PayoutsPreviewNotice from '@/components/PayoutsPreviewNotice';
 import { ListingPageSkeleton } from '@/components/Skeletons';
 import { PLANTS_CATEGORY, SUN_NEEDS, WATER_NEEDS, nativeLabel } from '@/lib/plants';
 
@@ -28,6 +29,8 @@ export default function ListingDetailPage() {
   const [listing, setListing] = useState<any>(null);
   const [seller, setSeller] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  // The signed-in user posted this listing.
+  const [ownListing, setOwnListing] = useState(false);
 
   const { items: cartItems } = useCart();
   const [addQuantity, setAddQuantity] = useState('1');
@@ -82,6 +85,13 @@ export default function ListingDetailPage() {
         );
       }
 
+      // The farmer looking at their own listing before payouts are connected
+      // sees it marked as a preview.
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setOwnListing(Boolean(user && listingData?.farmer_id === user.id));
+
       setListing(listingData);
       setLoading(false);
     }
@@ -133,9 +143,11 @@ export default function ListingDetailPage() {
   };
 
   const canBuy = !soldOut && Boolean(seller?.stripe_onboarding_complete) && !seller?.suspended;
+  const ownPreview = ownListing && !seller?.stripe_onboarding_complete && !seller?.suspended;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
+      {ownPreview && <PayoutsPreviewNotice what="This listing" />}
       {canBuy && !addButtonInView && (
         <div className="md:hidden print:hidden fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 bg-white/95 backdrop-blur-md border-t border-emerald-100 shadow-[0_-2px_8px_rgba(0,0,0,0.06)] px-4 py-2.5 flex items-center gap-3">
           <div className="min-w-0 flex-1">
@@ -334,7 +346,9 @@ export default function ListingDetailPage() {
               </p>
             ) : !seller?.stripe_onboarding_complete ? (
               <p className="w-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold p-3 rounded-xl text-center">
-                Not available to buy yet. This farmer is still setting up payouts.
+                {ownPreview
+                  ? 'Buyers will see the Add to Cart button here once your payouts are connected.'
+                  : 'Not available to buy yet. This farmer is still setting up payouts.'}
               </p>
             ) : (
               <>

@@ -4,6 +4,7 @@ import { isSellerSuspended } from '@/lib/accountBlocks';
 import { todayInArizona } from '@/lib/csaSchedule';
 import { describeExpected, stillShown } from '@/lib/growing';
 import { alertAdmin } from '@/lib/alerts';
+import { getRequestUser } from '@/lib/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,13 @@ export async function POST(request: Request) {
     const farmerId = typeof body.farmerId === 'string' && /^[0-9a-f-]{36}$/i.test(body.farmerId) ? body.farmerId : '';
     if (!farmerId) return NextResponse.json({ crops: [] });
     const { data: profile } = await supabaseAdmin.from('seller_profiles').select('stripe_onboarding_complete').eq('id', farmerId).maybeSingle();
-    if (!profile?.stripe_onboarding_complete || (await isSellerSuspended(farmerId))) return NextResponse.json({ crops: [] });
+    const suspended = await isSellerSuspended(farmerId);
+    if (suspended) return NextResponse.json({ crops: [] });
+    // Before payouts are connected, only the farm's own farmer sees the list,
+    // as a preview on their page.
+    if (!profile?.stripe_onboarding_complete && (await getRequestUser(request))?.id !== farmerId) {
+      return NextResponse.json({ crops: [] });
+    }
 
     const today = todayInArizona();
     const { data } = await supabaseAdmin
