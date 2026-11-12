@@ -17,6 +17,7 @@ import DistanceFromYou from '@/components/DistanceFromYou';
 import FarmCsaPlans from '@/components/FarmCsaPlans';
 import FarmAppearances from '@/components/FarmAppearances';
 import FarmGrowing from '@/components/FarmGrowing';
+import PayoutsPreviewNotice from '@/components/PayoutsPreviewNotice';
 
 // A farm's public page: its photo, story, what it has for sale and its reviews.
 // Shown at the farm's own web address (/night-owl-produce) and at its original
@@ -27,6 +28,8 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
   const [listings, setListings] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  // The farmer looking at their own page before payouts are connected.
+  const [preview, setPreview] = useState(false);
 
   // Average Rating Calculation
   const avgRating =
@@ -70,9 +73,17 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
 
     setProfile(profileData);
     // Nothing is shown for sale until the farmer has finished payout setup,
-    // since nobody can buy it before then.
+    // since nobody can buy it before then. The farmer can still see their own
+    // page as it will look, marked as a preview.
     const suspended = await fetchSuspendedSellerIds(supabase, [sellerId]);
-    setListings(profileData?.stripe_onboarding_complete && !suspended.has(sellerId) ? listingsData || [] : []);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const ownPreview = user?.id === sellerId && !profileData?.stripe_onboarding_complete && !suspended.has(sellerId);
+    setPreview(ownPreview);
+    setListings(
+      (profileData?.stripe_onboarding_complete && !suspended.has(sellerId)) || ownPreview ? listingsData || [] : []
+    );
     setReviews(reviewsData || []);
     setLoading(false);
   };
@@ -86,6 +97,8 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
     <div className="max-w-5xl mx-auto px-4 py-8">
       {/* Shown to admins only; nothing for anyone else. */}
       <FarmAdminPanel sellerId={sellerId} />
+
+      {preview && <PayoutsPreviewNotice what="Your farm page" />}
 
       {/* Cover Banner & Profile Card */}
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm mb-8">
@@ -232,11 +245,17 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
                   </p>
                 </div>
                 <div className="p-5 pt-0">
-                  <AddToCartButton
-                    listingId={item.id}
-                    available={Number(item.available_quantity ?? 0)}
-                    className="w-full"
-                  />
+                  {preview ? (
+                    <p className="w-full text-center text-xs font-bold text-amber-900 bg-amber-50 border border-amber-300 rounded-xl py-2.5">
+                      Hidden from buyers until payouts are connected
+                    </p>
+                  ) : (
+                    <AddToCartButton
+                      listingId={item.id}
+                      available={Number(item.available_quantity ?? 0)}
+                      className="w-full"
+                    />
+                  )}
                 </div>
               </div>
             ))}

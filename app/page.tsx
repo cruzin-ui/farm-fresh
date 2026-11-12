@@ -122,6 +122,31 @@ export default function SplashLandingPage() {
             </button>
           </form>
 
+          {/* How buying works, in three steps, right under the search. The
+              fuller version for buyers and sellers is further down. */}
+          <ol
+            aria-label="How it works"
+            className="mt-7 mx-auto max-w-3xl grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 text-left"
+          >
+            {[
+              { title: 'Find local, delicious food', detail: null },
+              { title: 'Place your order', detail: 'Your money is protected until you pick up your produce.' },
+              { title: 'Pick up from a local farmer or gardener', detail: null },
+            ].map((step, index) => (
+              <li
+                key={step.title}
+                className="flex items-start gap-3 bg-white/10 border border-white/25 backdrop-blur-sm rounded-2xl px-4 py-3"
+              >
+                <span className="w-7 h-7 shrink-0 rounded-full bg-emerald-400 text-emerald-950 text-sm font-extrabold flex items-center justify-center">
+                  {index + 1}
+                </span>
+                <span className="text-sm leading-snug">
+                  <span className="block font-semibold">{step.title}</span>
+                  {step.detail && <strong className="block mt-0.5 font-bold text-emerald-200">{step.detail}</strong>}
+                </span>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 

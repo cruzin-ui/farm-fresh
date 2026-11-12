@@ -96,7 +96,7 @@ const FOR_SELLERS: Reason[] = [
   {
     icon: ClipboardList,
     title: 'Your records, kept for you',
-    body: 'Every order, pickup, cancellation and payout is saved in your Sales History, and your dashboard charts what you earned each week and which crops earned it.',
+    body: 'Every order, pickup, cancellation and payout is saved in the Sales & Payouts section of your dashboard, with charts of what you earned each week and which crops earned it.',
   },
   {
     icon: SlidersHorizontal,

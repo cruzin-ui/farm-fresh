@@ -123,8 +123,10 @@ async function farmIsVisible(farmerId: string) {
 }
 
 // The next dates a farm will be out, for its farm page and listings.
-export async function publicAppearances(farmerId: string, limit = 8) {
-  if (!(await farmIsVisible(farmerId))) return [];
+// `ownPreview`: the farmer looking at their own page, who sees their posts
+// even before they're shown to anyone else.
+export async function publicAppearances(farmerId: string, limit = 8, ownPreview = false) {
+  if (!ownPreview && !(await farmIsVisible(farmerId))) return [];
   const today = todayInArizona();
   const events = [];
   for (const a of await farmAppearances(farmerId, today)) {

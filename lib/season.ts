@@ -1,6 +1,6 @@
-// The site's look changes with the season: each one has its own background
-// tone and accent colour (defined in globals.css under [data-season=...]),
-// while the FFD green stays the same all year.
+// The season, for the small seasonal icon after the site name (see
+// components/SeasonIcon.tsx and globals.css). The site's colours themselves
+// are green and white all year and don't follow it.
 //
 // The season comes from the calendar in Arizona time. Pages can be built
 // ahead of time, so it is worked out in the visitor's browser by a small

@@ -93,6 +93,8 @@ import {
   HelpCircle,
   Store,
   Repeat,
+  Lock,
+  ShieldCheck,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import WholesaleFields, { NO_WHOLESALE, wholesaleDraftFrom, type WholesaleDraft } from '@/components/WholesaleFields';
@@ -101,7 +103,10 @@ import { loadConnectAndInitialize } from '@stripe/connect-js/pure';
 import type { StripeConnectInstance } from '@stripe/connect-js';
 import { ConnectComponentsProvider, ConnectAccountOnboarding } from '@stripe/react-connect-js';
 
-type DashboardTab = 'listings' | 'new' | 'orders' | 'picklist' | 'csa' | 'history' | 'profile' | 'settings' | 'help';
+// 'sales' is Sales & Payouts: the payout account, how sales are going, and
+// the record of every order. (It replaced separate "Sales History" and
+// "Payouts & Settings" sections; links to either still open it.)
+type DashboardTab = 'listings' | 'new' | 'orders' | 'picklist' | 'csa' | 'sales' | 'profile' | 'help';
 
 // The guided tour a new seller is shown. Each step opens a section and points
 // at where it is: the entry in the side menu on a computer, or the section
@@ -126,10 +131,10 @@ const TOUR_STEPS: (TourStep & { tab: DashboardTab })[] = [
     body: "Add your farm's name, a photo, your pickup address (where buyers collect every order, and you can change it later) and the days and times you're usually around. Buyers see all but the street address before they order. View my farm page, at the top, shows you what buyers see.",
   },
   {
-    tab: 'settings',
-    targets: ['nav-settings', 'menu-button'],
+    tab: 'sales',
+    targets: ['nav-sales', 'menu-button'],
     title: 'Connect your payouts',
-    body: 'Add your bank details through Stripe so you can be paid. Your listings stay hidden from buyers until this is done. Later, this is also where you see how your sales are going.',
+    body: 'Add your bank details through Stripe so you can be paid. Your listings stay hidden from buyers until this is done. Later, this is also where you see how your sales are going and keep a record of every order.',
   },
   {
     tab: 'listings',
@@ -187,12 +192,16 @@ export default function SellerDashboardPage() {
   // Links in emails can open a section directly, e.g. /dashboard?tab=csa.
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get('tab');
-    if (tab === 'csa' || tab === 'orders' || tab === 'picklist' || tab === 'history' || tab === 'profile' || tab === 'settings') {
+    if (tab === 'csa' || tab === 'orders' || tab === 'picklist' || tab === 'profile' || tab === 'sales') {
       setActiveTab(tab);
+      openedOnOrders.current = true;
+    } else if (tab === 'history' || tab === 'settings') {
+      // The two sections that became Sales & Payouts, from older links.
+      setActiveTab('sales');
       openedOnOrders.current = true;
     }
   }, []);
-  // Which year of Sales History is shown and downloaded.
+  // Which year of the sales record is shown and downloaded.
   const [historyYear, setHistoryYear] = useState<number | 'all'>('all');
   // The farm's own web address (farmfreshdirect.online/<name>): the one it
   // has, if any, and the one being typed.
@@ -523,7 +532,7 @@ export default function SellerDashboardPage() {
           if (openOrders.length > 0) setActiveTab((current) => (current === 'listings' ? 'orders' : current));
         }
         // Pickup codes are hidden from farmers until an order is completed;
-        // after that they're shown in Sales History as a record.
+        // after that they're shown in Sales & Payouts as a record.
         let completedCodes: Record<string, string> = {};
         try {
           const codesRes = await postWithAuth('/api/orders/completed-codes');
@@ -566,7 +575,7 @@ export default function SellerDashboardPage() {
   );
 
   // "Your Listings" shows what's on sale. Sold-out and taken-down listings are
-  // tucked behind a toggle — their sales are already in Sales History — but
+  // tucked behind a toggle — their sales are already in Sales & Payouts — but
   // kept reachable so the farmer can restock one instead of reposting it.
   const activeListings = myListings.filter((l) => Number(l.available_quantity ?? 0) >= 1);
   const inactiveListings = myListings.filter((l) => Number(l.available_quantity ?? 0) < 1);
@@ -788,7 +797,7 @@ export default function SellerDashboardPage() {
       setSuccessMsg(
         Number(data.payoutAmount) > 0
           ? `${what} — $${Number(data.payoutAmount).toFixed(2)} is on its way to your payout account.`
-          : `${what} and moved to Sales History.`
+          : `${what} and moved to Sales & Payouts.`
       );
       setCompleteOrderId(null);
       setCompleteCode('');
@@ -1582,9 +1591,8 @@ export default function SellerDashboardPage() {
                   orders: 'Orders',
                   picklist: 'Pick List',
                   csa: 'Farm Boxes',
-                  history: 'Sales History',
+                  sales: 'Sales & Payouts',
                   profile: 'Farm Profile & Photo',
-                  settings: 'Payouts & Settings',
                   help: 'Help',
                 }[activeTab]
               }
@@ -1685,18 +1693,19 @@ export default function SellerDashboardPage() {
             </button>
 
             <button
+              data-tour="nav-sales"
               onClick={() => {
-                setActiveTab('history');
+                setActiveTab('sales');
                 setSuccessMsg(null);
                 setErrorMsg(null);
               }}
               className={`w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
-                activeTab === 'history'
+                activeTab === 'sales'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
-              <History className="w-4 h-4" /> Sales History
+              <CreditCard className="w-4 h-4" /> Sales & Payouts
             </button>
 
             <button
@@ -1713,22 +1722,6 @@ export default function SellerDashboardPage() {
               }`}
             >
               <User className="w-4 h-4" /> Farm Profile & Photo
-            </button>
-
-            <button
-              data-tour="nav-settings"
-              onClick={() => {
-                setActiveTab('settings');
-                setSuccessMsg(null);
-                setErrorMsg(null);
-              }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
-                activeTab === 'settings'
-                  ? 'bg-emerald-50 text-emerald-700 font-bold'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <CreditCard className="w-4 h-4" /> Payouts & Settings
             </button>
 
             <button
@@ -1834,8 +1827,8 @@ export default function SellerDashboardPage() {
                         title: 'Connect your payouts',
                         detail:
                           "Add your bank details through Stripe so you can be paid. Your listings stay hidden from buyers until this is done.",
-                        action: 'Open Payouts & Settings',
-                        onClick: () => setActiveTab('settings'),
+                        action: 'Open Sales & Payouts',
+                        onClick: () => setActiveTab('sales'),
                       },
                       {
                         done: listingDone,
@@ -1926,16 +1919,26 @@ export default function SellerDashboardPage() {
                   <div>
                     <p className="font-bold text-sm">Your listings aren't visible to buyers yet</p>
                     <p className="mt-0.5">
-                      They'll appear on the site as soon as you finish connecting your payouts. You can keep
-                      adding and editing listings in the meantime.
+                      They'll appear on the site as soon as you finish connecting your payouts. Until then, try
+                      anything you like: post, edit, and see how your farm page looks. Only you can see it.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('settings')}
-                      className="mt-2 font-bold underline underline-offset-2"
-                    >
-                      Connect payouts
-                    </button>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                      <a
+                        href={farmPagePath}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold underline underline-offset-2"
+                      >
+                        Preview your farm page
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('sales')}
+                        className="font-bold underline underline-offset-2"
+                      >
+                        Connect payouts
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -3130,7 +3133,7 @@ export default function SellerDashboardPage() {
               sellerTermsAccepted={sellerTermsAccepted}
               hasPickupAddress={Boolean(farmPickup)}
               onGoToProfile={() => setActiveTab('profile')}
-              onGoToSettings={() => setActiveTab('settings')}
+              onGoToSettings={() => setActiveTab('sales')}
             />
           )}
 
@@ -3379,11 +3382,112 @@ export default function SellerDashboardPage() {
             </div>
           )}
 
-          {activeTab === 'history' && (
+          {activeTab === 'sales' && (
             <div className="space-y-6">
               <div className="pb-4 border-b border-gray-100">
-                <h1 className="text-2xl font-bold text-gray-900">Sales & Order History</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Sales & Payouts</h1>
                 <p className="text-xs text-gray-500 mt-0.5">
+                  Your payout account, how your sales are going, and a record of every order.
+                </p>
+              </div>
+
+              {stripeOnboardingComplete ? (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2 text-xs text-emerald-900">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <p className="font-bold text-sm">Payouts connected</p>
+                    <p className="mt-0.5">
+                      Your Stripe account is verified and ready to receive payouts.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-xs text-amber-900">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                  <div>
+                    <p className="font-bold text-sm">
+                      {stripeAccountId ? 'Payout setup incomplete' : 'Payouts not connected'}
+                    </p>
+                    <p className="mt-0.5">
+                      {stripeAccountId
+                        ? "Finish the remaining steps with Stripe to start receiving direct payouts. Your listings stay hidden from buyers until this is done."
+                        : "Set up a Stripe payout account to receive your earnings by direct deposit. Your listings stay hidden from buyers until this is done."}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {!stripeOnboardingComplete && !connectInstance && (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2.5 p-4 bg-white border border-gray-200 rounded-xl text-xs text-gray-700">
+                    <ShieldCheck className="w-5 h-5 text-[#635BFF] shrink-0" aria-hidden="true" />
+                    <p>
+                      Payouts are handled by <strong>Stripe</strong>, the payment company behind millions of online
+                      businesses. You&apos;ll enter your bank and identity details in Stripe&apos;s secure form, and
+                      they go straight to Stripe. Farm Fresh Direct never sees or stores your bank account or Social
+                      Security number.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSetUpPayouts}
+                    disabled={settingUpPayouts}
+                    className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm transition-colors shadow-sm disabled:bg-gray-400"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    {settingUpPayouts
+                      ? 'Starting...'
+                      : stripeAccountId
+                        ? 'Continue Payout Setup with Stripe'
+                        : 'Set Up Payouts with Stripe'}
+                  </button>
+                </div>
+              )}
+
+              {/* Stripe's own onboarding form, framed so it's plain that the
+                  details are going to Stripe, not to this site. */}
+              {connectInstance && (
+                <section
+                  aria-label="Secure payout setup by Stripe"
+                  className="rounded-2xl border-2 border-[#635BFF] overflow-hidden shadow-sm bg-white"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-[#635BFF] text-white">
+                    <p className="flex items-center gap-2 text-sm font-bold">
+                      <Lock className="w-4 h-4" aria-hidden="true" /> Secure payout setup by Stripe
+                    </p>
+                    <p className="text-[11px] font-semibold text-white/90">Encrypted · Verified by Stripe</p>
+                  </div>
+                  <p className="px-4 py-3 text-xs text-gray-700 bg-[#F6F5FF] border-b border-[#E3E1FF]">
+                    The form below comes directly from Stripe, our payment processor. What you enter here (your bank
+                    account, and the identity details banks require) goes to Stripe, not to Farm Fresh Direct. Stripe
+                    uses it to verify you and send your payouts.{' '}
+                    <a
+                      href="https://stripe.com/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-[#4B44D6] underline"
+                    >
+                      Stripe&apos;s privacy policy
+                    </a>
+                  </p>
+                  <div className="p-4">
+                    <ConnectComponentsProvider connectInstance={connectInstance}>
+                      <ConnectAccountOnboarding onExit={handleOnboardingExit} />
+                    </ConnectComponentsProvider>
+                  </div>
+                  <p className="px-4 py-2.5 text-[11px] text-gray-500 bg-gray-50 border-t border-gray-100 flex items-center gap-1.5">
+                    <Lock className="w-3 h-3" aria-hidden="true" /> Powered by Stripe
+                  </p>
+                </section>
+              )}
+
+              <SellerEarnings history={salesHistory} openOrders={incomingOrders} />
+
+              {/* The record: every order picked up or cancelled, by year, and
+                  the spreadsheet for the farmer's accounts. */}
+              <div className="pt-2 space-y-1">
+                <h2 className="text-sm font-bold text-gray-900">Your records</h2>
+                <p className="text-xs text-gray-500">
                   Every order that has been picked up or cancelled, kept as your record.
                 </p>
               </div>
@@ -3912,68 +4016,6 @@ export default function SellerDashboardPage() {
             </>
           )}
 
-          {activeTab === 'settings' && (
-            <div className="space-y-6">
-              <div className="pb-4 border-b border-gray-100">
-                <h1 className="text-2xl font-bold text-gray-900">Payouts & Settings</h1>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Your payout account, and how your sales are going.
-                </p>
-              </div>
-
-              {stripeOnboardingComplete ? (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2 text-xs text-emerald-900">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <div>
-                    <p className="font-bold text-sm">Payouts connected</p>
-                    <p className="mt-0.5">
-                      Your Stripe account is verified and ready to receive payouts.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-xs text-amber-900">
-                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
-                  <div>
-                    <p className="font-bold text-sm">
-                      {stripeAccountId ? 'Payout setup incomplete' : 'Payouts not connected'}
-                    </p>
-                    <p className="mt-0.5">
-                      {stripeAccountId
-                        ? "Finish the remaining steps with Stripe to start receiving direct payouts. Your listings stay hidden from buyers until this is done."
-                        : "Set up a Stripe payout account to receive your earnings by direct deposit. Your listings stay hidden from buyers until this is done."}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {!stripeOnboardingComplete && !connectInstance && (
-                <button
-                  type="button"
-                  onClick={handleSetUpPayouts}
-                  disabled={settingUpPayouts}
-                  className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm transition-colors shadow-sm disabled:bg-gray-400"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  {settingUpPayouts
-                    ? 'Starting...'
-                    : stripeAccountId
-                      ? 'Continue Payout Setup'
-                      : 'Set Up Payouts'}
-                </button>
-              )}
-
-              {connectInstance && (
-                <div className="p-4 border border-gray-200 rounded-xl">
-                  <ConnectComponentsProvider connectInstance={connectInstance}>
-                    <ConnectAccountOnboarding onExit={handleOnboardingExit} />
-                  </ConnectComponentsProvider>
-                </div>
-              )}
-
-              <SellerEarnings history={salesHistory} openOrders={incomingOrders} />
-            </div>
-          )}
         </main>
       </div>
     </div>
