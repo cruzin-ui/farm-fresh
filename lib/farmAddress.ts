@@ -14,8 +14,8 @@ export const FARM_ADDRESS_MAX = 30;
 export const RESERVED_FARM_ADDRESSES = new Set([
   // Pages the site has now.
   'about', 'account', 'admin', 'api', 'auth', 'browse', 'checkout', 'contact', 'dashboard', 'faq',
-  'following', 'listings', 'login', 'orders', 'privacy', 'sell', 'seller-terms', 'sellers', 'signed-in',
-  'terms', 'welcome', 'why',
+  'following', 'invoice', 'listings', 'login', 'orders', 'privacy', 'sell', 'seller-terms', 'sellers', 'signed-in',
+  'terms', 'welcome', 'why', 'invoices', 'records', 'statements',
 
   // Pages it may have one day.
   'app', 'apps', 'blog', 'news', 'stories', 'help', 'support', 'guide', 'guides', 'how-it-works', 'pricing',

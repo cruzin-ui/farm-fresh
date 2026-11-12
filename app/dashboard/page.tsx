@@ -21,7 +21,7 @@ import { isBoxCategory } from '@/lib/csaSchedule';
 import { tidyFarmAddress, farmAddressProblem, FARM_ADDRESS_MAX } from '@/lib/farmAddress';
 import { SELLER_CHANGE_REASONS, LISTING_ACTIONS, BUYER_REQUEST, type ListingAction } from '@/lib/sellerChangeReasons';
 import { SELLER_CANCEL_LIMIT, SELLER_CANCEL_WINDOW_DAYS } from '@/lib/sellerLimits';
-import { buildSalesCsv, downloadCsv, salesYears, sellerEarnings } from '@/lib/salesCsv';
+import SellerRecords from '@/components/SellerRecords';
 import SellerTour, { type TourStep } from '@/components/SellerTour';
 import { MAX_LISTING_TAGS } from '@/lib/listingTags';
 import SellerEarnings from '@/components/SellerEarnings';
@@ -79,7 +79,6 @@ import {
   LogOut,
   User,
   ShoppingBag,
-  History,
   Download,
   CreditCard,
   Check,
@@ -201,8 +200,6 @@ export default function SellerDashboardPage() {
       openedOnOrders.current = true;
     }
   }, []);
-  // Which year of the sales record is shown and downloaded.
-  const [historyYear, setHistoryYear] = useState<number | 'all'>('all');
   // The farm's own web address (farmfreshdirect.online/<name>): the one it
   // has, if any, and the one being typed.
   const [farmAddress, setFarmAddress] = useState<string | null>(null);
@@ -2485,6 +2482,15 @@ export default function SellerDashboardPage() {
                           </span>
                           <span className="text-xs text-gray-500">
                             Order <span className="font-mono font-bold text-gray-700">{orderRef(items[0])}</span>
+                            {' · '}
+                            <a
+                              href={`/invoice/${items[0].id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold text-emerald-800 underline underline-offset-2"
+                            >
+                              Invoice
+                            </a>
                           </span>
                           {items[0].buyer_name && (
                             <span className="text-sm font-bold text-gray-900">for {items[0].buyer_name}</span>
@@ -3483,147 +3489,7 @@ export default function SellerDashboardPage() {
 
               <SellerEarnings history={salesHistory} openOrders={incomingOrders} />
 
-              {/* The record: every order picked up or cancelled, by year, and
-                  the spreadsheet for the farmer's accounts. */}
-              <div className="pt-2 space-y-1">
-                <h2 className="text-sm font-bold text-gray-900">Your records</h2>
-                <p className="text-xs text-gray-500">
-                  Every order that has been picked up or cancelled, kept as your record.
-                </p>
-              </div>
-
-              {salesHistory.length > 0 &&
-                (() => {
-                  const report = buildSalesCsv(salesHistory, historyYear);
-                  return (
-                    <div className="p-4 border border-gray-200 rounded-xl space-y-3">
-                      <div className="flex items-end gap-3 flex-wrap">
-                        <div>
-                          <label htmlFor="dash-history-year" className="block text-xs font-semibold text-gray-700 mb-1">
-                            Show
-                          </label>
-                          <select
-                            id="dash-history-year"
-                            value={String(historyYear)}
-                            onChange={(e) => setHistoryYear(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                            className="px-3 py-2 border rounded-lg text-sm bg-white"
-                          >
-                            <option value="all">All years</option>
-                            {salesYears(salesHistory).map((year) => (
-                              <option key={year} value={year}>
-                                {year}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={report.count === 0}
-                          onClick={() =>
-                            downloadCsv(
-                              `farm-fresh-direct-sales-${historyYear === 'all' ? 'all-years' : historyYear}.csv`,
-                              report.csv
-                            )
-                          }
-                          className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-xs font-bold px-4 py-2.5 rounded-xl"
-                        >
-                          <Download className="w-4 h-4" aria-hidden="true" /> Download as a Spreadsheet
-                        </button>
-                      </div>
-                      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-500">
-                        <div>
-                          <dt>Produce sold</dt>
-                          <dd className="text-base font-bold text-gray-900">${report.totals.sales.toFixed(2)}</dd>
-                        </div>
-                        <div>
-                          <dt>Farm Fresh Direct fees</dt>
-                          <dd className="text-base font-bold text-gray-900">${report.totals.fee.toFixed(2)}</dd>
-                        </div>
-                        <div>
-                          <dt>Restocking fees to you</dt>
-                          <dd className="text-base font-bold text-gray-900">${report.totals.restocking.toFixed(2)}</dd>
-                        </div>
-                        <div>
-                          <dt>Paid to you</dt>
-                          <dd className="text-base font-bold text-emerald-800">${report.totals.paid.toFixed(2)}</dd>
-                        </div>
-                      </dl>
-                      <p className="text-xs text-gray-500">
-                        The file has one row per order, with the date, item, quantity, what it sold for, our fee and
-                        what you were paid, and a total at the bottom. It opens in Excel or Google Sheets. An order
-                        counts in the year it was picked up.
-                      </p>
-                    </div>
-                  );
-                })()}
-
-              {salesHistory.length === 0 ? (
-                <div className="text-center py-16 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                  <History className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                  <h3 className="text-base font-semibold text-gray-900">No Historical Sales Yet</h3>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Completed orders will be logged here for your accounting records.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {salesHistory
-                    .filter(
-                      (order) =>
-                        historyYear === 'all' ||
-                        new Date(order.completed_at || order.created_at).getFullYear() === historyYear
-                    )
-                    .map((order) => (
-                    <div
-                      key={order.id}
-                      className="p-4 border rounded-xl border-gray-200 bg-gray-50/50 flex justify-between items-center gap-3"
-                    >
-                      <div>
-                        <h4 className="text-sm font-bold text-gray-800">
-                          {order.listing_title}
-                          <span className="ml-2 text-xs font-normal text-gray-500">
-                            Order <span className="font-mono font-bold">{orderRef(order)}</span>
-                          </span>
-                        </h4>
-                        <p className="text-xs text-gray-600 break-all">
-                          Buyer:{' '}
-                          <span className="font-semibold">
-                            {order.buyer_name ? `${order.buyer_name} · ` : ''}
-                            {order.buyer_email || 'Unknown'}
-                          </span>
-                          {order.reserved_quantity != null &&
-                            ` (${order.reserved_quantity} ${order.listing_unit_type})`}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {order.status === 'cancelled' ? 'Cancelled — ordered' : 'Completed — ordered'} on{' '}
-                          {new Date(order.created_at).toLocaleDateString()}
-                          {Number(order.refunded_amount || 0) > 0 &&
-                            ` · $${Number(order.refunded_amount).toFixed(2)} refunded`}
-                          {order.used_pickup_code && (
-                            <>
-                              {' · '}pickup code entered:{' '}
-                              <span className="font-mono font-bold text-gray-700">{order.used_pickup_code}</span>
-                            </>
-                          )}
-                          {Number(order.no_show_fee_amount || 0) > 0 &&
-                            ` · buyer no-show, $${Number(order.no_show_fee_amount).toFixed(2)} restocking fee paid to you`}
-                        </p>
-                      </div>
-                      {/* What this order paid the seller, which is what they need for their records. */}
-                      <span className="shrink-0 text-right">
-                        <span className="block text-[10px] font-semibold text-gray-500">Paid to you</span>
-                        <span
-                          className={`text-sm font-black ${
-                            sellerEarnings(order).paid > 0 ? 'text-emerald-800' : 'text-gray-400'
-                          }`}
-                        >
-                          ${sellerEarnings(order).paid.toFixed(2)}
-                        </span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <SellerRecords farmName={farmName || 'Your farm'} payoutsConnected={stripeOnboardingComplete} />
             </div>
           )}
 

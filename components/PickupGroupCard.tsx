@@ -366,6 +366,20 @@ export default function PickupGroupCard({
         <span className="text-xs text-gray-500">
           Order <span className="font-mono font-bold text-gray-700">{orderRef(first)}</span> ·{' '}
           {new Date(first.created_at).toLocaleDateString()}
+          {/* Signed-in buyers (no guest link) can print an invoice. */}
+          {!token && (
+            <>
+              {' · '}
+              <a
+                href={`/invoice/${first.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-emerald-800 underline underline-offset-2"
+              >
+                Invoice
+              </a>
+            </>
+          )}
         </span>
       </div>
 
