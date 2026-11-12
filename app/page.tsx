@@ -126,23 +126,23 @@ export default function SplashLandingPage() {
               fuller version for buyers and sellers is further down. */}
           <ol
             aria-label="How it works"
-            className="mt-7 mx-auto max-w-3xl grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 text-left"
+            className="mt-6 mx-auto max-w-4xl grid grid-cols-1 sm:grid-cols-3 gap-2 text-left"
           >
             {[
               { title: 'Find local, delicious food', detail: null },
-              { title: 'Place your order', detail: 'Your money is protected until you pick up your produce.' },
+              { title: 'Place your order', detail: 'Your money is protected until pickup' },
               { title: 'Pick up from a local farmer or gardener', detail: null },
             ].map((step, index) => (
               <li
                 key={step.title}
-                className="flex items-start gap-3 bg-white/10 border border-white/25 backdrop-blur-sm rounded-2xl px-4 py-3"
+                className="flex items-center gap-2.5 bg-white/10 border border-white/25 backdrop-blur-sm rounded-xl px-3 py-1.5"
               >
-                <span className="w-7 h-7 shrink-0 rounded-full bg-emerald-400 text-emerald-950 text-sm font-extrabold flex items-center justify-center">
+                <span className="w-6 h-6 shrink-0 rounded-full bg-emerald-400 text-emerald-950 text-xs font-extrabold flex items-center justify-center">
                   {index + 1}
                 </span>
-                <span className="text-sm leading-snug">
+                <span className="text-sm leading-tight">
                   <span className="block font-semibold">{step.title}</span>
-                  {step.detail && <strong className="block mt-0.5 font-bold text-emerald-200">{step.detail}</strong>}
+                  {step.detail && <strong className="block text-xs font-bold text-emerald-200">{step.detail}</strong>}
                 </span>
               </li>
             ))}

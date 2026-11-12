@@ -30,6 +30,11 @@ const BUYER_FAQS: Faq[] = [
       'Online at checkout, by card, Apple Pay or Google Pay. Payments are processed by Stripe. Every order is paid in full up front, so you never need to bring cash to a pickup.',
   },
   {
+    question: 'Can I get an invoice or receipt?',
+    answer:
+      "Yes. We email you an order confirmation when you order. If you're signed in, each order in My Purchases also has an Invoice link: a printable invoice from the farm with the items, prices, our service fee, sales tax and the total, which you can print or save as a PDF.",
+  },
+  {
     question: 'Can I order part of a unit, like half a pound?',
     answer:
       'No. Orders are in whole units of whatever the farmer lists: whole pounds, whole dozens, whole bunches. If a farmer lists in ounces, you can order any whole number of ounces.',
@@ -302,6 +307,16 @@ const SELLER_FAQS: Faq[] = [
         </p>
       </>
     ),
+  },
+  {
+    question: 'What records does Farm Fresh Direct keep for me?',
+    answer:
+      "Everything you need at tax time, in the Sales & Payouts section of your Seller Dashboard. Every order that is picked up or cancelled is logged with its sale type (order, Farm Box, market pickup, wholesale or shared Farm Box), what it sold for, our fee, any restocking fee, what you were paid and when, and any sales tax we collected from the buyer. Choose any period, such as a month, a quarter, a year or your own dates, to see its totals, with month-by-month and quarterly totals for each year. Print a statement or download a spreadsheet for your accountant. Bank deposits shows each weekly deposit from Stripe and the orders in it, so you can match it to your bank account, and one button opens your Stripe dashboard for your bank details and 1099 tax forms. Every order also has a printable invoice.",
+  },
+  {
+    question: 'Can I give a buyer an invoice?',
+    answer:
+      'Yes. Every order has an Invoice link, on the order in your dashboard and in your records. It opens a printable invoice with your farm name, the buyer, the items, quantities and prices, sales tax and the total paid; print it or save it as a PDF. Buyers who are signed in can open the same invoice from My Purchases, which helps restaurants and shops buying wholesale keep their own records.',
   },
   {
     question: 'What do I get besides a place to list?',
