@@ -37,15 +37,16 @@ export default function AboutPage() {
         id="mission"
         className="bg-emerald-800 text-white rounded-3xl px-6 py-10 sm:px-12 sm:py-12 shadow-sm scroll-mt-24"
       >
-        <h1 className="text-3xl sm:text-4xl font-bold text-center">The Mission</h1>
+        {/* The page title for search engines and screen readers; the letter itself starts with its opening line. */}
+        <h1 className="sr-only">The Mission</h1>
 
-        <div className="mt-8 max-w-4xl mx-auto space-y-5 text-base sm:text-lg leading-relaxed text-white/95">
+        <div className="max-w-4xl mx-auto space-y-5 text-base sm:text-lg leading-relaxed text-white/95">
           <p>
             Thank you for being here. I started Farm Fresh Direct because I believe the way most of us buy food is
             broken, and that the fix is closer to home than we think.
           </p>
 
-          <h3 className="pt-4 text-2xl font-bold text-center text-white">The Food System Loop</h3>
+          <h2 className="pt-4 text-2xl font-bold text-center text-white">The Food System Loop</h2>
           <p>
             Right now, most of us are caught in a loop. We buy our food from large chains, and much of that produce
             was picked early and shipped hundreds or thousands of miles to reach the shelf. Most of the money we spend
@@ -61,7 +62,7 @@ export default function AboutPage() {
             . With fewer local growers, we depend even more on the long supply chain, and the loop starts again.
           </p>
 
-          <h3 className="pt-4 text-2xl font-bold text-center text-white">Food Deserts</h3>
+          <h2 className="pt-4 text-2xl font-bold text-center text-white">Food Deserts</h2>
           <p>
             For some neighbors, that loop has left a hole. A{' '}
             <a href={SOURCES.foodDesert} {...EXTERNAL} className={LINK}>
@@ -82,7 +83,7 @@ export default function AboutPage() {
             doesn&apos;t need a truck, a warehouse or a store. It needs a way for you to find it.
           </p>
 
-          <h3 className="pt-4 text-2xl font-bold text-center text-white">Local Dollars</h3>
+          <h2 className="pt-4 text-2xl font-bold text-center text-white">Local Dollars</h2>
           <p>
             The impact of money spent in your own community is hard to overstate. According to{' '}
             <a href={SOURCES.localFirst} {...EXTERNAL} className={LINK}>
@@ -110,7 +111,7 @@ export default function AboutPage() {
             farms, and simple records for tax time.
           </p>
 
-          <h3 className="pt-4 text-2xl font-bold text-center text-white">The Goal</h3>
+          <h2 className="pt-4 text-2xl font-bold text-center text-white">The Mission</h2>
           <p>
             We want to bridge the gap in the food system, so there is one less barrier between our communities and
             delicious, healthy, locally grown food. Every order you place keeps a neighbor growing, and keeps your
