@@ -2,7 +2,8 @@ import type { Metadata, Viewport } from "next";
 import BottomNav from "@/components/BottomNav";
 import CartButton from '@/components/CartButton';
 import AccountMenu from "@/components/AccountMenu";
-import { Patua_One, Fugaz_One } from "next/font/google";
+import { Patua_One } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
@@ -14,7 +15,8 @@ import SeasonIcon from "@/components/SeasonIcon";
 import { SEASON_SCRIPT } from "@/lib/season";
 
 // Body text: Patua One, a sturdy slab serif with a farm-stand feel.
-// Headings, titles and the site name: Fugaz One, bold and slanted. Each comes
+// Headings, titles and the site name: FFD Display, which is Fugaz One (bold
+// and slanted) with a plainer lowercase f (see app/fonts/README.md). Each comes
 // in one weight only. Both are applied in globals.css.
 const bodyFont = Patua_One({
   variable: "--font-body",
@@ -23,10 +25,10 @@ const bodyFont = Patua_One({
   display: "swap",
 });
 
-const headingFont = Fugaz_One({
+const headingFont = localFont({
+  src: "./fonts/ffd-display.ttf",
   variable: "--font-heading",
   weight: "400",
-  subsets: ["latin"],
   display: "swap",
 });
 

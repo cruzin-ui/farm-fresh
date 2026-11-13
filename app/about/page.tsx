@@ -63,11 +63,11 @@ export default function AboutPage() {
 
           <h3 className="pt-4 text-2xl font-bold text-center text-white">Food deserts</h3>
           <p>
-            For some neighborhoods, that loop has left a hole. A{' '}
+            For some neighbors, that loop has left a hole. A{' '}
             <a href={SOURCES.foodDesert} {...EXTERNAL} className={LINK}>
               food desert
             </a>{' '}
-            is a low-income area where many people live far from a full grocery store: more than a mile away in a
+            is an area where many people live far from a full grocery store: more than a mile away in a
             city, or more than ten miles away in the country. In those places, fresh fruit and vegetables are hard to
             find, and the nearest food is often a convenience store or a fast-food counter. The Phoenix area has{' '}
             <a href={SOURCES.phoenixDeserts} {...EXTERNAL} className={LINK}>
