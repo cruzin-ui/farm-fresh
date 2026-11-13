@@ -7,6 +7,7 @@ import "./globals.css";
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
 import PageViewCounter from "@/components/PageViewCounter";
+import NativeApp from "@/components/NativeApp";
 import { ShoppingBag } from "lucide-react";
 import FfdLogo from "@/components/FfdLogo";
 import SeasonIcon from "@/components/SeasonIcon";
@@ -141,6 +142,9 @@ export default function RootLayout({
 
         {/* Our own count of visits and page views, shown in the admin page. */}
         <PageViewCounter />
+
+        {/* Back button and sign-in inside the iPhone/Android app; nothing on the website. */}
+        <NativeApp />
       </body>
     </html>
   );

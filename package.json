@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/browser": "^8.0.5",
+    "@capacitor/core": "^8.6.0",
     "@stripe/connect-js": "^3.4.6",
     "@stripe/react-connect-js": "^3.4.4",
     "@stripe/react-stripe-js": "^7.0.0",

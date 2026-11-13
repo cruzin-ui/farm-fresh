@@ -9,6 +9,8 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    // The iPhone/Android app shell has its own tools.
+    "mobile/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
