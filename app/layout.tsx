@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import BottomNav from "@/components/BottomNav";
 import CartButton from '@/components/CartButton';
 import AccountMenu from "@/components/AccountMenu";
-import { DM_Sans, Fraunces } from "next/font/google";
+import { Patua_One, Fugaz_One } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
@@ -13,16 +13,19 @@ import FfdLogo from "@/components/FfdLogo";
 import SeasonIcon from "@/components/SeasonIcon";
 import { SEASON_SCRIPT } from "@/lib/season";
 
-// Body text: a clean, friendly sans-serif. Headings: a soft serif with a
-// hand-made, market-stall feel. Both are applied in globals.css.
-const bodyFont = DM_Sans({
+// Body text: Patua One, a sturdy slab serif with a farm-stand feel.
+// Headings, titles and the site name: Fugaz One, bold and slanted. Each comes
+// in one weight only. Both are applied in globals.css.
+const bodyFont = Patua_One({
   variable: "--font-body",
+  weight: "400",
   subsets: ["latin"],
   display: "swap",
 });
 
-const headingFont = Fraunces({
+const headingFont = Fugaz_One({
   variable: "--font-heading",
+  weight: "400",
   subsets: ["latin"],
   display: "swap",
 });
@@ -76,7 +79,7 @@ export default function RootLayout({
               <div className="p-1 bg-emerald-600 rounded-xl shadow-sm">
                 <FfdLogo className="w-7 h-7" />
               </div>
-              <span>Farm Fresh <span className="text-emerald-600 font-medium">Direct</span></span>
+              <span>Farm <span className="text-emerald-600">Fresh</span> Direct</span>
               <SeasonIcon />
             </Link>
 

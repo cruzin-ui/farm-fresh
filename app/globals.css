@@ -14,14 +14,18 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-body), Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), Georgia, 'Times New Roman', serif;
+  /* Both fonts come in a single weight. Without this, browsers fake bold and
+     italic by smearing the letters; with it, bold text keeps the same clean
+     letters (emphasis comes from colour and size instead). */
+  font-synthesis: none;
 }
 
 h1,
 h2,
 h3,
 .font-heading {
-  font-family: var(--font-heading), Georgia, 'Times New Roman', serif;
+  font-family: var(--font-heading), Arial, Helvetica, sans-serif;
 }
 
 /* Tailwind's gray-400 is too light for text on white (about 2.5:1, against
