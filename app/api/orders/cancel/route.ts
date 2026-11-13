@@ -7,6 +7,7 @@ import { resolveNoShow, refundOrderQuantity, OrderActionError } from '@/lib/orde
 import { isSellerLate } from '@/lib/pickupRules';
 import { isWithinFreeCancellation, RESTOCKING_RATE, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { sendEmail, escapeHtml } from '@/lib/email';
+import { sendPush } from '@/lib/push';
 import { alertAdmin } from '@/lib/alerts';
 import { sellerChangedOrderIds } from '@/lib/sellerChanges';
 
@@ -116,6 +117,11 @@ export async function POST(request: Request) {
     }
 
     // Tell the farmer straight away, so they don't pick or pack it.
+    await sendPush([listing.farmer_id], {
+      title: 'Order cancelled by the buyer',
+      body: `${quantity} ${listing.unit_type || 'units'} of ${listing.title || 'your listing'}. You don't need to pick or pack it.`,
+      url: '/dashboard?tab=orders',
+    });
     const { data: sellerUser } = await supabaseAdmin.auth.admin.getUserById(listing.farmer_id);
     if (sellerUser?.user?.email) {
       await sendEmail({

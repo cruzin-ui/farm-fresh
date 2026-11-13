@@ -54,6 +54,10 @@ const config: CapacitorConfig = {
       backgroundColor: '#ffffff',
       overlaysWebView: false,
     },
+    // Show a notification even while the app is open.
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
     SystemBars: {
       insetsHandling: 'native',
     },

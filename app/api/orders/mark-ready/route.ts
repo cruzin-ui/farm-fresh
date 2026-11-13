@@ -5,6 +5,7 @@ import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { buyerGuidanceEmailHtml } from '@/lib/buyerGuidance';
 import { alertAdmin } from '@/lib/alerts';
+import { sendPush } from '@/lib/push';
 import { orderRef } from '@/lib/pickupGroups';
 import { pickupDeadline, formatDeadline, mapLink, BUYER_PICKUP_DAYS } from '@/lib/pickupRules';
 
@@ -204,6 +205,13 @@ export async function POST(request: Request) {
         `,
       });
     }
+
+    // A signed-in buyer who uses the app also gets it on their phone.
+    await sendPush([order.buyer_id], {
+      title: 'Your order is ready for pickup',
+      body: `${readyTitles.length === 1 ? readyTitles[0] : `${readyTitles.length} items`} from order ${orderRef(order)}. Please pick up by ${formatDeadline(pickupBy)}.`,
+      url: '/orders',
+    });
 
     return NextResponse.json({ success: true, readyCount: readyTitles.length });
   } catch (err: any) {

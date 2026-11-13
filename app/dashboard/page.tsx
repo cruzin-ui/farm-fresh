@@ -101,6 +101,7 @@ import { readWholesaleOffer } from '@/lib/wholesale';
 import { loadConnectAndInitialize } from '@stripe/connect-js/pure';
 import type { StripeConnectInstance } from '@stripe/connect-js';
 import { ConnectComponentsProvider, ConnectAccountOnboarding } from '@stripe/react-connect-js';
+import { shareLink } from '@/lib/share';
 
 // 'sales' is Sales & Payouts: the payout account, how sales are going, and
 // the record of every order. (It replaced separate "Sales History" and
@@ -1553,18 +1554,23 @@ export default function SellerDashboardPage() {
               <button
                 type="button"
                 onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(`${window.location.origin}${farmPagePath}`);
+                  // The phone's share sheet in the app; a copied link on a computer.
+                  const result = await shareLink({
+                    title: farmName || 'My farm',
+                    text: `${farmName || 'My farm'} on Farm Fresh Direct`,
+                    url: farmPagePath,
+                  });
+                  if (result === 'copied') {
                     setStorefrontCopied(true);
                     setTimeout(() => setStorefrontCopied(false), 2500);
-                  } catch {
+                  } else if (result === 'failed') {
                     // Copying isn't allowed in this browser: open the page so the address can be copied from it.
                     window.open(farmPagePath, '_blank');
                   }
                 }}
                 className="font-semibold text-gray-700 border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-50"
               >
-                {storefrontCopied ? 'Link copied' : 'Copy link to share'}
+                {storefrontCopied ? 'Link copied' : 'Share my farm page'}
               </button>
             </div>
           )}

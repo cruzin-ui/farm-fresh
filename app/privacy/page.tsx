@@ -132,6 +132,17 @@ export default function PrivacyPolicyPage() {
               types a pickup address or zip code, that text is sent to these services to suggest matching
               addresses and cities.
             </li>
+            <li>
+              <strong>Location lookup</strong> (BigDataCloud) — only if you tap &ldquo;Use my location&rdquo; and allow
+              it, your device&apos;s approximate location (rounded to about half a mile) is sent from your device to
+              this service to find your zip code. We keep only the zip code, as if you had typed it.
+            </li>
+            <li>
+              <strong>Push notifications</strong> (Google Firebase Cloud Messaging and Apple Push Notification
+              service) — if you allow notifications in our phone app, a device token and the text of each
+              notification (such as &ldquo;Your order is ready for pickup&rdquo;) pass through these services to reach
+              your phone.
+            </li>
           </ul>
           <p className="mt-2">
             We may also disclose information when the law requires it, or to protect the rights and safety of

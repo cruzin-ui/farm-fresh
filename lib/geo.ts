@@ -87,3 +87,48 @@ export function rememberBuyerZip(zip: string) {
     else window.localStorage.removeItem(BUYER_ZIP_KEY);
   } catch {}
 }
+
+// The zip code where the phone or computer is, for "Use my location". Asks
+// the browser (or the app) for the device's location, rounds it to about half
+// a mile so no exact position leaves the device, and asks a free lookup
+// service (BigDataCloud, called from the buyer's browser) which zip code that
+// is. Nothing is stored except the zip code, the same as one typed in.
+export type LocationProblem = 'unsupported' | 'denied' | 'unavailable' | 'not-us';
+
+export async function zipFromDeviceLocation(): Promise<{ zip: string } | { problem: LocationProblem }> {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) return { problem: 'unsupported' };
+
+  const position = await new Promise<GeolocationPosition | GeolocationPositionError>((resolve) =>
+    navigator.geolocation.getCurrentPosition(resolve, resolve, {
+      enableHighAccuracy: false,
+      timeout: 15000,
+      maximumAge: 10 * 60 * 1000,
+    })
+  );
+  if (!('coords' in position)) {
+    return { problem: position.code === position.PERMISSION_DENIED ? 'denied' : 'unavailable' };
+  }
+
+  const round = (n: number) => Math.round(n * 100) / 100;
+  try {
+    const res = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${round(position.coords.latitude)}&longitude=${round(
+        position.coords.longitude
+      )}&localityLanguage=en`
+    );
+    if (!res.ok) return { problem: 'unavailable' };
+    const place = await res.json();
+    if (place.countryCode !== 'US') return { problem: 'not-us' };
+    const zip = String(place.postcode || '').slice(0, 5);
+    return /^\d{5}$/.test(zip) ? { zip } : { problem: 'unavailable' };
+  } catch {
+    return { problem: 'unavailable' };
+  }
+}
+
+export const LOCATION_PROBLEM_TEXT: Record<LocationProblem, string> = {
+  unsupported: "This device can't share its location. Please type your zip code.",
+  denied: 'Location is turned off for Farm Fresh Direct. Please type your zip code, or allow location in your settings.',
+  unavailable: "We couldn't find your location. Please type your zip code.",
+  'not-us': 'Farm Fresh Direct is only in the United States for now. Please type a US zip code.',
+};

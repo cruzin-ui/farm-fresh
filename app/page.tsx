@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Sprout, ShoppingBag, ArrowRight, ShieldCheck, HeartHandshake, Store, Banknote, Tag } from 'lucide-react';
 import FreshListingsWheel from '@/components/FreshListingsWheel';
+import HomeUseMyLocation from '@/components/HomeUseMyLocation';
 import { SELLER_KEEPS_PERCENT } from '@/lib/pricing';
 
 const HOW_IT_WORKS = [
@@ -121,6 +122,7 @@ export default function SplashLandingPage() {
               Find Local Growers
             </button>
           </form>
+          <HomeUseMyLocation />
 
           {/* How buying works, in three steps, right under the search. The
               fuller version for buyers and sellers is further down. */}

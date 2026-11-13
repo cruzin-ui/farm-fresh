@@ -106,7 +106,7 @@ export default function RootLayout({
         {/* Extra bottom padding on phones keeps the footer clear of the tab bar. */}
         <footer className="print:hidden w-full max-w-7xl mx-auto px-4 pt-4 pb-24 md:pb-6 text-xs text-gray-500">
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-          <Link href="/why" className="font-semibold hover:text-emerald-700 hover:underline">
+          <Link href="/why" className="app-hide font-semibold hover:text-emerald-700 hover:underline">
             Why Use Us
           </Link>
           <Link href="/faq" className="font-semibold hover:text-emerald-700 hover:underline">
@@ -115,7 +115,7 @@ export default function RootLayout({
           <Link href="/contact" className="font-semibold hover:text-emerald-700 hover:underline">
             Contact Us
           </Link>
-          <Link href="/about" className="font-semibold hover:text-emerald-700 hover:underline">
+          <Link href="/about" className="app-hide font-semibold hover:text-emerald-700 hover:underline">
             About
           </Link>
           <Link href="/terms" className="font-semibold hover:text-emerald-700 hover:underline">
@@ -128,7 +128,7 @@ export default function RootLayout({
             Privacy Policy
           </Link>
           </div>
-          <p className="mt-3 text-center">
+          <p className="app-hide mt-3 text-center">
             © {new Date().getFullYear()} Farm Fresh Direct LLC. Connecting local food communities.
           </p>
         </footer>

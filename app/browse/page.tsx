@@ -13,6 +13,7 @@ import { ListingGridSkeleton } from '@/components/Skeletons';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import { geocodeZip, milesBetween, describeDrive, type Coordinates } from '@/lib/geo';
 import FarmBoxCard, { type BrowseFarmBox } from '@/components/FarmBoxCard';
+import UseMyLocation from '@/components/UseMyLocation';
 import { PLANTS_CATEGORY, plantDetailLabels, nativeLabel } from '@/lib/plants';
 
 // The Browse chip for Farm Boxes, shown beside the produce categories.
@@ -466,6 +467,7 @@ export default function BrowsePage() {
             ))}
             <option value={0}>Any distance</option>
           </select>
+          {!origin && <UseMyLocation onZip={setNearZip} />}
           {nearZip && (
             <button
               onClick={() => setNearZip('')}
