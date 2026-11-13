@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="max-w-4xl mx-auto px-6 py-12">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
       <Link href="/" className="inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:underline mb-8">
         <ArrowLeft className="w-4 h-4" /> Back to Home
       </Link>
@@ -39,7 +39,7 @@ export default function AboutPage() {
       >
         <h1 className="text-3xl sm:text-4xl font-bold text-center">The Mission</h1>
 
-        <div className="mt-8 max-w-2xl mx-auto space-y-5 text-base sm:text-lg leading-relaxed text-white/95">
+        <div className="mt-8 max-w-4xl mx-auto space-y-5 text-base sm:text-lg leading-relaxed text-white/95">
           <p>
             Thank you for being here. I started Farm Fresh Direct because I believe the way most of us buy food is
             broken, and that the fix is closer to home than we think.
