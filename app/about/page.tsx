@@ -100,14 +100,14 @@ export default function AboutPage() {
             chain breaks down, as it did when grocery shelves went empty in 2020.
           </p>
           <p>
-            That&apos;s why Farm Fresh Direct is built for growers first. It&apos;s{' '}
+            That&apos;s why Farm Fresh Direct was built to take away the cost, the technology and the paperwork that
+            keep good growers from selling locally to their community. It&apos;s free to list with no subscriptions or
+            hidden fees,{' '}
             <Link href="/why/sellers" className={LINK}>
-              free to list, and sellers keep {SELLER_KEEPS_PERCENT}% of every sale
+              sellers keep {SELLER_KEEPS_PERCENT}% of every sale
             </Link>
-            . Every order is paid up front, so growers harvest what has already sold, and they&apos;re protected when
-            a buyer doesn&apos;t show. Each grower gets their own online farm stand, pre-orders for their farmers
-            market stall, Farm Boxes they can run alone or with neighboring farms, and simple records for tax time.
-            We want to take away the cost, the technology and the paperwork that keep good growers from selling.
+            , and they get pre-orders for their farmers market stall, Farm Boxes they can run alone or with neighboring
+            farms, and simple records for tax time.
           </p>
 
           <h3 className="pt-4 text-2xl font-bold text-center text-white">The goal</h3>
