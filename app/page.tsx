@@ -86,7 +86,7 @@ export default function SplashLandingPage() {
             Farm <span className="text-emerald-300">Fresh</span> Direct
           </h1>
 
-          <p className="mt-3 text-2xl sm:text-4xl font-bold tracking-tight">Your Online Farm Stand</p>
+          <p className="font-heading mt-3 text-2xl sm:text-4xl font-bold tracking-tight">Your Online Farm Stand</p>
 
           <p className="mt-5 text-lg sm:text-xl font-medium max-w-2xl mx-auto">
             Local produce, plants, and more from growers near you
