@@ -5,6 +5,7 @@ import { getRequestUser } from '@/lib/apiAuth';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { alertAdmin } from '@/lib/alerts';
+import { sendPush } from '@/lib/push';
 
 export const dynamic = 'force-dynamic';
 
@@ -154,6 +155,13 @@ export async function POST(request: Request) {
           ? `${siteUrl}/orders/confirmation?orderId=${order.id}&token=${codeRecord.guestToken}`
           : `${siteUrl}/orders`;
       }
+
+      // On the other side's phone too, if they use the app (guests can't).
+      await sendPush([role === 'buyer' ? listing.farmer_id : order.buyer_id], {
+        title: role === 'buyer' ? 'New message from a buyer' : 'New message from the farmer',
+        body: `About ${listing.title || 'your order'}: ${text}`,
+        url: role === 'buyer' ? '/dashboard?tab=orders' : '/orders',
+      });
 
       if (recipient) {
         await sendEmail({

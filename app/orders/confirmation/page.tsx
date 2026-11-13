@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
 import PickupGroupCard from '@/components/PickupGroupCard';
 import { describeBuyerOrders } from '@/lib/buyerOrders';
 import { groupOrdersForPickup, isOpenStatus, type BuyerOrder } from '@/lib/pickupGroups';
+import { successTap } from '@/lib/share';
 
 // The receipt for a checkout. The link names one order; everything bought in
 // the same checkout is shown with it, grouped by farm, each farm with its own
@@ -62,6 +63,12 @@ function ConfirmationContent() {
     }
     fetchOrders();
   }, [orderId, guestToken]);
+
+  // In the phone app, a small "done" tap when the paid order appears.
+  const paidOrderShown = orders.length > 0;
+  useEffect(() => {
+    if (paidOrderShown) void successTap();
+  }, [paidOrderShown]);
 
   if (loading) {
     return (

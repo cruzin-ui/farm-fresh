@@ -19,6 +19,7 @@ import Photo from '@/components/Photo';
 import PayoutsPreviewNotice from '@/components/PayoutsPreviewNotice';
 import { ListingPageSkeleton } from '@/components/Skeletons';
 import { PLANTS_CATEGORY, SUN_NEEDS, WATER_NEEDS, nativeLabel } from '@/lib/plants';
+import ShareButton from '@/components/ShareButton';
 
 // Public listing detail page — no sign-in needed to view, or to buy: items go
 // into the cart, and checkout works for guests as well as signed-in buyers.
@@ -219,6 +220,12 @@ export default function ListingDetailPage() {
             <p className={`text-sm font-bold mt-1 ${soldOut ? 'text-red-600' : 'text-emerald-700'}`}>
               {soldOut ? 'Sold Out' : `${availableQty} ${unitType} available`}
             </p>
+            <ShareButton
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 border border-gray-300 bg-white rounded-lg px-3 py-1.5 hover:bg-gray-50"
+              title={listing.title || 'Fresh from a local farm'}
+              text={`${listing.title || 'Fresh produce'} on Farm Fresh Direct`}
+              url={`/listings/${listing.id}`}
+            />
           </div>
 
           {Array.isArray(listing.tags) && listing.tags.length > 0 && (

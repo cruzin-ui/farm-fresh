@@ -156,3 +156,21 @@ h3.text-gray-900 {
     display: none;
   }
 }
+
+/* Inside the iPhone/Android app (components/NativeApp.tsx adds .native-app):
+   no grey flash when tapping, no link-preview pop-up on a long press of the
+   menus and buttons, and the website-only footer links hidden. The help and
+   legal links stay, since the app must link to the privacy policy. */
+.native-app {
+  -webkit-tap-highlight-color: transparent;
+}
+.native-app nav,
+.native-app header,
+.native-app button {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.native-app .app-hide {
+  display: none !important;
+}

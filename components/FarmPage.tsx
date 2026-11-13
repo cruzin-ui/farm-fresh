@@ -12,6 +12,7 @@ import { FarmPageSkeleton } from '@/components/Skeletons';
 import { LISTING_CATEGORIES } from '@/lib/categories';
 import { describeUsualPickup } from '@/lib/pickupRules';
 import FollowFarmButton from '@/components/FollowFarmButton';
+import ShareButton from '@/components/ShareButton';
 import FarmAdminPanel from '@/components/FarmAdminPanel';
 import DistanceFromYou from '@/components/DistanceFromYou';
 import FarmCsaPlans from '@/components/FarmCsaPlans';
@@ -156,8 +157,13 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
                 </p>
               )}
               {profile?.id && (
-                <div className="mt-3">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <FollowFarmButton farmerId={profile.id} farmName={profile.farm_name || 'this farm'} />
+                  <ShareButton
+                    title={profile.farm_name || 'A local farm'}
+                    text={`${profile.farm_name || 'This farm'} on Farm Fresh Direct`}
+                    url=""
+                  />
                 </div>
               )}
             </div>

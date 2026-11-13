@@ -15,6 +15,7 @@ import { BUYER_NAME_KEY, usableBuyerName } from '@/lib/buyerName';
 import { recordOrderShares, SHARES_METADATA_KEY } from '@/lib/orderShares';
 import { casesText } from '@/lib/wholesale';
 import { appearanceEnd, parseMarketKey, pickupLabel, placeLine, type Appearance } from '@/lib/appearances';
+import { sendPush } from '@/lib/push';
 
 // One item of a checkout, as saved on the payment by /api/checkout.
 type CheckoutLine = {
@@ -557,6 +558,15 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     } else if (sellerUser?.user?.email) {
       await sendSellerNotification({ sellerEmail: sellerUser.user.email, items: farm.items, buyerEmail, buyerName, orderNumber, csaBoxDate, csaSingle });
     }
+
+    // And on the seller's phone, if they use the app.
+    const first = farm.items[0];
+    const more = farm.items.length > 1 ? ` and ${farm.items.length - 1} more` : '';
+    await sendPush([farm.farmerId], {
+      title: csaBoxDate ? 'Farm Box paid' : 'New order',
+      body: first ? `${first.quantity} ${first.unitType} of ${first.title}${more}. Order ${orderNumber}.` : `Order ${orderNumber}.`,
+      url: '/dashboard?tab=orders',
+    });
 
     // Tells an admin when a seller who has only just joined gets a large
     // order or a burst of them.

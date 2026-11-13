@@ -79,6 +79,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Farm Fresh Direct uses the camera to take photos of your harvest and to scan a buyer's pickup code.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Farm Fresh Direct uses your location to find your zip code and show the farms closest to you.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Farm Fresh Direct lets you choose photos of your harvest from your library.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
