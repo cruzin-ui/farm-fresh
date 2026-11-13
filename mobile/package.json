@@ -1,0 +1,23 @@
+{
+  "name": "farm-fresh-direct-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The Farm Fresh Direct iPhone and Android app: a native shell that shows www.farmfreshdirect.online. See README.md.",
+  "scripts": {
+    "sync": "cap sync",
+    "android": "cap open android",
+    "ios": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/browser": "8.0.5",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/ios": "8.6.0",
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0"
+  }
+}

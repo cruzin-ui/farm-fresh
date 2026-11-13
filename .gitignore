@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Stripe agent tooling (created by `stripe agent setup`); not part of the site
 .agents/
+
+# mobile app (Capacitor)
+/mobile/node_modules

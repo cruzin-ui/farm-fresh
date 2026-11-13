@@ -7,6 +7,7 @@ import { Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient';
 import { safeNextPath, AFTER_LOGIN_KEY, AFTER_SIGN_IN_PATH } from '@/lib/safeRedirect';
 import SellerSignupIntro from '@/components/SellerSignupIntro';
+import { isNativeApp, NATIVE_AUTH_CALLBACK } from '@/lib/nativeApp';
 
 // Remembered in the browser once someone has seen the seller introduction, so
 // it shrinks to one line on later visits.
@@ -159,6 +160,23 @@ function LoginContent() {
       try {
         window.sessionStorage.setItem(AFTER_LOGIN_KEY, redirectTarget);
       } catch {}
+
+      // Inside the iPhone or Android app, sign in through the phone's own
+      // browser and come back to the app (components/NativeApp.tsx).
+      if (isNativeApp()) {
+        const { data, error: nativeError } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: `${NATIVE_AUTH_CALLBACK}?next=${encodeURIComponent(redirectTarget)}`,
+            skipBrowserRedirect: true,
+          },
+        });
+        if (nativeError) throw nativeError;
+        const { Browser } = await import('@capacitor/browser');
+        await Browser.open({ url: data.url, presentationStyle: 'popover' });
+        setProviderLoading(false);
+        return;
+      }
 
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
