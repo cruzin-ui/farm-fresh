@@ -45,7 +45,7 @@ export default function AboutPage() {
             broken, and that the fix is closer to home than we think.
           </p>
 
-          <h3 className="pt-4 text-2xl font-bold text-center text-white">The food system loop</h3>
+          <h3 className="pt-4 text-2xl font-bold text-center text-white">The Food System Loop</h3>
           <p>
             Right now, most of us are caught in a loop. We buy our food from large chains, and much of that produce
             was picked early and shipped hundreds or thousands of miles to reach the shelf. Most of the money we spend
@@ -61,7 +61,7 @@ export default function AboutPage() {
             . With fewer local growers, we depend even more on the long supply chain, and the loop starts again.
           </p>
 
-          <h3 className="pt-4 text-2xl font-bold text-center text-white">Food deserts</h3>
+          <h3 className="pt-4 text-2xl font-bold text-center text-white">Food Deserts</h3>
           <p>
             For some neighbors, that loop has left a hole. A{' '}
             <a href={SOURCES.foodDesert} {...EXTERNAL} className={LINK}>
@@ -82,7 +82,7 @@ export default function AboutPage() {
             doesn&apos;t need a truck, a warehouse or a store. It needs a way for you to find it.
           </p>
 
-          <h3 className="pt-4 text-2xl font-bold text-center text-white">Local dollars</h3>
+          <h3 className="pt-4 text-2xl font-bold text-center text-white">Local Dollars</h3>
           <p>
             The impact of money spent in your own community is hard to overstate. According to{' '}
             <a href={SOURCES.localFirst} {...EXTERNAL} className={LINK}>
@@ -110,9 +110,9 @@ export default function AboutPage() {
             farms, and simple records for tax time.
           </p>
 
-          <h3 className="pt-4 text-2xl font-bold text-center text-white">The goal</h3>
+          <h3 className="pt-4 text-2xl font-bold text-center text-white">The Goal</h3>
           <p>
-            We want to bridge the gap in the food system, so there is one less barrier between your community and
+            We want to bridge the gap in the food system, so there is one less barrier between our communities and
             delicious, healthy, locally grown food. Every order you place keeps a neighbor growing, and keeps your
             dollars close to home.
           </p>
