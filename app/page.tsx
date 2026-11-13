@@ -83,7 +83,7 @@ export default function SplashLandingPage() {
 
         <div className="relative px-6 py-9 sm:py-12 text-center text-white">
           <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight leading-tight">
-            Farm Fresh <span className="text-emerald-300">Direct</span>
+            Farm <span className="text-emerald-300">Fresh</span> Direct
           </h1>
 
           <p className="mt-3 text-2xl sm:text-4xl font-bold tracking-tight">Your Online Farm Stand</p>
