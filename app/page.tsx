@@ -154,45 +154,57 @@ export default function SplashLandingPage() {
           what's for sale straight away. */}
       <FreshListingsWheel />
 
-      {/* Buy / Sell: the two ways in, as short wide cards. The whole card is
-          the link. These replace the buttons that used to sit in the hero. */}
+      {/* Buy / Sell: the two ways in, as short wide cards. The whole card
+          opens Browse or Sell (the button's link is stretched over the card);
+          the "Why ... with us" link sits above it and goes to the why page. */}
       <section className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Link
-          href="/browse"
-          className="flex items-center gap-4 bg-white px-5 py-4 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all text-left"
-        >
+        <div className="relative flex items-center gap-4 bg-white px-5 py-4 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all text-left">
           <div className="w-12 h-12 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
             <ShoppingBag className="w-6 h-6" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-xl font-bold text-gray-900">I Want to Buy</h2>
             <p className="text-sm text-gray-500">Fresh produce, flowers, plants, eggs, honey and Farm Boxes for pickup near you.</p>
+            <Link
+              href="/why/buyers"
+              className="relative z-10 mt-2 inline-flex items-center gap-1.5 bg-white border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-sm font-semibold py-1.5 px-3 rounded-xl transition-colors"
+            >
+              Why buy with us
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </Link>
           </div>
-          <span className="shrink-0 inline-flex items-center gap-1.5 bg-emerald-600 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap">
+          <Link
+            href="/browse"
+            className="shrink-0 inline-flex items-center gap-1.5 bg-emerald-600 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap after:absolute after:inset-0 after:rounded-2xl after:content-['']"
+          >
             Browse
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
-          </span>
-        </Link>
+          </Link>
+        </div>
 
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-4 bg-white px-5 py-4 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all text-left"
-        >
+        <div className="relative flex items-center gap-4 bg-white px-5 py-4 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all text-left">
           <div className="w-12 h-12 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
             <Sprout className="w-6 h-6" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-xl font-bold text-gray-900">I Want to Sell</h2>
-            <p className="text-sm text-gray-500">
-              Your own online farm stand: get paid up front, take pre-orders for your farmers market, and run Farm Boxes on your
-              own or with nearby farms.
-            </p>
+            <p className="text-sm text-gray-500">Your own online farm stand: get paid up front, take pre-orders for your farmers market, and run Farm Boxes on your own or with nearby farms.</p>
+            <Link
+              href="/why/sellers"
+              className="relative z-10 mt-2 inline-flex items-center gap-1.5 bg-white border-2 border-gray-900 text-gray-900 hover:bg-gray-100 text-sm font-semibold py-1.5 px-3 rounded-xl transition-colors"
+            >
+              Why sell with us
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </Link>
           </div>
-          <span className="shrink-0 inline-flex items-center gap-1.5 bg-gray-900 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap">
+          <Link
+            href="/dashboard"
+            className="shrink-0 inline-flex items-center gap-1.5 bg-gray-900 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap after:absolute after:inset-0 after:rounded-2xl after:content-['']"
+          >
             Sell
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
-          </span>
-        </Link>
+          </Link>
+        </div>
       </section>
 
       {/* Why people use the site, in six short points */}
@@ -210,23 +222,6 @@ export default function SplashLandingPage() {
             </li>
           ))}
         </ul>
-        <div className="mt-6 text-center">
-          <p className="text-sm font-semibold text-gray-800">See why people buy and sell here</p>
-          <div className="mt-3 flex flex-col sm:flex-row justify-center gap-3">
-            <Link
-              href="/why/buyers"
-              className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2.5 px-5 rounded-xl transition-colors"
-            >
-              <ShoppingBag className="w-4 h-4" aria-hidden="true" /> For buyers
-            </Link>
-            <Link
-              href="/why/sellers"
-              className="inline-flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold py-2.5 px-5 rounded-xl transition-colors"
-            >
-              <Sprout className="w-4 h-4" aria-hidden="true" /> For sellers
-            </Link>
-          </div>
-        </div>
       </section>
 
       {/* The Mission, in brief — the full version is on the About page. A
