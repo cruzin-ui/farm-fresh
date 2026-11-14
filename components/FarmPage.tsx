@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { pickupAvailability } from '@/lib/dates';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchSuspendedSellerIds } from '@/lib/suspendedSellers';
-import { Sprout, MapPin, Star, Calendar, ShoppingBag, CheckCircle2 } from 'lucide-react';
+import { Sprout, MapPin, Star, Calendar, ShoppingBag, CheckCircle2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import AddToCartButton from '@/components/AddToCartButton';
 import Photo from '@/components/Photo';
@@ -31,6 +31,8 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
   const [loading, setLoading] = useState(true);
   // The farmer looking at their own page before payouts are connected.
   const [preview, setPreview] = useState(false);
+  // The farmer looking at their own page: shown an "Edit my page" button.
+  const [isOwner, setIsOwner] = useState(false);
 
   // Average Rating Calculation
   const avgRating =
@@ -82,6 +84,7 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
     } = await supabase.auth.getUser();
     const ownPreview = user?.id === sellerId && !profileData?.stripe_onboarding_complete && !suspended.has(sellerId);
     setPreview(ownPreview);
+    setIsOwner(!!user && user.id === sellerId);
     setListings(
       (profileData?.stripe_onboarding_complete && !suspended.has(sellerId)) || ownPreview ? listingsData || [] : []
     );
@@ -158,6 +161,14 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
               )}
               {profile?.id && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {isOwner && (
+                    <Link
+                      href="/dashboard?tab=profile"
+                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 px-3.5 rounded-xl transition-colors"
+                    >
+                      <Pencil className="w-4 h-4" aria-hidden="true" /> Edit my page
+                    </Link>
+                  )}
                   <FollowFarmButton farmerId={profile.id} farmName={profile.farm_name || 'this farm'} />
                   <ShareButton
                     title={profile.farm_name || 'A local farm'}

@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CreditCard, Package, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, CreditCard, Package, AlertCircle, CheckCircle2 } from 'lucide-react';
+import PurchasesTabs from '@/components/PurchasesTabs';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import SaveCardForm from '@/components/SaveCardForm';
@@ -110,15 +111,16 @@ export default function MyFarmSharesPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-      <Link href="/account" className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-800">
-        <ArrowLeft className="w-4 h-4" /> Account
-      </Link>
       <header>
-        <h1 className="text-2xl font-extrabold text-gray-900">My Farm Boxes</h1>
-        <p className="text-sm text-gray-600">
-          Skip a week, pause or cancel any time before a box is charged.
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <ShoppingBag className="w-6 h-6 text-emerald-600" /> My Purchases
+        </h1>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Your Farm Boxes: skip a week, pause or cancel any time before a box is charged.
         </p>
       </header>
+
+      <PurchasesTabs active="boxes" />
 
       {error && (
         <p role="alert" className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex gap-2">

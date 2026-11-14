@@ -1615,6 +1615,22 @@ export default function SellerDashboardPage() {
 
           <nav id="dash-sections" data-tour="menu" onClick={() => setNavOpen(false)} className={`${navOpen ? 'block mt-2' : 'hidden'} space-y-1 md:block md:mt-0`}>
             <button
+              data-tour="nav-profile"
+              onClick={() => {
+                setActiveTab('profile');
+                setSuccessMsg(null);
+                setErrorMsg(null);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                activeTab === 'profile'
+                  ? 'bg-emerald-50 text-emerald-700 font-bold'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <User className="w-4 h-4" /> Farm Profile & Photo
+            </button>
+
+            <button
               data-tour="nav-listings"
               onClick={() => {
                 setActiveTab('listings');
@@ -1709,22 +1725,6 @@ export default function SellerDashboardPage() {
               }`}
             >
               <CreditCard className="w-4 h-4" /> Sales & Payouts
-            </button>
-
-            <button
-              data-tour="nav-profile"
-              onClick={() => {
-                setActiveTab('profile');
-                setSuccessMsg(null);
-                setErrorMsg(null);
-              }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
-                activeTab === 'profile'
-                  ? 'bg-emerald-50 text-emerald-700 font-bold'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <User className="w-4 h-4" /> Farm Profile & Photo
             </button>
 
             <button

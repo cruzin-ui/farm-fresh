@@ -83,7 +83,7 @@ const BUYER_FAQS: Faq[] = [
   },
   {
     question: 'Can I skip a week or cancel my Farm Box?',
-    answer: `Yes, online, any time before a box is charged, under My Farm Boxes in the My Account menu: skip a single week, pause until you're back, or cancel. There's no fee for any of them. We email you the day before every charge with a link to skip. Once a box is charged it is an ordinary order: you can cancel it free within ${FREE_CANCELLATION_HOURS} hours, and after that the farm keeps a ${NO_SHOW_FEE} restocking fee.`,
+    answer: `Yes, online, any time before a box is charged, under My Purchases → Farm Boxes in the My Account menu: skip a single week, pause until you're back, or cancel. There's no fee for any of them. We email you the day before every charge with a link to skip. Once a box is charged it is an ordinary order: you can cancel it free within ${FREE_CANCELLATION_HOURS} hours, and after that the farm keeps a ${NO_SHOW_FEE} restocking fee.`,
   },
   {
     question: 'What is a shared Farm Box?',
@@ -106,7 +106,7 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'What happens if my card is declined for a Farm Box?',
     answer:
-      "We email you and try again the next day. Change your card under My Farm Boxes and we'll charge the new one straight away. If the second try also fails, that week's box is missed and you aren't charged for it; your membership carries on.",
+      "We email you and try again the next day. Change your card under My Purchases → Farm Boxes and we'll charge the new one straight away. If the second try also fails, that week's box is missed and you aren't charged for it; your membership carries on.",
   },
   {
     question: 'How do I contact the farmer?',

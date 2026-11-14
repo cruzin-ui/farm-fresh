@@ -7,5 +7,5 @@ import UseMyLocation from '@/components/UseMyLocation';
 // the device is in, like typing it into the search box.
 export default function HomeUseMyLocation() {
   const router = useRouter();
-  return <UseMyLocation tone="dark" onZip={(zip) => router.push(`/browse?zip=${zip}`)} className="mt-3 items-center" />;
+  return <UseMyLocation tone="dark" onZip={(zip) => router.push(`/browse?zip=${zip}`)} className="mt-2 items-center" />;
 }

@@ -81,14 +81,14 @@ export default function SplashLandingPage() {
         {/* Darkens the photo so the white text stays readable over it. */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/55 to-black/70" aria-hidden="true" />
 
-        <div className="relative px-6 py-9 sm:py-12 text-center text-white">
-          <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight leading-tight">
+        <div className="relative px-6 py-7 sm:py-8 text-center text-white">
+          <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight leading-none">
             Farm <span className="text-emerald-300">Fresh</span> Direct
           </h1>
 
-          <p className="font-heading mt-3 text-2xl sm:text-4xl font-bold tracking-tight">Your Online Farm Stand</p>
+          <p className="font-heading mt-2 text-2xl sm:text-4xl font-bold tracking-tight">Your Online Farm Stand</p>
 
-          <p className="mt-5 text-lg sm:text-xl font-medium max-w-2xl mx-auto">
+          <p className="mt-3 text-lg sm:text-xl font-medium max-w-2xl mx-auto">
             Local produce, plants, and more from growers near you
           </p>
 
@@ -98,7 +98,7 @@ export default function SplashLandingPage() {
             action="/browse"
             method="get"
             // Stacked on phones (the field above the button) so neither is squeezed; side by side on wider screens.
-            className="mt-6 mx-auto w-full max-w-xs sm:max-w-none flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2"
+            className="mt-4 mx-auto w-full max-w-xs sm:max-w-none flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2"
           >
             <label htmlFor="home-zip" className="sr-only">
               Your zip code
@@ -128,7 +128,7 @@ export default function SplashLandingPage() {
               fuller version for buyers and sellers is further down. */}
           <ol
             aria-label="How it works"
-            className="mt-6 mx-auto max-w-4xl grid grid-cols-1 sm:grid-cols-3 gap-2 text-left"
+            className="mt-4 mx-auto max-w-4xl grid grid-cols-1 sm:grid-cols-3 gap-2 text-left"
           >
             {[
               { title: 'Find local, delicious food', detail: null },
@@ -156,56 +156,59 @@ export default function SplashLandingPage() {
           what's for sale straight away. */}
       <FreshListingsWheel />
 
-      {/* Buy / Sell: the two ways in, as short wide cards. The whole card
-          opens Browse or Sell (the button's link is stretched over the card);
-          the "Why ... with us" link sits above it and goes to the why page. */}
+      {/* Buy / Sell: the two ways in. Icon and title on top, a short line,
+          then the buttons along the bottom. The whole card opens Browse or
+          Sell (the main button's link is stretched over the card); the
+          "Why ... with us" button sits above it and goes to the why page. */}
       <section className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="relative flex items-center gap-4 bg-white px-5 py-4 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all text-left">
-          <div className="w-12 h-12 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
-            <ShoppingBag className="w-6 h-6" aria-hidden="true" />
+        <div className="relative flex flex-col bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
+              <ShoppingBag className="w-6 h-6" aria-hidden="true" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">I Want to Buy</h2>
           </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-bold text-gray-900">I Want to Buy</h2>
-            <p className="text-sm text-gray-500">Fresh produce, flowers, plants, eggs, honey and Farm Boxes for pickup near you.</p>
+          <p className="mt-3 text-gray-600">Fresh produce, flowers, plants, eggs, honey and Farm Boxes for pickup near you.</p>
+          <div className="mt-auto pt-5 flex flex-wrap gap-3">
+            <Link
+              href="/browse"
+              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 border-2 border-emerald-600 hover:border-emerald-700 text-white text-sm font-semibold py-2 px-4 rounded-xl whitespace-nowrap transition-colors after:absolute after:inset-0 after:rounded-2xl after:content-['']"
+            >
+              Browse
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </Link>
             <Link
               href="/why/buyers"
-              className="relative z-10 mt-2 inline-flex items-center gap-1.5 bg-white border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-sm font-semibold py-1.5 px-3 rounded-xl transition-colors"
+              className="relative z-10 inline-flex items-center gap-1.5 bg-white border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-sm font-semibold py-2 px-4 rounded-xl whitespace-nowrap transition-colors"
             >
               Why buy with us
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
           </div>
-          <Link
-            href="/browse"
-            className="shrink-0 inline-flex items-center gap-1.5 bg-emerald-600 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap after:absolute after:inset-0 after:rounded-2xl after:content-['']"
-          >
-            Browse
-            <ArrowRight className="w-4 h-4" aria-hidden="true" />
-          </Link>
         </div>
 
-        <div className="relative flex items-center gap-4 bg-white px-5 py-4 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all text-left">
-          <div className="w-12 h-12 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
-            <Sprout className="w-6 h-6" aria-hidden="true" />
+        <div className="relative flex flex-col bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 shrink-0 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
+              <Sprout className="w-6 h-6" aria-hidden="true" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">I Want to Sell</h2>
           </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-bold text-gray-900">I Want to Sell</h2>
-            <p className="text-sm text-gray-500">Your own online farm stand: get paid up front, take pre-orders for your farmers market, and run Farm Boxes on your own or with nearby farms.</p>
+          <p className="mt-3 text-gray-600">Your own online farm stand: get paid up front, take pre-orders for your farmers market, and run Farm Boxes on your own or with nearby farms.</p>
+          <div className="mt-auto pt-5 flex flex-wrap gap-3">
             <Link
-              href="/why/sellers"
-              className="relative z-10 mt-2 inline-flex items-center gap-1.5 bg-white border-2 border-gray-900 text-gray-900 hover:bg-gray-100 text-sm font-semibold py-1.5 px-3 rounded-xl transition-colors"
+              href="/dashboard"
+              className="inline-flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 border-2 border-gray-900 hover:border-gray-800 text-white text-sm font-semibold py-2 px-4 rounded-xl whitespace-nowrap transition-colors after:absolute after:inset-0 after:rounded-2xl after:content-['']"
             >
-              Why sell with us
+              Start selling
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
+            <Link
+              href="/why/sellers"
+              className="relative z-10 inline-flex items-center gap-1.5 bg-white border-2 border-gray-900 text-gray-900 hover:bg-gray-100 text-sm font-semibold py-2 px-4 rounded-xl whitespace-nowrap transition-colors"
+            >
+              Why sell with us
+            </Link>
           </div>
-          <Link
-            href="/dashboard"
-            className="shrink-0 inline-flex items-center gap-1.5 bg-gray-900 text-white text-sm font-semibold py-2 px-3 rounded-xl whitespace-nowrap after:absolute after:inset-0 after:rounded-2xl after:content-['']"
-          >
-            Sell
-            <ArrowRight className="w-4 h-4" aria-hidden="true" />
-          </Link>
         </div>
       </section>
 

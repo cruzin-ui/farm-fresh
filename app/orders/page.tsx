@@ -7,6 +7,7 @@ import { ShoppingBag, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import PickupGroupCard from '@/components/PickupGroupCard';
+import PurchasesTabs from '@/components/PurchasesTabs';
 import { CardListSkeleton } from '@/components/Skeletons';
 import { describeBuyerOrders } from '@/lib/buyerOrders';
 import { groupOrdersForPickup, type PickupGroup } from '@/lib/pickupGroups';
@@ -88,6 +89,8 @@ export default function MyOrdersPage() {
           <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" /> Back to Browsing
         </Link>
       </div>
+
+      <PurchasesTabs active="orders" />
 
       {fetchError && (
         <div role="alert" className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">

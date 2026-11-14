@@ -18,14 +18,13 @@ import {
   X,
   ShoppingBag,
   CircleHelp,
-  Store,
-  Package,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import Photo from '@/components/Photo';
 import { safeNextPath, AFTER_LOGIN_KEY } from '@/lib/safeRedirect';
 import { postWithAuth } from '@/lib/authedFetch';
 import { onAccountChange, PROFILE_PHOTO_KEY } from '@/lib/accountEvents';
+import { setSellerStatus } from '@/lib/sellerStatus';
 
 // How often the badge checks for new orders and messages while a page is open.
 const SUMMARY_REFRESH_MS = 2 * 60 * 1000;
@@ -105,6 +104,7 @@ export default function AccountMenu() {
   useEffect(() => {
     if (!email) {
       setSummary(null);
+      setSellerStatus(false);
       return;
     }
 
@@ -113,7 +113,11 @@ export default function AccountMenu() {
       try {
         const res = await postWithAuth('/api/account/summary');
         const data = await res.json();
-        if (!cancelled && res.ok) setSummary(data);
+        if (!cancelled && res.ok) {
+          setSummary(data);
+          // Shows or hides the Seller Dashboard link in the header.
+          setSellerStatus(Boolean(data.isSeller));
+        }
       } catch {}
     };
 
@@ -327,13 +331,6 @@ export default function AccountMenu() {
           </Link>
           {buyerWaiting > 0 && <p className="px-3 pb-1 -mt-1 text-xs text-gray-500">{buyerWaitingText}</p>}
           <Link
-            href="/account/csa"
-            role="menuitem"
-            className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
-          >
-            <Package className="w-4 h-4" /> My Farm Boxes
-          </Link>
-          <Link
             href="/dashboard"
             role="menuitem"
             className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
@@ -347,22 +344,6 @@ export default function AccountMenu() {
             )}
           </Link>
           {sellerWaiting > 0 && <p className="px-3 pb-1 -mt-1 text-xs text-gray-500">{sellerWaitingText}</p>}
-          {summary?.farmPagePath && (
-            <Link
-              href={summary.farmPagePath}
-              role="menuitem"
-              className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
-            >
-              <Store className="w-4 h-4" /> My Farm
-            </Link>
-          )}
-          <Link
-            href="/account"
-            role="menuitem"
-            className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
-          >
-            <UserCog className="w-4 h-4" /> Account Settings
-          </Link>
           <Link
             href="/following"
             role="menuitem"
@@ -372,6 +353,13 @@ export default function AccountMenu() {
           </Link>
           <Link href="/faq" role="menuitem" className="md:hidden flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800">
             <CircleHelp className="w-4 h-4" /> FAQ
+          </Link>
+          <Link
+            href="/account"
+            role="menuitem"
+            className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
+          >
+            <UserCog className="w-4 h-4" /> Account Settings
           </Link>
           <Link
             href="/contact"
