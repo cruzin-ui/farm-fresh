@@ -43,7 +43,10 @@ export default function PrivacyPolicyPage() {
             </li>
             <li>
               <strong>Seller information.</strong> If you sell: your farm name, photos, description, location,
-              zip code, the listings you post, and your farm's pickup address.
+              zip code, the listings you post, and your farm's pickup address. If you sell jams, preserves or baked
+              goods: your cottage food registration number, which buyers see on those listings, and the
+              registration certificate you upload, which only we see and keep in private storage until you remove
+              it or delete your account.
             </li>
             <li>
               <strong>Messages.</strong> What you send us through the Contact Us form, problems you report

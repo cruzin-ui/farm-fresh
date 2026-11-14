@@ -30,7 +30,7 @@ export const SHARED_BOX_WINDOW_DAYS = 60;
 export const SHARED_TERMS_VERSION = '2026-10-20';
 
 // The categories a box of each type may hold, for finding partner farms.
-export const FOOD_BOX_CATEGORIES = ['Vegetables', 'Fruits & Berries', 'Herbs & Spices', 'Mushrooms', 'Honey & Jam', 'Fresh Eggs'];
+export const FOOD_BOX_CATEGORIES = ['Vegetables', 'Fruits & Berries', 'Herbs & Spices', 'Mushrooms', 'Honey', 'Fresh Eggs'];
 export const FLOWER_BOX_CATEGORIES = ['Cut Flowers'];
 export const categoriesForBoxType = (boxType: string | null | undefined) =>
   boxType === 'flowers' ? FLOWER_BOX_CATEGORIES : FOOD_BOX_CATEGORIES;

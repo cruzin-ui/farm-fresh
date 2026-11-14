@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Sprout, Plus, AlertCircle } from 'lucide-react';
 import { postWithAuth } from '@/lib/authedFetch';
-import { LISTING_CATEGORIES } from '@/lib/categories';
+import { GROWN_CATEGORIES } from '@/lib/categories';
 import { GRACE_DAYS, MAX_GROWING } from '@/lib/growing';
 
 type Crop = {
@@ -116,7 +116,7 @@ export default function GrowingNowEditor({
             <div>
               <label htmlFor="gr-category" className="block text-xs font-semibold text-gray-700 mb-1">Category *</label>
               <select id="gr-category" {...field('category')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white">
-                {LISTING_CATEGORIES.map((c) => (
+                {GROWN_CATEGORIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>

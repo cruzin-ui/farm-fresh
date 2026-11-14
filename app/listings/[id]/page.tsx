@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { friendlyDate, pickupAvailability } from '@/lib/dates';
+import { isCottageFood } from '@/lib/categories';
 import { SELLER_READY_DAYS } from '@/lib/pickupRules';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchSuspendedSellerIds } from '@/lib/suspendedSellers';
@@ -63,7 +64,7 @@ export default function ListingDetailPage() {
       if (listingData?.farmer_id) {
         const { data: sellerData } = await supabase
           .from('seller_profiles')
-          .select('id, farm_name, avatar_url, location, bio, growing_practices, pickup_days, pickup_times, stripe_onboarding_complete')
+          .select('id, farm_name, avatar_url, location, bio, growing_practices, pickup_days, pickup_times, stripe_onboarding_complete, cottage_food_reg')
           .eq('id', listingData.farmer_id)
           .maybeSingle();
 
@@ -334,6 +335,15 @@ export default function ListingDetailPage() {
           </dl>
 
           {listing.farmer_id && <ListingMarketPickup farmerId={listing.farmer_id} />}
+
+          {isCottageFood(listing.category) && (
+            <p className="text-xs text-amber-950 bg-amber-50 border border-amber-300 rounded-xl p-3">
+              Made in a home kitchen under Arizona&apos;s cottage food rules
+              {seller?.cottage_food_reg ? ` (registration #${seller.cottage_food_reg})` : ''}. It isn&apos;t
+              inspected by the health department or by Farm Fresh Direct. Check the label for ingredients and
+              allergens, such as wheat, milk, eggs and nuts.
+            </p>
+          )}
 
           {listing.category === 'Fresh Eggs' && (
             <p className="text-xs text-amber-950 bg-amber-50 border border-amber-300 rounded-xl p-3">

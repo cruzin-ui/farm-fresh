@@ -8,6 +8,7 @@ import { isAllowedUnit, unitRuleText } from '@/lib/units';
 import { getFarmPickup } from '@/lib/farmPickupAddress';
 import { readPickupInput, setListingPickup } from '@/lib/listingPickup';
 import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
+import { cottageFoodProblem } from '@/lib/cottageFood';
 import { alertAdmin } from '@/lib/alerts';
 import { readWholesaleOffer } from '@/lib/wholesale';
 import { saveWholesaleOffer } from '@/lib/wholesaleServer';
@@ -77,6 +78,13 @@ export async function POST(request: Request) {
         { error: `This category can no longer be sold here. ${PRODUCE_ONLY_NOTICE}` },
         { status: 400 }
       );
+    }
+    // Jams, preserves and baked goods need a cottage food registration, to
+    // post or to edit (so one taken down when its registration was removed
+    // can't be put back on sale without it).
+    const cottage = await cottageFoodProblem(listing.farmer_id, category);
+    if (cottage) {
+      return NextResponse.json({ error: cottage }, { status: 400 });
     }
 
     if (!title) {

@@ -22,7 +22,10 @@ export const CATEGORY_TAX_CODES: Record<string, string> = {
   Vegetables: FOOD_FOR_HOME,
   'Fruits & Berries': FOOD_FOR_HOME,
   'Herbs & Spices': FOOD_FOR_HOME,
-  'Honey & Jam': FOOD_FOR_HOME,
+  Honey: FOOD_FOR_HOME,
+  'Jams & Preserves': FOOD_FOR_HOME,
+  // Bread and other baked goods sold whole, to take home.
+  'Baked Goods': FOOD_FOR_HOME,
   'Fresh Eggs': FOOD_FOR_HOME,
   Mushrooms: FOOD_FOR_HOME,
   // Not food, so not covered by the grocery or producer exemptions.

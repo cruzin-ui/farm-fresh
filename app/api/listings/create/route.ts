@@ -6,6 +6,7 @@ import { cleanListingTags } from '@/lib/listingTags';
 import { isSellerSuspended } from '@/lib/accountBlocks';
 import { getFarmPickup } from '@/lib/farmPickupAddress';
 import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
+import { cottageFoodProblem } from '@/lib/cottageFood';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { geocodeZip } from '@/lib/geo';
 import { cleanPlantFields } from '@/lib/plantFields';
@@ -69,6 +70,11 @@ export async function POST(request: Request) {
     }
     if (!isAllowedCategory(fields.category)) {
       return NextResponse.json({ error: `Choose one of the listed categories. ${PRODUCE_ONLY_NOTICE}` }, { status: 400 });
+    }
+    // Jams, preserves and baked goods: registered cottage food sellers only.
+    const cottage = await cottageFoodProblem(user.id, fields.category);
+    if (cottage) {
+      return NextResponse.json({ error: cottage }, { status: 400 });
     }
 
     const unitType = typeof fields.unit_type === 'string' && fields.unit_type ? fields.unit_type : usualUnit(fields.category);

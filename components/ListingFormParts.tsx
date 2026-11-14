@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { PLANTS_CATEGORY, SUN_NEEDS, WATER_NEEDS, POT_SIZE_MAX } from '@/lib/plants';
+import { COTTAGE_FOOD_RULE, isCottageFood } from '@/lib/categories';
 import {
   LISTING_TAG_OPTIONS,
   MAX_LISTING_TAGS,
@@ -56,14 +57,31 @@ export function CategoryNotice({ category }: { category: string }) {
       </div>
     );
   }
-  if (category === 'Fresh Eggs' || category === 'Honey & Jam') {
+  if (isCottageFood(category)) {
+    return (
+      <div className={noteClass}>
+        <p className="font-bold text-sm">Cottage food: registration needed</p>
+        <p className="mt-0.5">{COTTAGE_FOOD_RULE}</p>
+        <p className="mt-1.5">
+          Label each item the way the cottage food rules require, including that it was made in a home kitchen,
+          your registration number, the ingredients and any allergens like wheat, milk, eggs or nuts. Your
+          registration number is shown on these listings.{' '}
+          <a href="/faq" target="_blank" rel="noopener" className="font-semibold underline">
+            Read more in the FAQ
+          </a>
+          .
+        </p>
+      </div>
+    );
+  }
+  if (category === 'Fresh Eggs' || category === 'Honey') {
     return (
       <div className={noteClass}>
         <p className="font-bold text-sm">Check your state&apos;s rules before listing this</p>
         <p className="mt-0.5">
           {category === 'Fresh Eggs'
             ? 'States commonly have rules for selling eggs: keeping them refrigerated, how cartons are labeled, and a license above a certain number of hens or dozens.'
-            : "Honey, jam and other prepared foods usually fall under your state's cottage food laws, which decide what may be made at home and how it must be labeled."}{' '}
+            : 'States have rules for selling honey, such as how it must be labeled, and some count it as a cottage food.'}{' '}
           You&apos;re responsible for making sure it&apos;s legal to sell where you are.{' '}
           <a href="/faq" target="_blank" rel="noopener" className="font-semibold underline">
             Read more in the FAQ

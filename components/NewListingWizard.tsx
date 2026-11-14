@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, Camera, ImageIcon, X, MapPin, Calendar, Sprout, 
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import { resizeImage } from '@/lib/resizeImage';
-import { LISTING_CATEGORIES } from '@/lib/categories';
+import { COTTAGE_FOOD_CATEGORIES, isCottageFood, LISTING_CATEGORIES } from '@/lib/categories';
 import { PLANTS_CATEGORY, plantDetailLabels } from '@/lib/plants';
 import { SELLER_FEE_RATE } from '@/lib/pricing';
 import { pickupAvailability, friendlyDate } from '@/lib/dates';
@@ -33,7 +33,9 @@ const CATEGORY_CARDS: Record<string, { emoji: string; blurb: string }> = {
   'Fruits & Berries': { emoji: '🍓', blurb: 'Citrus, berries, melons, stone fruit' },
   'Herbs & Spices': { emoji: '🌿', blurb: 'Basil, rosemary, mint, chiles' },
   Mushrooms: { emoji: '🍄', blurb: 'Ones you cultivated: oyster, shiitake' },
-  'Honey & Jam': { emoji: '🍯', blurb: 'Honey, jams, jellies, syrups' },
+  Honey: { emoji: '🍯', blurb: 'Honey, honeycomb, beeswax' },
+  'Jams & Preserves': { emoji: '🫙', blurb: 'Jams, jellies, syrups (cottage food)' },
+  'Baked Goods': { emoji: '🍞', blurb: 'Bread, pastries, pies (cottage food)' },
   'Fresh Eggs': { emoji: '🥚', blurb: 'Chicken, duck, quail' },
   'Cut Flowers': { emoji: '💐', blurb: 'Bunches, stems, bouquets' },
   [PLANTS_CATEGORY]: { emoji: '🌱', blurb: 'Starts, succulents, herbs, trees' },
@@ -105,6 +107,7 @@ export default function NewListingWizard({
   farmPickupLoaded,
   farmState,
   sellerTermsAccepted,
+  cottageReg,
   previousListings,
   startFrom,
   onGoToProfile,
@@ -117,6 +120,9 @@ export default function NewListingWizard({
   farmPickupLoaded: boolean;
   farmState: { name: string; code: string } | null;
   sellerTermsAccepted: boolean;
+  // The farm's cottage food registration number, needed for jams,
+  // preserves and baked goods; empty if it has none.
+  cottageReg: string;
   previousListings: any[];
   // An earlier listing to post again (from "Post again" on the dashboard).
   startFrom?: any | null;
@@ -271,6 +277,9 @@ export default function NewListingWizard({
     if (step === 'category') {
       if (farmPickupLoaded && !farmPickup) return 'Add your pickup address to your Farm Profile first.';
       if (!d.category) return 'Choose a category.';
+      if (isCottageFood(d.category) && !cottageReg.trim()) {
+        return 'Add your Arizona cottage food registration number in your Farm Profile first.';
+      }
     }
     if (step === 'name') {
       if (!d.title.trim()) return isPlant ? 'Enter the plant name.' : 'Enter the crop name.';
@@ -490,7 +499,7 @@ export default function NewListingWizard({
                       });
                       setError(null);
                       // Straight on, unless there's a note to read first.
-                      if (!['Mushrooms', 'Cut Flowers', 'Fresh Eggs', 'Honey & Jam', PLANTS_CATEGORY].includes(cat)) {
+                      if (!['Mushrooms', 'Cut Flowers', 'Fresh Eggs', 'Honey', PLANTS_CATEGORY, ...COTTAGE_FOOD_CATEGORIES].includes(cat)) {
                         goTo('name');
                       }
                     }}

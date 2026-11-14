@@ -223,7 +223,10 @@ export default function TermsPage() {
             Products are grown, produced and described by the sellers. We do not guarantee their quality,
             safety, legality or fitness for any purpose, or that a listing is accurate. Produce and other foods
             sold here are not inspected by us. Wash produce before eating it, and handle, store and cook foods
-            such as eggs safely. Plants are not inspected by us for pests or disease, and we do not check that
+            such as eggs safely. Jams, preserves and baked goods are cottage foods, made in the seller&apos;s home
+            kitchen under Arizona&apos;s cottage food rules; they are not inspected by the health department or by
+            us, and we do not verify a seller&apos;s registration. Check the label for ingredients and allergens
+            before eating them. Plants are not inspected by us for pests or disease, and we do not check that
             a plant suits your garden or climate.
           </p>
         </section>
