@@ -1586,7 +1586,7 @@ export default function SellerDashboardPage() {
               >
                 <Store className="w-3.5 h-3.5" aria-hidden="true" /> View my farm page
               </a>
-              <ShareFarmMenu farmName={farmName} path={farmPagePath} />
+              <ShareFarmMenu farmName={farmName} path={farmPagePath} sellerId={user.id} />
             </div>
           )}
 

@@ -1,17 +1,26 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Share2, Mail, MessageSquare, MessageCircle, House, Link2, Smartphone } from 'lucide-react';
+import { Camera, Share2, Mail, MessageSquare, MessageCircle, House, Link2, Smartphone } from 'lucide-react';
 import { isNativeApp } from '@/lib/nativeApp';
 import { shareLink } from '@/lib/share';
+import { buildFarmStoryImage } from '@/lib/storyImage';
 
 // "Share my farm page": a small menu of places to post the farm's page —
-// Facebook, X, WhatsApp, Nextdoor, email, a text message — plus copying the
-// link (for Instagram, which can't be posted to from a link) and the phone's
-// own share sheet where there is one.
-export default function ShareFarmMenu({ farmName, path }: { farmName: string; path: string }) {
+// an Instagram Story, Facebook, X, WhatsApp, Nextdoor, email, a text
+// message — plus copying the link and the phone's own share sheet where
+// there is one.
+//
+// Instagram can't be handed a link, so for a Story we make a picture of the
+// farm (lib/storyImage) and hand that over instead, with the link copied for
+// Instagram's link sticker.
+export default function ShareFarmMenu({ farmName, path, sellerId }: { farmName: string; path: string; sellerId: string }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // The Story picture: made when the menu opens, so it's ready by the time
+  // the button is tapped (a share has to start straight from the tap).
+  const [story, setStory] = useState<{ state: 'idle' | 'making' | 'ready' | 'failed'; file?: File }>({ state: 'idle' });
+  const [storyNote, setStoryNote] = useState('');
   const [canShareSheet, setCanShareSheet] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -22,6 +31,14 @@ export default function ShareFarmMenu({ farmName, path }: { farmName: string; pa
       isNativeApp() || (typeof navigator.share === 'function' && window.matchMedia('(pointer: coarse)').matches)
     );
   }, []);
+
+  useEffect(() => {
+    if (!open || story.state !== 'idle') return;
+    setStory({ state: 'making' });
+    buildFarmStoryImage(sellerId)
+      .then((file) => setStory({ state: 'ready', file }))
+      .catch(() => setStory({ state: 'failed' }));
+  }, [open, story.state, sellerId]);
 
   useEffect(() => {
     if (!open) return;
@@ -107,7 +124,53 @@ export default function ShareFarmMenu({ farmName, path }: { farmName: string; pa
         <Share2 className="w-3.5 h-3.5" aria-hidden="true" /> Share my farm page
       </button>
       {open && (
-        <div role="menu" className="absolute left-0 mt-2 z-30 w-60 bg-white border border-gray-200 rounded-xl shadow-lg p-1.5">
+        <div role="menu" className="absolute left-0 mt-2 z-30 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-1.5">
+          <button
+            type="button"
+            role="menuitem"
+            disabled={story.state === 'making'}
+            onClick={() => {
+              if (story.state === 'failed') {
+                setStory({ state: 'idle' });
+                return;
+              }
+              const file = story.file;
+              if (!file) return;
+              // The link, for Instagram's link sticker. Started, not waited
+              // on, so the share below still counts as coming from the tap.
+              navigator.clipboard?.writeText(url()).catch(() => {});
+              if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+                navigator
+                  .share({ files: [file] })
+                  .then(() => setStoryNote('Link copied. In Instagram, add a link sticker and paste it.'))
+                  .catch(() => {});
+                setStoryNote('Choose Instagram, then Story. Your link is copied for the link sticker.');
+              } else {
+                // A computer, or a browser that can't share pictures: save it.
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(file);
+                a.download = file.name;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+                setStoryNote('Picture saved. Post it as a Story from Instagram on your phone, then add a link sticker.');
+              }
+            }}
+            className={`${item} disabled:opacity-60`}
+          >
+            <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF]">
+              <Camera className="w-3.5 h-3.5 text-white" aria-hidden="true" />
+            </span>
+            <span className="flex-1">
+              Instagram Story
+              <span aria-live="polite" className="block text-[11px] font-normal text-gray-500">
+                {story.state === 'making'
+                  ? 'Making your picture…'
+                  : story.state === 'failed'
+                    ? "Couldn't make the picture. Tap to try again."
+                    : storyNote || 'A picture of your farm and what you have'}
+              </span>
+            </span>
+          </button>
           {links.map((l) => (
             <a
               key={l.label}
@@ -135,7 +198,6 @@ export default function ShareFarmMenu({ farmName, path }: { farmName: string; pa
             </span>
             <span aria-live="polite">{copied ? 'Link copied' : 'Copy link'}</span>
           </button>
-          <p className="px-3 pb-1 text-[11px] text-gray-500">For Instagram, copy the link and add it to your bio or story.</p>
           {canShareSheet && (
             <button
               type="button"
