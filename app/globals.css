@@ -126,6 +126,10 @@ h3.text-gray-900 {
 }
 .site-header {
   border-top: 3px solid var(--color-emerald-700);
+  /* In the Android app the page runs edge to edge (viewport-fit: cover), so
+     the header makes room for the phone's status bar. The inset is 0 in a
+     normal browser tab. */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* The seasonal icon after the site name (components/SeasonIcon.tsx): only
