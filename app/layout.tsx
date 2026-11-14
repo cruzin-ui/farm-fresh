@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import BottomNav from "@/components/BottomNav";
 import CartButton from '@/components/CartButton';
 import AccountMenu from "@/components/AccountMenu";
+import SellerDashboardLink from "@/components/SellerDashboardLink";
 import { Patua_One } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -86,10 +87,12 @@ export default function RootLayout({
             </Link>
 
             <div className="flex items-center gap-1.5 md:gap-3">
-            {/* Browse is the one link kept beside the account menu; My Purchases
-                and the Seller Dashboard are inside that menu. On phones it is
-                all in the menu button, with the bottom tab bar as a shortcut. */}
+            {/* Browse sits beside the account menu, with Seller Dashboard before
+                it for signed-in sellers; My Purchases is inside the menu. On
+                phones it is all in the menu button, with the bottom tab bar as
+                a shortcut. */}
             <nav className="hidden md:flex items-center gap-3">
+              <SellerDashboardLink />
               <Link
                 href="/browse"
                 className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"

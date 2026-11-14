@@ -2,7 +2,23 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Package, Plus, AlertCircle, CheckCircle2, Users, ChevronDown, Camera, ImageIcon, X, Egg } from 'lucide-react';
+import {
+  Package,
+  Plus,
+  AlertCircle,
+  CheckCircle2,
+  Users,
+  ChevronDown,
+  Camera,
+  ImageIcon,
+  X,
+  Egg,
+  CalendarDays,
+  TrendingUp,
+  CreditCard,
+  ShoppingBag,
+  Flower2,
+} from 'lucide-react';
 import SharedBoxHostPanel, { type HostFarm } from '@/components/SharedBoxHostPanel';
 import SharedBoxPartner from '@/components/SharedBoxPartner';
 import {
@@ -247,25 +263,13 @@ export default function SellerCsa({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="flex-1 min-w-0">
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <Package className="w-5 h-5 text-emerald-600" /> Farm Boxes and Flower Boxes
           </h2>
-          <p className="text-sm text-gray-600 max-w-xl mb-2">
-            <strong className="text-gray-800">A Farm Box is essentially a CSA</strong> (community supported agriculture):
-            buyers sign up for a regular box from your farm through the season. You get steady, predictable sales, you
-            know how many boxes to fill before you harvest, and members become regulars. Buyers can also buy a single
-            box to try it first; those show in your weekly counts as one-off boxes and count toward any member limit.
-          </p>
-          <p className="text-sm text-gray-600 max-w-xl mb-2">
-            Members get a box from you on a set day, all season. Each box is charged to their saved card{' '}
-            {CHARGE_DAYS_BEFORE} days before pickup and shows up in your Orders and Pick List like any order. You're paid
-            when they collect it, as usual.
-          </p>
-          <p className="text-sm text-gray-600 max-w-xl">
-            <strong className="text-gray-800">Grow flowers?</strong> Offer a Flower Box instead.{' '}
-            <strong className="text-gray-800">Only grow a few things?</strong> Fill a box together with up to{' '}
-            {SHARED_BOX_MAX_PARTNERS} farms within {SHARED_BOX_MILES} miles: each farm adds its own part and is paid for it.
+          <p className="text-sm text-gray-600 max-w-xl mt-1">
+            <strong className="text-gray-800">A Farm Box is essentially a CSA</strong> (community supported
+            agriculture): buyers sign up for a regular box from your farm through the season.
           </p>
         </div>
         {!form && (
@@ -279,6 +283,57 @@ export default function SellerCsa({
             <Plus className="w-4 h-4" /> New Farm Box
           </button>
         )}
+      </div>
+
+      {/* How Farm Boxes work, in short cards instead of one block of text. */}
+      <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 sm:p-5 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            {
+              icon: CalendarDays,
+              title: 'How it works',
+              body: 'Members get a box from you on a set day, all season long.',
+            },
+            {
+              icon: TrendingUp,
+              title: 'Why it helps',
+              body: 'Steady, predictable sales. You know how many boxes to fill before you harvest, and members become regulars.',
+            },
+            {
+              icon: CreditCard,
+              title: 'Getting paid',
+              body: `Each box is charged to the member's saved card ${CHARGE_DAYS_BEFORE} days before pickup and shows in your Orders and Pick List like any order. You're paid when they collect it.`,
+            },
+            {
+              icon: ShoppingBag,
+              title: 'Single boxes',
+              body: 'Buyers can buy one box to try it first. These show as one-off boxes in your weekly counts and count toward any member limit.',
+            },
+          ].map(({ icon: Icon, title, body }) => (
+            <div key={title} className="bg-white rounded-xl p-4 border border-emerald-100">
+              <p className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                <Icon className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" /> {title}
+              </p>
+              <p className="mt-1 text-sm text-gray-600">{body}</p>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex gap-3 items-start rounded-xl bg-pink-50 border border-pink-100 p-4">
+            <Flower2 className="w-5 h-5 text-pink-600 shrink-0 mt-0.5" aria-hidden="true" />
+            <p className="text-sm text-gray-700">
+              <strong className="text-gray-900">Grow flowers?</strong> Offer a Flower Box instead.
+            </p>
+          </div>
+          <div className="flex gap-3 items-start rounded-xl bg-amber-50 border border-amber-100 p-4">
+            <Users className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
+            <p className="text-sm text-gray-700">
+              <strong className="text-gray-900">Only grow a few things?</strong> Fill a box together with up to{' '}
+              {SHARED_BOX_MAX_PARTNERS} farms within {SHARED_BOX_MILES} miles. Each farm adds its own part and is paid
+              for it.
+            </p>
+          </div>
+        </div>
       </div>
 
       {error && (
