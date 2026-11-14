@@ -112,6 +112,42 @@ type DashboardTab = 'listings' | 'new' | 'orders' | 'picklist' | 'csa' | 'sales'
 // at where it is: the entry in the side menu on a computer, or the section
 // button on a phone, where the menu is folded away.
 const TOUR_KEY = 'ffd-seller-tour-seen';
+
+// Orders has two tabs: the orders themselves and the Pick List made from them.
+function OrdersTabs({
+  active,
+  onChange,
+  toPick,
+}: {
+  active: DashboardTab;
+  onChange: (tab: DashboardTab) => void;
+  toPick: number;
+}) {
+  const tab = (on: boolean) =>
+    `flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+      on ? 'bg-white text-emerald-800 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+    }`;
+  return (
+    <div role="tablist" aria-label="Orders" className="print:hidden mb-5 flex gap-1 p-1 bg-gray-100 rounded-xl w-full sm:w-fit">
+      <button type="button" role="tab" aria-selected={active === 'orders'} onClick={() => onChange('orders')} className={tab(active === 'orders')}>
+        <ShoppingBag className="w-4 h-4" aria-hidden="true" /> Orders
+      </button>
+      <button
+        type="button"
+        role="tab"
+        data-tour="picklist-tab"
+        aria-selected={active === 'picklist'}
+        onClick={() => onChange('picklist')}
+        className={tab(active === 'picklist')}
+      >
+        <ClipboardList className="w-4 h-4" aria-hidden="true" /> Pick List
+        {toPick > 0 && (
+          <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">{toPick}</span>
+        )}
+      </button>
+    </div>
+  );
+}
 const TOUR_STEPS: (TourStep & { tab: DashboardTab })[] = [
   {
     tab: 'listings',
@@ -162,9 +198,9 @@ const TOUR_STEPS: (TourStep & { tab: DashboardTab })[] = [
   },
   {
     tab: 'picklist',
-    targets: ['nav-picklist', 'menu-button'],
+    targets: ['picklist-tab'],
     title: 'Your Pick List',
-    body: 'One list of everything to harvest and bag for your open orders. Print it or keep it open on your phone while you pick.',
+    body: 'Inside Orders, the Pick List tab is one list of everything to harvest and bag for your open orders. Print it or keep it open on your phone while you pick.',
   },
   {
     tab: 'help',
@@ -1592,7 +1628,7 @@ export default function SellerDashboardPage() {
                   listings: 'Your Listings',
                   new: 'Your Listings',
                   orders: 'Orders',
-                  picklist: 'Pick List',
+                  picklist: 'Orders',
                   csa: 'Farm Boxes',
                   sales: 'Sales & Payouts',
                   profile: 'Farm Profile & Photo',
@@ -1601,7 +1637,7 @@ export default function SellerDashboardPage() {
               }
             </span>
             <span className="flex items-center gap-2">
-              {!navOpen && activeTab !== 'orders' && incomingOrders.length > 0 && (
+              {!navOpen && activeTab !== 'orders' && activeTab !== 'picklist' && incomingOrders.length > 0 && (
                 <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
                   {incomingOrders.length} open order{incomingOrders.length === 1 ? '' : 's'}
                 </span>
@@ -1659,7 +1695,7 @@ export default function SellerDashboardPage() {
                 setErrorMsg(null);
               }}
               className={`w-full flex items-center justify-between gap-2 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
-                activeTab === 'orders'
+                activeTab === 'orders' || activeTab === 'picklist'
                   ? 'bg-emerald-50 text-emerald-700 font-bold'
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
@@ -1670,29 +1706,6 @@ export default function SellerDashboardPage() {
               {incomingOrders.length > 0 && (
                 <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
                   {incomingOrders.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              data-tour="nav-picklist"
-              onClick={() => {
-                setActiveTab('picklist');
-                setSuccessMsg(null);
-                setErrorMsg(null);
-              }}
-              className={`w-full flex items-center justify-between gap-2 px-3.5 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-colors ${
-                activeTab === 'picklist'
-                  ? 'bg-emerald-50 text-emerald-700 font-bold'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <span className="flex items-center gap-2.5">
-                <ClipboardList className="w-4 h-4" /> Pick List
-              </span>
-              {incomingOrders.filter((o) => o.status === 'pending_pickup').length > 0 && (
-                <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
-                  {incomingOrders.filter((o) => o.status === 'pending_pickup').length}
                 </span>
               )}
             </button>
@@ -2413,6 +2426,14 @@ export default function SellerDashboardPage() {
                 </form>
               )}
             </div>
+          )}
+
+          {(activeTab === 'orders' || activeTab === 'picklist') && (
+            <OrdersTabs
+              active={activeTab}
+              onChange={setActiveTab}
+              toPick={incomingOrders.filter((o) => o.status === 'pending_pickup').length}
+            />
           )}
 
           {activeTab === 'orders' && (
