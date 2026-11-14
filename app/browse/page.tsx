@@ -74,8 +74,18 @@ const HERB_TYPES: typeof VEGETABLE_TYPES = [
 const PANTRY_TYPES: typeof VEGETABLE_TYPES = [
   { name: 'Honey', emoji: '🍯', keywords: ['honey'], exclude: ['honeycomb', 'honeydew'] },
   { name: 'Honeycomb & Bee Products', emoji: '🐝', keywords: ['honeycomb', 'beeswax', 'pollen', 'propolis'] },
-  { name: 'Jam & Jelly', emoji: '🥫', keywords: ['jam', 'jelly', 'preserve', 'marmalade'] },
+];
+
+const PRESERVE_TYPES: typeof VEGETABLE_TYPES = [
+  { name: 'Jam & Jelly', emoji: '🫙', keywords: ['jam', 'jelly', 'preserve', 'marmalade', 'butter'] },
   { name: 'Syrup', emoji: '🥞', keywords: ['syrup', 'agave'] },
+];
+
+const BAKED_TYPES: typeof VEGETABLE_TYPES = [
+  { name: 'Bread', emoji: '🍞', keywords: ['bread', 'loaf', 'sourdough', 'focaccia', 'bagel', 'roll', 'baguette'] },
+  { name: 'Pastries & Pies', emoji: '🥧', keywords: ['pie', 'pastry', 'galette', 'croissant', 'scone', 'muffin', 'tart'] },
+  { name: 'Cookies & Treats', emoji: '🍪', keywords: ['cookie', 'brownie', 'bar', 'cake', 'cupcake', 'biscotti'] },
+  { name: 'Tortillas', emoji: '🫓', keywords: ['tortilla'] },
 ];
 
 const MUSHROOM_TYPES: typeof VEGETABLE_TYPES = [
@@ -123,7 +133,9 @@ const TILE_GROUPS: Record<string, { heading: string; types: typeof VEGETABLE_TYP
   Vegetables: { heading: 'Shop by Vegetable', types: VEGETABLE_TYPES },
   'Fruits & Berries': { heading: 'Shop by Fruit', types: FRUIT_TYPES },
   'Herbs & Spices': { heading: 'Shop by Herb', types: HERB_TYPES },
-  'Honey & Jam': { heading: 'Shop Honey, Jam & More', types: PANTRY_TYPES },
+  Honey: { heading: 'Shop Honey & Bee Products', types: PANTRY_TYPES },
+  'Jams & Preserves': { heading: 'Shop Jams & Preserves', types: PRESERVE_TYPES },
+  'Baked Goods': { heading: 'Shop Baked Goods', types: BAKED_TYPES },
   'Fresh Eggs': { heading: 'Shop Fresh Eggs', types: EGG_TYPES },
   Mushrooms: { heading: 'Shop Mushrooms', types: MUSHROOM_TYPES },
   'Cut Flowers': { heading: 'Shop Cut Flowers', types: FLOWER_TYPES },

@@ -53,8 +53,8 @@ export default function SellerTermsPage() {
             You are the seller of the products you list. You are responsible for knowing and following all
             federal, state and local laws that apply to them, including any licenses, permits, registrations,
             inspections, labeling, packaging, food-safety and plant-health requirements. Rules for items such as
-            eggs, honey, jam, other prepared foods and plants vary by state; it is your responsibility to check
-            them before you list.
+            eggs, honey, jams, baked goods, other prepared foods and plants vary by state; it is your
+            responsibility to check them before you list.
           </p>
           <p className="mt-2">
             <strong>Your farm&apos;s web address.</strong> You may choose a short web address for your farm
@@ -68,9 +68,23 @@ export default function SellerTermsPage() {
             wild may not be listed. Plants must be ones you grew or propagated yourself; plants dug up or taken
             from the wild may not be listed, and neither may any plant that the law where you sell does not allow
             to be sold, such as a prohibited invasive or noxious species. Cut flowers and plants are the only
-            categories that are not food. Seeds, meat, dairy, baked goods, crafts and anything else outside our
-            categories may not be listed. We may remove any listing that does not belong, without notice, and
+            categories that are not food. Jams, preserves and baked goods are cottage foods, covered below. Seeds,
+            meat, dairy, crafts and anything else outside our categories may not be listed. We may remove any listing that does not belong, without notice, and
             cancel and refund any open orders for it.
+          </p>
+          <p className="mt-2">
+            <strong>Cottage foods (jams, preserves and baked goods).</strong> You may list items in the Jams &amp;
+            Preserves and Baked Goods categories only if you hold a current registration with the Arizona
+            Department of Health Services cottage food program and have entered your registration number, and
+            uploaded your registration certificate, in your Farm Profile. By doing so, you confirm that it is your
+            own registration, that it is current, and
+            that everything you list in those categories is made in the home kitchen it covers and is a food the
+            program allows. You must label each item as the program requires, including that it was made in a home
+            kitchen, your registration number, the ingredients and any major food allergens, and you must tell us
+            and remove your registration from your Farm Profile if it expires, lapses or is cancelled, which takes
+            those listings off sale. Your registration number is shown to buyers on those listings. We do not
+            verify every registration, but we may spot-check certificates and the state&apos;s records, and remove
+            listings or accounts where a registration or certificate is missing, false or not current.
           </p>
           <p className="mt-2">
             <strong>Plants.</strong> Many states require a license, registration or inspection to sell plants,

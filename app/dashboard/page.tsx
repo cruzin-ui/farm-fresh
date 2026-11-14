@@ -28,6 +28,7 @@ import SellerEarnings from '@/components/SellerEarnings';
 import { orderRef } from '@/lib/pickupGroups';
 import { announceAccountChange } from '@/lib/accountEvents';
 import { LISTING_CATEGORIES, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
+import CottageFoodSection from '@/components/CottageFoodSection';
 import { PLANTS_CATEGORY, stateForZip } from '@/lib/plants';
 import {
   isSellerLate,
@@ -357,6 +358,9 @@ export default function SellerDashboardPage() {
   const [profileAddress, setProfileAddress] = useState('');
   const [profileAddressVerified, setProfileAddressVerified] = useState(false);
   const [growingPractices, setGrowingPractices] = useState('No Synthetic Pesticides');
+  // Arizona cottage food registration number (set by CottageFoodSection):
+  // lets the farm list jams, preserves and baked goods.
+  const [cottageReg, setCottageReg] = useState('');
 
   const avatarCameraInputRef = useRef<HTMLInputElement>(null);
   const avatarLibraryInputRef = useRef<HTMLInputElement>(null);
@@ -2034,6 +2038,7 @@ export default function SellerDashboardPage() {
                   farmPickupLoaded={farmPickupLoaded}
                   farmState={farmState}
                   sellerTermsAccepted={sellerTermsAccepted}
+                  cottageReg={cottageReg}
                   previousListings={myListings}
                   startFrom={repostFrom}
                   onGoToProfile={() => setActiveTab('profile')}
@@ -3870,6 +3875,10 @@ export default function SellerDashboardPage() {
                 {loading ? 'Saving Profile...' : profileSaved ? '✓ Saved' : 'Save Profile & Branding'}
               </button>
             </form>
+            {/* Cottage food registration: saved on its own, with its certificate. */}
+            <div className="mt-6">
+              <CottageFoodSection onChange={setCottageReg} />
+            </div>
             {/* Farmers markets and events: separate from the form above. */}
             <div className="mt-8" data-tour="markets">
               <FarmAppearancesEditor sellerTermsAccepted={sellerTermsAccepted} />

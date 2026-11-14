@@ -229,7 +229,35 @@ const SELLER_FAQS: Faq[] = [
   },
   {
     question: 'What can I list?',
-    answer: `${PRODUCE_ONLY_NOTICE} That also rules out things like meat, dairy, baked goods and crafts. If you're not sure whether something fits, contact us before listing it.`,
+    answer: `${PRODUCE_ONLY_NOTICE} That also rules out things like meat, dairy and crafts. If you're not sure whether something fits, contact us before listing it.`,
+  },
+  {
+    question: 'Can I sell bread, baked goods or jam?',
+    answer: (
+      <>
+        <p>
+          Yes, if you&apos;re registered with the{' '}
+          <a href="https://www.azdhs.gov/CottageFood" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-800 underline">
+            Arizona cottage food program
+          </a>
+          , which lets you make foods like bread, pastries, cookies, jams and jellies in your home kitchen and sell
+          them directly to customers. In your Seller Dashboard, open Farm Profile &amp; Photo and add your
+          registration number with a photo or PDF of your registration certificate. The Baked Goods and Jams
+          &amp; Preserves categories then open up for you.
+        </p>
+        <p className="mt-2">
+          Your registration number is shown on those listings. Label each item the way the program requires,
+          including that it was made in a home kitchen, your registration number, the ingredients and any
+          allergens. If your registration expires or is cancelled, remove it from your Farm Profile; that takes those listings off
+          sale until you add a current one.
+        </p>
+      </>
+    ),
+  },
+  {
+    question: 'Why can’t I sell meat?',
+    answer:
+      "Meat has to be processed at a USDA- or state-inspected facility, kept cold the whole way to the buyer, and handled under extra permits, so it's a different kind of business from selling what you grow. Ranchers who've set all that up usually already sell direct through their own sites and markets. We've kept Farm Fresh Direct focused on what backyard growers and small farms can sell easily and safely: produce, herbs, mushrooms, plants, flowers, eggs, honey and jam.",
   },
   {
     question: 'Are there rules about what I can sell?',
@@ -245,9 +273,13 @@ const SELLER_FAQS: Faq[] = [
             cartons, and may require a license above a certain flock size or number of dozens sold.
           </li>
           <li>
-            <strong>Honey, jam and other prepared foods:</strong> these usually fall under your state's
-            "cottage food" laws, which decide what may be made in a home kitchen and how it must be labeled.
-            Some states don't allow items like pickles, salsa or other canned goods at all.
+            <strong>Honey:</strong> states have rules for how honey is labeled, and some treat it as a
+            cottage food.
+          </li>
+          <li>
+            <strong>Jams, preserves and baked goods:</strong> these are "cottage foods," made in a home kitchen.
+            Here you need an Arizona cottage food registration to list them (see the question above), and the
+            program decides what may be made at home and how it must be labeled.
           </li>
           <li>
             <strong>Plants:</strong> many states require a license or inspection to sell plants, ban certain

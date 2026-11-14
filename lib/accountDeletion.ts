@@ -1,4 +1,5 @@
 import type { User } from '@supabase/supabase-js';
+import { removeCottageRegistration } from '@/lib/cottageFood';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { stripeAdmin } from '@/lib/stripeAdmin';
 import { cancelMembership, liveMembersOf, type CsaMember, type CsaPlan } from '@/lib/csa';
@@ -23,6 +24,7 @@ const OPEN_STATUSES = ['pending_pickup', 'ready_for_pickup'];
 // say where they came from.
 const FARM_DETAILS_TO_CLEAR = [
   'slug',
+  'cottage_food_reg',
   'bio',
   'growing_practices',
   'avatar_url',
@@ -141,6 +143,9 @@ export async function deleteAccount(user: User) {
     }
     await supabaseAdmin.from('buyer_stripe_customers').delete().eq('user_id', userId);
   }
+
+  // A cottage food registration and its certificate file.
+  await removeCottageRegistration(userId);
 
   // A wholesale account. (Its resale certificates are kept; see above.)
   await supabaseAdmin.from('wholesale_accounts').delete().eq('user_id', userId);

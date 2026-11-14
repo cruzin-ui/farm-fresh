@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRequestUser } from '@/lib/apiAuth';
 import { isSellerSuspended } from '@/lib/accountBlocks';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
-import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
+import { isAllowedCategory, isCottageFood, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { addDays, isDay, todayInArizona } from '@/lib/csaSchedule';
 import { MAX_GROWING, describeExpected, stillShown } from '@/lib/growing';
 import { alertAdmin } from '@/lib/alerts';
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       const until = text(input.expectedUntil, 10);
       const note = text(input.note, 200);
       if (name.length < 2) return NextResponse.json({ error: 'Enter what you’re growing, e.g. "Heirloom Tomatoes".' }, { status: 400 });
-      if (!isAllowedCategory(category)) return NextResponse.json({ error: `Choose one of the listed categories. ${PRODUCE_ONLY_NOTICE}` }, { status: 400 });
+      if (!isAllowedCategory(category) || isCottageFood(category)) return NextResponse.json({ error: `Choose one of the listed categories. ${PRODUCE_ONLY_NOTICE}` }, { status: 400 });
       if (!isDay(from)) return NextResponse.json({ error: 'Choose roughly when it should be ready.' }, { status: 400 });
       if (from > addDays(today, 366)) return NextResponse.json({ error: 'Choose a date within the next year.' }, { status: 400 });
       if (until && (!isDay(until) || until < from)) return NextResponse.json({ error: '“Until” has to be after the expected date.' }, { status: 400 });

@@ -200,12 +200,12 @@ export default function WhySellersPage() {
       <DetailBox id="sell-what" title="What you can sell">
         <p>
           Things you grew or made yourself, in these categories: {LISTING_CATEGORIES.join(', ')}. Mushrooms must be ones
-          you cultivated, and plants ones you grew or propagated. Seeds, meat, dairy, baked goods and crafts can&apos;t be
-          listed.
+          you cultivated, and plants ones you grew or propagated. Jams, preserves and baked goods can be sold once you add your Arizona cottage food registration number
+          to your Farm Profile. Seeds, meat, dairy and crafts can&apos;t be listed.
         </p>
         <p>
           You are responsible for following your state&apos;s rules for what you sell, such as licences for eggs or
-          plants and cottage-food rules for honey and jam. Sales tax is worked out and collected for you at checkout.
+          plants and cottage-food rules for jams and baked goods. Sales tax is worked out and collected for you at checkout.
         </p>
       </DetailBox>
 
