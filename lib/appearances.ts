@@ -123,6 +123,23 @@ function weekdayInMonth(year: number, month: number, weekday: number, n: number 
   return iso(new Date(Date.UTC(year, month, 1 + ahead + (n - 1) * 7)));
 }
 
+// The first date on or after `from` that falls on `weekday` (0 is Sunday),
+// or for a monthly post, on the nth (or last) such weekday of its month.
+export function nextMatchingDate(from: string, weekday: number, monthly?: number | 'last') {
+  if (monthly === undefined) {
+    let day = from;
+    while (weekdayOf(day) !== weekday) day = addDays(day, 1);
+    return day;
+  }
+  const year = Number(from.slice(0, 4));
+  const month = Number(from.slice(5, 7)) - 1;
+  for (let i = 0; i < 14; i++) {
+    const day = weekdayInMonth(year, month + i, weekday, monthly);
+    if (day >= from) return day;
+  }
+  return from;
+}
+
 // The i-th date of an appearance (0 is the first date).
 function occurrence(a: Schedule, repeat: RepeatEvery, i: number) {
   if (repeat === 'week') return addDays(a.starts_on, 7 * i);

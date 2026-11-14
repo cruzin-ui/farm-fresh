@@ -285,8 +285,21 @@ export default function SellerCsa({
         )}
       </div>
 
-      {/* How Farm Boxes work, in short cards instead of one block of text. */}
-      <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 sm:p-5 space-y-3">
+      {/* How Farm Boxes work, in short cards instead of one block of text.
+          Open for a farm with no Farm Box yet, folded once it has one; the
+          farmer can open or close it either way. Shown once the plans have
+          loaded, so it doesn't open and then snap shut. */}
+      {plans !== null && (
+      <details
+        key={plans.length > 0 ? 'has-boxes' : 'no-boxes'}
+        open={plans.length === 0}
+        className="group bg-emerald-50 border border-emerald-100 rounded-2xl"
+      >
+        <summary className="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 sm:px-5 py-3 text-sm font-bold text-emerald-900">
+          How Farm Boxes work
+          <ChevronDown className="w-4 h-4 text-emerald-700 transition-transform group-open:rotate-180" aria-hidden="true" />
+        </summary>
+      <div className="px-4 sm:px-5 pb-4 sm:pb-5 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             {
@@ -335,6 +348,8 @@ export default function SellerCsa({
           </div>
         </div>
       </div>
+      </details>
+      )}
 
       {error && (
         <p role="alert" className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex gap-2">

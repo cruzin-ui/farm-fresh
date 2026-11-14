@@ -4,8 +4,16 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDays, Plus, AlertCircle, CheckCircle2, MapPin } from 'lucide-react';
 import { postWithAuth } from '@/lib/authedFetch';
-import { todayInArizona } from '@/lib/csaSchedule';
-import { APPEARANCE_KINDS, ORDER_CUTOFF_HOUR, formatTime, repeatChoices, type RepeatEvery } from '@/lib/appearances';
+import { addDays, todayInArizona, weekdayOf, WEEKDAYS } from '@/lib/csaSchedule';
+import {
+  APPEARANCE_KINDS,
+  ORDER_CUTOFF_HOUR,
+  formatTime,
+  nextMatchingDate,
+  repeatChoices,
+  weekOfMonth,
+  type RepeatEvery,
+} from '@/lib/appearances';
 
 type Post = {
   id: string;
@@ -199,6 +207,94 @@ export default function FarmAppearancesEditor({ sellerTermsAccepted }: { sellerT
               <label htmlFor="ap-zip" className="block text-xs font-semibold text-gray-700 mb-1">Zip code *</label>
               <input id="ap-zip" required inputMode="numeric" maxLength={5} {...field('zip')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
             </div>
+            {(() => {
+              // "Every [1|2] [week|month] on [the 2nd] [Saturday]". The
+              // choices are read from, and written back as, the first date and
+              // how it repeats: picking a weekday moves the first date to the
+              // next one of those.
+              const today = todayInArizona();
+              const valid = /^\d{4}-\d{2}-\d{2}$/.test(form.startsOn);
+              const weekday = valid ? weekdayOf(form.startsOn) : 6;
+              const unit: 'week' | 'month' = form.repeat === 'month' || form.repeat === 'month_last' ? 'month' : 'week';
+              const count = form.repeat === '2weeks' ? 2 : 1;
+              const ordinal: number | 'last' =
+                form.repeat === 'month_last' ? 'last' : valid ? Math.min(weekOfMonth(form.startsOn).n, 4) : 1;
+              const apply = (next: { repeats: boolean; unit: 'week' | 'month'; count: number; ordinal: number | 'last'; weekday: number }) =>
+                setForm((current) => {
+                  if (!current) return current;
+                  if (!next.repeats) return { ...current, repeat: '' };
+                  // Look from the start of the chosen week or month, never before today.
+                  let from = valid
+                    ? next.unit === 'week'
+                      ? addDays(current.startsOn, -weekdayOf(current.startsOn))
+                      : `${current.startsOn.slice(0, 8)}01`
+                    : today;
+                  if (from < today) from = today;
+                  const startsOn = nextMatchingDate(from, next.weekday, next.unit === 'month' ? next.ordinal : undefined);
+                  const repeat: RepeatEvery =
+                    next.unit === 'week' ? (next.count === 2 ? '2weeks' : 'week') : next.ordinal === 'last' ? 'month_last' : 'month';
+                  return { ...current, startsOn, repeat };
+                });
+              const now = { repeats: form.repeat !== '', unit, count, ordinal, weekday };
+              const select = 'px-3 py-2 border rounded-lg text-sm bg-white';
+              return (
+                <div className="sm:col-span-2">
+                  <span id="ap-repeat-label" className="block text-xs font-semibold text-gray-700 mb-1">Repeats</span>
+                  <div role="group" aria-labelledby="ap-repeat-label" className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+                    <select
+                      aria-label="Repeats"
+                      value={form.repeat ? 'yes' : ''}
+                      onChange={(e) => apply({ ...now, repeats: e.target.value === 'yes' })}
+                      className={select}
+                    >
+                      <option value="">Doesn&apos;t repeat</option>
+                      <option value="yes">Every</option>
+                    </select>
+                    {form.repeat && (
+                      <>
+                        {unit === 'week' && (
+                          <select aria-label="How many weeks" value={count} onChange={(e) => apply({ ...now, count: Number(e.target.value) })} className={select}>
+                            <option value={1}>1</option>
+                            <option value={2}>2</option>
+                          </select>
+                        )}
+                        <select
+                          aria-label="Week or month"
+                          value={unit}
+                          onChange={(e) => apply({ ...now, unit: e.target.value as 'week' | 'month', count: 1 })}
+                          className={select}
+                        >
+                          <option value="week">{count === 2 ? 'weeks' : 'week'}</option>
+                          <option value="month">month</option>
+                        </select>
+                        <span>on</span>
+                        {unit === 'month' && (
+                          <select
+                            aria-label="Which one in the month"
+                            value={String(ordinal)}
+                            onChange={(e) => apply({ ...now, ordinal: e.target.value === 'last' ? 'last' : Number(e.target.value) })}
+                            className={select}
+                          >
+                            <option value="1">the 1st</option>
+                            <option value="2">the 2nd</option>
+                            <option value="3">the 3rd</option>
+                            <option value="4">the 4th</option>
+                            <option value="last">the last</option>
+                          </select>
+                        )}
+                        <select aria-label="Day of the week" value={weekday} onChange={(e) => apply({ ...now, weekday: Number(e.target.value) })} className={select}>
+                          {WEEKDAYS.map((name, i) => (
+                            <option key={name} value={i}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
             <div>
               <label htmlFor="ap-date" className="block text-xs font-semibold text-gray-700 mb-1">{form.repeat ? 'First date *' : 'Date *'}</label>
               <input
@@ -225,21 +321,6 @@ export default function FarmAppearancesEditor({ sellerTermsAccepted }: { sellerT
                 }}
                 className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
               />
-            </div>
-            <div>
-              <label htmlFor="ap-repeat" className="block text-xs font-semibold text-gray-700 mb-1">Repeats</label>
-              <select
-                id="ap-repeat"
-                value={form.repeat}
-                onChange={(e) => setForm((current) => (current ? { ...current, repeat: e.target.value as RepeatEvery | '' } : current))}
-                className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
-              >
-                {repeatChoices(form.startsOn).map((choice) => (
-                  <option key={choice.value} value={choice.value}>
-                    {choice.label}
-                  </option>
-                ))}
-              </select>
             </div>
             {form.repeat && (
               <div>
