@@ -101,7 +101,7 @@ import { readWholesaleOffer } from '@/lib/wholesale';
 import { loadConnectAndInitialize } from '@stripe/connect-js/pure';
 import type { StripeConnectInstance } from '@stripe/connect-js';
 import { ConnectComponentsProvider, ConnectAccountOnboarding } from '@stripe/react-connect-js';
-import { shareLink } from '@/lib/share';
+import ShareFarmMenu from '@/components/ShareFarmMenu';
 
 // 'sales' is Sales & Payouts: the payout account, how sales are going, and
 // the record of every order. (It replaced separate "Sales History" and
@@ -244,7 +244,6 @@ export default function SellerDashboardPage() {
   const [addressCheck, setAddressCheck] = useState<{ address: string; available: boolean; error?: string } | null>(null);
   const [claimingAddress, setClaimingAddress] = useState(false);
   // Shown briefly after the seller copies the link to their farm page.
-  const [storefrontCopied, setStorefrontCopied] = useState(false);
   // The guided tour. It starts by itself the first time a seller with nothing
   // listed yet opens the dashboard on this device, and can be run again from
   // the Getting set up box and from Help.
@@ -1587,27 +1586,7 @@ export default function SellerDashboardPage() {
               >
                 <Store className="w-3.5 h-3.5" aria-hidden="true" /> View my farm page
               </a>
-              <button
-                type="button"
-                onClick={async () => {
-                  // The phone's share sheet in the app; a copied link on a computer.
-                  const result = await shareLink({
-                    title: farmName || 'My farm',
-                    text: `${farmName || 'My farm'} on Farm Fresh Direct`,
-                    url: farmPagePath,
-                  });
-                  if (result === 'copied') {
-                    setStorefrontCopied(true);
-                    setTimeout(() => setStorefrontCopied(false), 2500);
-                  } else if (result === 'failed') {
-                    // Copying isn't allowed in this browser: open the page so the address can be copied from it.
-                    window.open(farmPagePath, '_blank');
-                  }
-                }}
-                className="font-semibold text-gray-700 border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-50"
-              >
-                {storefrontCopied ? 'Link copied' : 'Share my farm page'}
-              </button>
+              <ShareFarmMenu farmName={farmName} path={farmPagePath} />
             </div>
           )}
 
