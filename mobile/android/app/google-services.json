@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "30278091121",
+    "project_id": "farm-fresh-direct-d1929",
+    "storage_bucket": "farm-fresh-direct-d1929.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:30278091121:android:7b979c172551c5c6fd36d0",
+        "android_client_info": {
+          "package_name": "online.farmfreshdirect.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDALLLsKBVOp3z5YFjzTpChXP-4loOv1pk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
