@@ -29,6 +29,8 @@ import { orderRef } from '@/lib/pickupGroups';
 import { announceAccountChange } from '@/lib/accountEvents';
 import { LISTING_CATEGORIES, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import CottageFoodSection from '@/components/CottageFoodSection';
+import DeliverySettings from '@/components/DeliverySettings';
+import LeftAtDoor from '@/components/LeftAtDoor';
 import { PLANTS_CATEGORY, stateForZip } from '@/lib/plants';
 import {
   isSellerLate,
@@ -39,6 +41,7 @@ import {
   AUTO_CANCEL_DAYS,
   WEEKDAYS,
   PICKUP_TIMES,
+  mapLink,
 } from '@/lib/pickupRules';
 
 // What a farmer can tick when telling a buyer their order is ready. The days
@@ -95,7 +98,9 @@ import {
   Repeat,
   Lock,
   ShieldCheck,
+  Truck,
 } from 'lucide-react';
+import { DELIVERY_RELEASE_HOURS } from '@/lib/delivery';
 import { useRouter } from 'next/navigation';
 import WholesaleFields, { NO_WHOLESALE, wholesaleDraftFrom, type WholesaleDraft } from '@/components/WholesaleFields';
 import { readWholesaleOffer } from '@/lib/wholesale';
@@ -320,6 +325,8 @@ export default function SellerDashboardPage() {
   const [availableQuantity, setAvailableQuantity] = useState('');
   const [harvestReadyDate, setHarvestReadyDate] = useState('');
   const [harvestEndDate, setHarvestEndDate] = useState('');
+  // Offered for pickup only, never delivered (it doesn't travel well).
+  const [pickupOnly, setPickupOnly] = useState(false);
   const [locationName, setLocationName] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [pickupAddress, setPickupAddress] = useState('');
@@ -665,6 +672,7 @@ export default function SellerDashboardPage() {
     setAvailableQuantity('');
     setHarvestReadyDate('');
     setHarvestEndDate('');
+    setPickupOnly(false);
     setPickupAddress(defaultPickupAddress);
     setPickupAddressVerified(Boolean(defaultPickupAddress));
     setListingTags([]);
@@ -702,6 +710,7 @@ export default function SellerDashboardPage() {
     setAvailableQuantity(item.available_quantity != null ? String(item.available_quantity) : '');
     setHarvestReadyDate(item.harvest_ready_date || '');
     setHarvestEndDate(item.harvest_end_date || '');
+    setPickupOnly(Boolean(item.pickup_only));
     setPickupAddress(item.pickup_address || '');
     setPickupAddressVerified(Boolean(item.pickup_address));
     setListingTags(Array.isArray(item.tags) ? item.tags.slice(0, MAX_LISTING_TAGS) : []);
@@ -728,6 +737,19 @@ export default function SellerDashboardPage() {
   // Where an open order stands and what is due next, in one plain sentence.
   // `urgent` marks the ones the seller is late on.
   const orderStatusLine = (order: any): { text: string; urgent: boolean } => {
+    // Delivered by the farm: take it to the buyer's door.
+    if (order.fulfillment === 'delivery' && (order.status === 'pending_pickup' || order.status === 'ready_for_pickup')) {
+      if (order.delivered_at) {
+        return {
+          text: `Left at the door ${shortDate(order.delivered_at)}. You're paid ${DELIVERY_RELEASE_HOURS} hours after that unless the buyer reports a problem.`,
+          urgent: false,
+        };
+      }
+      return {
+        text: `To deliver: ${order.delivery_window || shortDate(order.ready_by)}. At the door, scan the buyer's code, or leave it and take a photo.`,
+        urgent: isSellerLate(order),
+      };
+    }
     // Picked up at one of the farm's markets: bring it there.
     if (order.market_label && (order.status === 'pending_pickup' || order.status === 'ready_for_pickup') && !order.no_show_reported_at) {
       return {
@@ -891,7 +913,9 @@ export default function SellerDashboardPage() {
   // Marks every waiting order ready at once, using the seller's usual days
   // and times and each listing's own pickup instructions.
   const markAllReady = async () => {
-    const waiting = incomingOrders.filter((o) => o.status === 'pending_pickup' && o.known_pickup_address);
+    const waiting = incomingOrders.filter(
+      (o) => o.status === 'pending_pickup' && o.known_pickup_address && o.fulfillment !== 'delivery'
+    );
     const days = usualPickupDates();
 
     if (usualTimes.length === 0 || usualDays.length === 0) {
@@ -1348,6 +1372,7 @@ export default function SellerDashboardPage() {
             available_quantity: parseFloat(availableQuantity),
             harvest_ready_date: harvestReadyDate,
             harvest_end_date: harvestEndDate || null,
+            pickup_only: pickupOnly,
             tags: listingTags,
             ...plantPayload,
             ...(cropImageUrl ? { image_url: cropImageUrl } : {}),
@@ -2360,6 +2385,21 @@ export default function SellerDashboardPage() {
                     </div>
                   </div>
 
+                  {editingListingId && (
+                    <label className="flex items-start gap-2 p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={pickupOnly}
+                        onChange={(e) => setPickupOnly(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 shrink-0"
+                      />
+                      <span>
+                        <span className="font-semibold text-gray-900">Pickup only.</span> Don&apos;t offer this for delivery
+                        (for things that don&apos;t travel well). Only matters if you deliver.
+                      </span>
+                    </label>
+                  )}
+
                   {!editingListingId && !sellerTermsAccepted && (
                     <label className="flex items-start gap-2 p-4 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700">
                       <input
@@ -2467,6 +2507,9 @@ export default function SellerDashboardPage() {
                     const adjusting = items.find((o) => o.id === adjustOrderId);
                     const readying = items.find((o) => o.id === readyDraftOrderId);
                     const several = items.length > 1;
+                    // Delivered by the farm rather than picked up.
+                    const isDelivery = items[0].fulfillment === 'delivery';
+                    const leftAtDoor = isDelivery && items.some((o) => o.delivered_at);
                     const payoutKnown = items.every((o) => o.farmer_payout_amount != null);
                     const payoutTotal = items.reduce(
                       (sum, o) => sum + Number((payoutKnown ? o.farmer_payout_amount : o.total_price) || 0),
@@ -2485,11 +2528,15 @@ export default function SellerDashboardPage() {
                               pendingItems.length > 0 ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
                             }`}
                           >
-                            {pendingItems.length === 0
-                              ? 'Ready for Pickup'
-                              : readyItems.length === 0
-                                ? 'To Prepare'
-                                : 'Partly Ready'}
+                            {isDelivery
+                              ? leftAtDoor
+                                ? 'Left at Door'
+                                : 'To Deliver'
+                              : pendingItems.length === 0
+                                ? 'Ready for Pickup'
+                                : readyItems.length === 0
+                                  ? 'To Prepare'
+                                  : 'Partly Ready'}
                           </span>
                           <span className="text-xs text-gray-500">
                             Order <span className="font-mono font-bold text-gray-700">{orderRef(items[0])}</span>
@@ -2544,16 +2591,49 @@ export default function SellerDashboardPage() {
                           </>
                         )}
 
+                        {isDelivery && items[0].delivery_address && (
+                          <div className="text-sm text-blue-950 bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-1">
+                            <p className="flex items-start gap-1.5">
+                              <Truck className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" aria-hidden="true" />
+                              <span>
+                                Deliver to <strong>{items[0].delivery_address}</strong>{' '}
+                                <a
+                                  href={mapLink(items[0].delivery_address)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-semibold text-blue-800 underline"
+                                >
+                                  Directions
+                                </a>
+                              </span>
+                            </p>
+                            {items[0].delivery_window && <p className="text-xs">When: {items[0].delivery_window}</p>}
+                            {items[0].delivery_note && <p className="text-xs">Buyer&apos;s note: {items[0].delivery_note}</p>}
+                          </div>
+                        )}
+
                         <p className="text-xs font-extrabold text-emerald-700">
                           {payoutKnown
-                            ? `Your payout at pickup: $${payoutTotal.toFixed(2)}${several ? ` for all ${items.length} items` : ''}`
+                            ? `Your payout ${isDelivery ? 'on delivery' : 'at pickup'}: $${payoutTotal.toFixed(2)}${several ? ` for all ${items.length} items` : ''}${isDelivery ? ', plus the delivery fee less the seller fee' : ''}`
                             : `Total Paid: $${payoutTotal.toFixed(2)}`}
                         </p>
                       </div>
 
                       <div className="flex flex-col sm:flex-row sm:items-start gap-2">
+                        {/* A delivery: at the door, scan the code or leave it with a photo. */}
+                        {isDelivery && !leftAtDoor && !completing && (
+                          <>
+                            <button
+                              onClick={() => openComplete(readyItems[0] || pendingItems[0])}
+                              className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-3 rounded-xl transition-colors shadow-sm"
+                            >
+                              <QrCode className="w-4 h-4" aria-hidden="true" /> At the Door: Scan Code
+                            </button>
+                            <LeftAtDoor orderId={items[0].id} onDone={() => fetchDashboardData()} />
+                          </>
+                        )}
                         {/* The one thing to do next for this order. */}
-                        {pendingItems.length > 0 && !readying && (
+                        {!isDelivery && pendingItems.length > 0 && !readying && (
                           <button
                             onClick={() => openReadyDraft(pendingItems[0])}
                             className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-3 rounded-xl transition-colors shadow-sm"
@@ -2562,7 +2642,7 @@ export default function SellerDashboardPage() {
                             {pendingItems.length > 1 ? 'Mark Items Ready for Pickup' : 'Mark Ready for Pickup'}
                           </button>
                         )}
-                        {readyItems.length > 0 && !completing && (
+                        {!isDelivery && readyItems.length > 0 && !completing && (
                           <button
                             onClick={() => openComplete(readyItems[0])}
                             className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-3 rounded-xl transition-colors shadow-sm"
@@ -2577,7 +2657,7 @@ export default function SellerDashboardPage() {
                             More options
                           </summary>
                           <div className="mt-1 flex flex-col gap-2">
-                            {readyItems.length === 0 && !completing && (
+                            {!isDelivery && readyItems.length === 0 && !completing && (
                               <button
                                 onClick={() => openComplete(pendingItems[0])}
                                 className="inline-flex items-center justify-center gap-1.5 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-colors"
@@ -2610,6 +2690,7 @@ export default function SellerDashboardPage() {
                             {items.map(
                               (item) =>
                                 item.status === 'ready_for_pickup' &&
+                                item.fulfillment !== 'delivery' &&
                                 item.stripe_payment_intent_id &&
                                 canReportNoShow(item) &&
                                 !item.no_show_reported_at && (
@@ -3878,6 +3959,10 @@ export default function SellerDashboardPage() {
             {/* Cottage food registration: saved on its own, with its certificate. */}
             <div className="mt-6">
               <CottageFoodSection onChange={setCottageReg} />
+            </div>
+            {/* Delivery to buyers' doors: saved on its own. */}
+            <div className="mt-6" id="delivery">
+              <DeliverySettings />
             </div>
             {/* Farmers markets and events: separate from the form above. */}
             <div className="mt-8" data-tour="markets">

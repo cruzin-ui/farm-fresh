@@ -15,6 +15,7 @@ import {
 import { sendEmail, escapeHtml } from '@/lib/email';
 import { NO_SHOW_REVIEW_HOURS } from '@/lib/noShow';
 import { alertAdmin } from '@/lib/alerts';
+import { releaseDeliveredOrders, settleDeliveries } from '@/lib/deliveryServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -198,8 +199,9 @@ export async function GET(request: Request) {
                 <div style="font-family: sans-serif; max-width: 480px;">
                   <h2 style="color: #b45309;">An order was cancelled automatically</h2>
                   <p>
-                    The order for <strong>${what}</strong> was not marked ready for pickup within
-                    ${AUTO_CANCEL_DAYS} days, so it has been cancelled and the buyer refunded in full. The
+                    The order for <strong>${what}</strong> was not ${
+                      order.fulfillment === 'delivery' ? 'delivered in time' : `marked ready for pickup within ${AUTO_CANCEL_DAYS} days`
+                    }, so it has been cancelled and the buyer refunded in full. The
                     quantity has been put back on your listing.
                   </p>
                   <p>
@@ -209,6 +211,28 @@ export async function GET(request: Request) {
                 </div>
               `,
             });
+          }
+          continue;
+        }
+
+        // A delivery: the day before, a reminder of where and when.
+        if (order.fulfillment === 'delivery') {
+          if (!order.seller_reminded_at && now >= deadline.getTime() - reminderWindowMs && now < deadline.getTime() && sellerEmail) {
+            await sendEmail({
+              to: sellerEmail,
+              subject: `Delivery reminder: ${listing.title || 'an order'}, ${order.delivery_window || formatDeadline(deadline)}`,
+              html: `
+                <div style="font-family: sans-serif; max-width: 480px;">
+                  <h2 style="color: #059669;">A delivery is coming up</h2>
+                  <p><strong>${what}</strong>, to <strong>${escapeHtml(order.delivery_address || '')}</strong>: ${escapeHtml(order.delivery_window || formatDeadline(deadline))}.</p>
+                  ${order.delivery_note ? `<p>The buyer's note: ${escapeHtml(order.delivery_note)}</p>` : ''}
+                  <p>At the door, scan the buyer's code, or use <strong>Left at the door</strong> and take a photo. Keep eggs and anything perishable cold. If it isn't delivered by ${formatDeadline(cancelAt)}, it is cancelled and refunded automatically.</p>
+                  <p><a href="${siteUrl}/dashboard?tab=orders">Open your orders</a></p>
+                </div>
+              `,
+            });
+            await supabaseAdmin.from('orders').update({ seller_reminded_at: new Date().toISOString() }).eq('id', order.id);
+            sellerReminders += 1;
           }
           continue;
         }
@@ -255,6 +279,7 @@ export async function GET(request: Request) {
       .from('orders')
       .select('*')
       .eq('status', 'ready_for_pickup')
+      .eq('fulfillment', 'pickup')
       .not('pickup_by', 'is', null)
       .is('buyer_reminded_at', null)
       .is('no_show_reported_at', null)
@@ -301,6 +326,19 @@ export async function GET(request: Request) {
       }
     }
 
+    // ---- Deliveries ----
+    // Orders left at the door whose buyer hasn't reported a problem in time
+    // are paid out, and finished deliveries have their fee paid to the farm
+    // (or refunded). Each step reports its own failures to the admins.
+    let deliveriesReleased = 0;
+    let deliveryFees = { paid: 0, refunded: 0 };
+    try {
+      deliveriesReleased = await releaseDeliveredOrders(siteUrl);
+      deliveryFees = await settleDeliveries();
+    } catch (deliveryError) {
+      await alertAdmin('the hourly delivery step', deliveryError);
+    }
+
     console.log(
       `Daily job: ${closed.length} no-shows closed, ${held.length} held, ${autoCancelled.length} cancelled as never ready, ${sellerReminders} seller reminders, ${buyerReminders} buyer reminders, ${failed.length} failed`
     );
@@ -334,6 +372,9 @@ export async function GET(request: Request) {
       autoCancelled: autoCancelled.length,
       sellerReminders,
       buyerReminders,
+      deliveriesReleased,
+      deliveryFeesPaid: deliveryFees.paid,
+      deliveryFeesRefunded: deliveryFees.refunded,
       failed: failed.length,
     });
   } catch (err: any) {

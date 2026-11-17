@@ -129,7 +129,14 @@ export async function deleteAccount(user: User) {
     const { data: plan } = await supabaseAdmin.from('csa_plans').select('*').eq('id', member.plan_id).single();
     if (plan) await cancelMembership({ member, plan: plan as CsaPlan, reason: 'Account deleted.', by: 'account_deleted', siteUrl });
   }
-  await supabaseAdmin.from('csa_members').update({ buyer_id: null }).eq('buyer_id', userId);
+  // Their delivery address on Farm Box memberships, and the farm's own
+  // delivery settings. (Addresses on past delivery orders stay with the
+  // order records, like the rest of an order.)
+  await supabaseAdmin
+    .from('csa_members')
+    .update({ buyer_id: null, delivery_address: null, delivery_zip: null, delivery_note: null })
+    .eq('buyer_id', userId);
+  await supabaseAdmin.from('farm_delivery').delete().eq('farmer_id', userId);
   const { data: customer } = await supabaseAdmin
     .from('buyer_stripe_customers')
     .select('stripe_customer_id')

@@ -84,6 +84,7 @@ type Plan = {
   boxType: 'food' | 'flowers';
   dropoffNote: string;
   hostSubstitutes: boolean;
+  offersDelivery: boolean;
   hostPart: { contribution: string; priceDollars: string; includesEggs: boolean } | null;
   farms: HostFarm[];
   everJoined: boolean;
@@ -117,6 +118,8 @@ type Form = {
   includesEggs: boolean;
   dropoffNote: string;
   hostSubstitutes: boolean;
+  // Members can choose delivery, using the farm's delivery settings.
+  offersDelivery: boolean;
 };
 
 const EMPTY_FORM: Form = {
@@ -137,6 +140,7 @@ const EMPTY_FORM: Form = {
   includesEggs: false,
   dropoffNote: DEFAULT_DROPOFF_NOTE,
   hostSubstitutes: false,
+  offersDelivery: false,
 };
 
 const STATUS_PILL: Record<Plan['status'], string> = {
@@ -627,6 +631,19 @@ export default function SellerCsa({
               <label htmlFor="csa-window" className="block text-xs font-semibold text-gray-700 mb-1">Pickup time</label>
               <input id="csa-window" maxLength={80} placeholder="e.g., 4–7 pm" {...field('pickupWindow')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
             </div>
+            <label className="sm:col-span-2 flex items-start gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                className="w-4 h-4 mt-0.5"
+                checked={form.offersDelivery}
+                onChange={(e) => setForm({ ...form, offersDelivery: e.target.checked })}
+              />
+              <span>
+                <span className="font-semibold text-gray-900">Members can choose delivery.</span> Uses your delivery area, fee and
+                time window from Farm Profile &amp; Photo → Delivery (which must be on), on each box&apos;s pickup day. The fee is
+                added to each delivered box.
+              </span>
+            </label>
             <div>
               <label htmlFor="csa-start" className="block text-xs font-semibold text-gray-700 mb-1">Season starts *</label>
               <input id="csa-start" type="date" required disabled={editingJoined} {...field('seasonStart')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white disabled:bg-gray-100" />
@@ -800,6 +817,7 @@ export default function SellerCsa({
                     includesEggs: plan.hostPart?.includesEggs || false,
                     dropoffNote: plan.dropoffNote,
                     hostSubstitutes: plan.hostSubstitutes,
+                    offersDelivery: plan.offersDelivery,
                     ...(plan.hostPart ? { priceDollars: plan.hostPart.priceDollars } : {}),
                   })
                 }

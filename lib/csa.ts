@@ -10,6 +10,7 @@ import { sendEmail, escapeHtml } from '@/lib/email';
 import { alertAdmin } from '@/lib/alerts';
 import { zipFromAddress } from '@/lib/checkoutCart';
 import { boxCostCents } from '@/lib/csaTerms';
+import { boxDelivery } from '@/lib/deliveryServer';
 import { encodeShares, SHARES_METADATA_KEY } from '@/lib/orderShares';
 import { chargeShares, isShared, leftOutSentence, weekParts, weekPriceCents, type WeekPart } from '@/lib/sharedBoxes';
 import {
@@ -56,6 +57,8 @@ export type CsaPlan = {
   box_type: 'food' | 'flowers';
   dropoff_note: string;
   host_substitutes: boolean;
+  // Members can choose delivery (see lib/delivery).
+  offers_delivery?: boolean;
 };
 
 // For a shared box: this week's parts, and what one box costs this week from
@@ -360,8 +363,15 @@ export async function chargeBox(params: {
         feeCents: cost.feeCents,
       },
     ]);
-    const totalCents = cost.totalCents + tax.taxCents;
     const checkoutId = crypto.randomUUID();
+    // A member who chose delivery: the delivery is saved (unpaid) and its fee
+    // added. It is 0 for pickup, or if the farm has stopped delivering there.
+    const deliveryCents = await boxDelivery({ checkoutId, farmerId: plan.farmer_id, member: member as any, boxDate });
+    const totalCents = cost.totalCents + tax.taxCents + deliveryCents;
+    // The delivery fee isn't in the tax calculation, so the payment can't be
+    // linked to it; the tax is recorded by us instead (see lib/orders).
+    const manualTaxCalculation = deliveryCents > 0 && tax.calculationId ? tax.calculationId : '';
+    if (manualTaxCalculation) tax.calculationId = null;
 
     const paymentIntent = await stripeAdmin.paymentIntents.create(
       {
@@ -381,7 +391,7 @@ export async function chargeBox(params: {
           buyer_email: member.buyer_email,
           seller_fee_rate: String(SELLER_FEE_RATE),
           item_count: '1',
-          item_0: [plan.listing_id, 1, cost.priceCents, cost.feeCents, tax.taxCents, ''].join(':'),
+          item_0: [plan.listing_id, 1, cost.priceCents, cost.feeCents, tax.taxCents, manualTaxCalculation].join(':'),
           csa_member_id: member.id,
           csa_plan_id: plan.id,
           csa_box_date: boxDate,

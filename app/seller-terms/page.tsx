@@ -7,6 +7,7 @@ import { LISTING_CATEGORIES } from '@/lib/categories';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
 import { CHARGE_DAYS_BEFORE, CONFIRM_DAYS_BEFORE } from '@/lib/csaSchedule';
 import { ORDER_CUTOFF_HOUR, formatTime } from '@/lib/appearances';
+import { DELIVERY_RELEASE_HOURS, EGG_DELIVERY_RULE } from '@/lib/delivery';
 import {
   HOST_PACKING_LABEL,
   SHARED_BOX_CANCEL_LIMIT,
@@ -149,7 +150,7 @@ export default function SellerTermsPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">5. Fulfilling orders</h2>
           <p>
             You agree to have the items you list available for pickup at the address and times you give the
-            buyer. You must mark each order ready for pickup within {SELLER_READY_DAYS} days of the order, or of
+            buyer (or, for an order you deliver, to deliver it as section 9 sets out). You must mark each order ready for pickup within {SELLER_READY_DAYS} days of the order, or of
             your listing&apos;s harvest date if that is later. If you do not, the buyer may cancel for a full
             refund, and an order still not marked ready after {AUTO_CANCEL_DAYS} days is cancelled and refunded
             automatically; you are not paid for it. Once you mark an order ready, the buyer has{' '}
@@ -262,7 +263,7 @@ export default function SellerTermsPage() {
         </section>
 
         <section id="markets">
-          <h2 className="text-lg font-bold text-gray-900 mb-1">8. Markets, events and pickup there</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">8. Markets, events, drop-off points and pickup there</h2>
           <p>
             You can post the farmers markets, festivals, pop-ups and other events you&apos;ll be at. They appear on your farm
             page, and buyers who follow you and asked to hear about your markets are emailed when you post (at most one such
@@ -278,6 +279,13 @@ export default function SellerTermsPage() {
               has until the event ends to collect it; after that you may report a no-show under section 5.
             </li>
             <li>
+              <strong>Drop-off points.</strong> A drop-off point is a public place you bring pre-orders to on a schedule,
+              such as a church or school parking lot, where buyers collect them. It works like a market: give its address
+              and times, make sure you have permission to hand out orders there, be there for the whole time you give, and
+              hand each order over only for the buyer&apos;s code. Never use a buyer&apos;s home as a drop-off point; that
+              is a delivery (section 9).
+            </li>
+            <li>
               <strong>If you can&apos;t be there,</strong> mark that date as not there, or take the post down, in your Seller
               Dashboard as soon as you know. Orders for pickup there are then cancelled and refunded in full, and count as
               cancellations by you under section 5. While orders are booked, the place, dates and times of a post can&apos;t
@@ -286,8 +294,56 @@ export default function SellerTermsPage() {
           </ul>
         </section>
 
+        <section id="delivery">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">9. Delivery</h2>
+          <p>
+            You may offer to deliver orders yourself, within the area and on the days and times you set in your Seller
+            Dashboard, for the delivery fee you set. Farm Fresh Direct does not deliver, does not arrange drivers and is
+            not a carrier. If you turn delivery on, you agree that:
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5 mt-2">
+            <li>
+              <strong>You do the driving,</strong> or someone you are responsible for does, and you are responsible for
+              the vehicle, the drive and any insurance it needs, and for the order until it is handed over or left.
+            </li>
+            <li>
+              <strong>You deliver on the date and in the time window the buyer chose.</strong> If you can&apos;t, message
+              the buyer straight away and cancel or reduce the order in your Seller Dashboard if you can&apos;t agree
+              another time. An order not delivered within {AUTO_CANCEL_DAYS - SELLER_READY_DAYS} days after its delivery
+              date is cancelled and refunded automatically, and counts as a cancellation by you under section 5.
+            </li>
+            <li>
+              <strong>At the door,</strong> you hand the order over for the buyer&apos;s pickup code, as at a pickup, or, if
+              the buyer isn&apos;t there, leave it at their address in a sensible, sheltered place and record it with
+              <em> Left at the door</em> and a photo that shows the order where you left it. You are paid for an order
+              left at the door {DELIVERY_RELEASE_HOURS} hours later, unless the buyer reports a problem first; then it is
+              held while we look into it, and handled as any other problem with an order. Never mark an order left at
+              the door that you haven&apos;t left.
+            </li>
+            <li>
+              <strong>Food safety.</strong> Keep food clean, covered and at a safe temperature until it is handed over or
+              left, and never leave perishable food in direct sun. <strong>Eggs:</strong> {EGG_DELIVERY_RULE} You may
+              deliver eggs only if you have confirmed this in your delivery settings; otherwise eggs are pickup only.
+              Cottage foods must be delivered as the cottage food rules allow, in their labeled packaging.
+            </li>
+            <li>
+              <strong>The delivery fee</strong> is charged to the buyer once per checkout and paid to you, less the seller
+              fee, once the delivery is done (if anything in it was delivered). It is refunded to the buyer if everything
+              in the delivery is cancelled. Mark any listing that doesn&apos;t travel well as pickup only.
+            </li>
+            <li>
+              <strong>Buyers&apos; addresses</strong> are given to you only to deliver their order. Don&apos;t keep them
+              or use them for anything else.
+            </li>
+            <li>
+              <strong>Farm Boxes.</strong> If you let members choose delivery for a Farm Box, the same rules apply to each
+              delivered box, on its pickup day, using your delivery settings.
+            </li>
+          </ul>
+        </section>
+
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">9. Removing listings and accounts</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">10. Removing listings and accounts</h2>
           <p>
             We may remove a listing, cancel and refund an order, or suspend a seller&apos;s account if we believe
             a product is not permitted, a listing is inaccurate, or these terms have been broken.
@@ -295,7 +351,7 @@ export default function SellerTermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">10. Your responsibility for claims</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">11. Your responsibility for claims</h2>
           <p>
             You are responsible for any claims, losses or costs that arise from the products you sell or from
             your failure to follow the law or these terms.

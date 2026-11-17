@@ -8,7 +8,7 @@ What to put in App Store Connect and the Play Console. Getting the first review 
 >
 > Features of the app on the phone:
 > - Push notifications: sellers are notified of new orders, cancellations and messages; buyers are notified when an order is ready for pickup and when the farmer messages them. Tapping a notification opens that order.
-> - Camera: sellers photograph their harvest, and scan the buyer's pickup QR code to confirm a pickup (Sell → Orders → an order → Scan Buyer's QR Code).
+> - Camera: sellers photograph their harvest, scan the buyer's pickup QR code to confirm a pickup (Sell → Orders → an order → Scan Buyer's QR Code), and photograph a delivery left at the buyer's door.
 > - Location: "Use my location" on the home screen and Browse finds the closest farms.
 > - Native share sheet for sharing a farm or a listing.
 > - Sign in with Apple, plus in-app account deletion (Account Settings → Delete my account).
@@ -47,10 +47,11 @@ Data linked to the user, used for running the app (not for tracking or ads):
 | Data | Why |
 |---|---|
 | Name, email address | Account, order emails |
-| Phone number (optional) | Pickup contact |
-| Physical address | Sellers' pickup address only |
+| Phone number (optional) | Wholesale business accounts only |
+| Physical address | Sellers' pickup address; a buyer's delivery address, only if they choose delivery; wholesale business address |
 | Coarse location | Only when "Use my location" is tapped; only the zip code is kept |
-| Photos | Sellers' listing and farm photos |
+| Photos | Sellers' listing and farm photos; a seller's photo of an order left at a buyer's door |
+| Files and docs | Cottage food and resale certificates (private, admin only) |
 | Purchase history | Orders |
 | Payment info | Handled by Stripe; card numbers never reach our servers |
 | Other user content | Messages between buyer and seller, reviews |

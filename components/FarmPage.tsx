@@ -17,6 +17,7 @@ import FarmAdminPanel from '@/components/FarmAdminPanel';
 import DistanceFromYou from '@/components/DistanceFromYou';
 import FarmCsaPlans from '@/components/FarmCsaPlans';
 import FarmAppearances from '@/components/FarmAppearances';
+import FarmDeliveryNote from '@/components/FarmDeliveryNote';
 import FarmGrowing from '@/components/FarmGrowing';
 import PayoutsPreviewNotice from '@/components/PayoutsPreviewNotice';
 
@@ -279,6 +280,8 @@ export default function FarmPage({ sellerId }: { sellerId: string }) {
           </div>
         )}
       </div>
+
+      <FarmDeliveryNote farmerId={sellerId} />
 
       <FarmCsaPlans farmId={sellerId} />
 

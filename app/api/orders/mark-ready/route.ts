@@ -53,6 +53,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
     }
 
+    // A delivery isn't collected, so there is no pickup to announce.
+    if (order.fulfillment === 'delivery') {
+      return NextResponse.json(
+        { error: "This order is a delivery. Take it to the buyer's address, then scan their code or use Left at the door." },
+        { status: 409 }
+      );
+    }
+
     // The extra items have to be this farmer's, from the same checkout, and
     // still waiting; anything else is left alone.
     const others: { order: any; title: string }[] = [];

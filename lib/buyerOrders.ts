@@ -55,6 +55,10 @@ export async function describeBuyerOrders(rows: any[]): Promise<BuyerOrder[]> {
       pickup_area: [listing?.location_name, listing?.zip_code].filter(Boolean).join(' '),
       // Picked up at a farmers market instead of the farm: where and when.
       market_label: o.market_label || null,
+      fulfillment: o.fulfillment || 'pickup',
+      delivery_address: o.delivery_address || null,
+      delivery_window: o.delivery_window || null,
+      delivered_at: o.delivered_at || null,
       // Orders from before codes were stored separately keep theirs on the row.
       pickup_code: codeByOrderId.get(o.id) || o.pickup_code || null,
       reviewed: reviewedOrderIds.has(o.id),

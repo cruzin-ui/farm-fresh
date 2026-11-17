@@ -21,6 +21,8 @@ type Invoice = {
   lines: { item: string; quantity: number; unit: string; cases: string | null; unitPriceCents: number; amountCents: number; status: string }[];
   subtotalCents: number;
   serviceFeeCents: number;
+  // A delivery's fee, if the farm delivered this order.
+  deliveryCents?: number;
   taxCents: number;
   chargedCents: number;
   refundedCents: number;
@@ -154,6 +156,12 @@ export default function InvoicePage() {
             <dt className="text-gray-600">Service fee (Farm Fresh Direct)</dt>
             <dd>{money(invoice.serviceFeeCents)}</dd>
           </div>
+          {(invoice.deliveryCents || 0) > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-gray-600">Delivery (paid to the farm)</dt>
+              <dd>{money(invoice.deliveryCents!)}</dd>
+            </div>
+          )}
           <div className="flex justify-between">
             <dt className="text-gray-600">{invoice.taxExempt ? 'Sales tax (resale, exempt)' : 'Sales tax'}</dt>
             <dd>{money(invoice.taxCents)}</dd>

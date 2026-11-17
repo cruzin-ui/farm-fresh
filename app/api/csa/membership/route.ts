@@ -27,6 +27,8 @@ import {
   confirmByFor,
 } from '@/lib/csaSchedule';
 import { alertAdmin } from '@/lib/alerts';
+import { deliveryFeeCents, deliveryWindow, describeDelivery, readDeliveryAddress, type DeliverySettings } from '@/lib/delivery';
+import { deliveringFarms, drivingMiles } from '@/lib/deliveryServer';
 import { activeFarms, farmProfiles, isShared, leftOutSentence, weekParts, weekPriceCents } from '@/lib/sharedBoxes';
 
 export const dynamic = 'force-dynamic';
@@ -38,6 +40,8 @@ const UPCOMING = 8;
 //   { action: 'skip' | 'unskip', memberId, boxDate }
 //   { action: 'pause' | 'resume', memberId }
 //   { action: 'cancel', memberId, reason? }
+//   { action: 'set_delivery', memberId, delivery: { address, zip, note } }
+//   { action: 'clear_delivery', memberId }       — back to pickup
 //   { action: 'card_start' }                    — start saving a new card
 //   { action: 'card_finish', setupIntentId }    — use it for every membership,
 //                                                 and retry any box it failed on
@@ -92,6 +96,41 @@ export async function POST(request: Request) {
 
     if (member.status === 'cancelled') {
       return NextResponse.json({ error: 'This membership has been cancelled.' }, { status: 409 });
+    }
+
+    // Delivery instead of pickup, for boxes not charged yet.
+    if (body.action === 'set_delivery') {
+      const address = readDeliveryAddress(body.delivery);
+      if (!address) return NextResponse.json({ error: 'Enter your street address and 5-digit zip code.' }, { status: 400 });
+      const farm = (plan as any).offers_delivery ? (await deliveringFarms([plan.farmer_id])).get(plan.farmer_id) : undefined;
+      if (!farm) return NextResponse.json({ error: "This Farm Box doesn't offer delivery." }, { status: 409 });
+      const miles = await drivingMiles(farm.farmZip, address.zip);
+      if (miles === null) return NextResponse.json({ error: "We couldn't find that zip code." }, { status: 400 });
+      if (miles > farm.radius_miles) {
+        return NextResponse.json(
+          { error: `Your address is about ${miles} miles from the farm, and it delivers within ${farm.radius_miles} miles.` },
+          { status: 409 }
+        );
+      }
+      const { error } = await supabaseAdmin
+        .from('csa_members')
+        .update({ delivery_address: address.address, delivery_zip: address.zip, delivery_note: address.note })
+        .eq('id', member.id);
+      if (error) throw error;
+      await emailFarm(
+        plan.farmer_id,
+        `A member wants ${plan.name} delivered`,
+        `<p>${maskEmail(member.buyer_email)} chose delivery for their <strong>${plan.name}</strong> boxes, from the next box charged. Each delivered box shows up in your orders with the address.</p>`
+      );
+      return NextResponse.json({ success: true, feeCents: deliveryFeeCents(farm, miles) });
+    }
+    if (body.action === 'clear_delivery') {
+      const { error } = await supabaseAdmin
+        .from('csa_members')
+        .update({ delivery_address: null, delivery_zip: null, delivery_note: null })
+        .eq('id', member.id);
+      if (error) throw error;
+      return NextResponse.json({ success: true });
     }
 
     if (body.action === 'skip' || body.action === 'unskip') {
@@ -181,6 +220,28 @@ async function retryFailedBoxes(buyerId: string, today: string, siteUrl: string)
 
 // Each of the buyer's memberships (newest first, cancelled ones last) with
 // its next pickups and what is happening with each.
+// A membership's delivery: offered or not, the farm's terms, and where this
+// member's boxes go (null for pickup).
+async function membershipDelivery(plan: CsaPlan, member: CsaMember) {
+  if (!(plan as any).offers_delivery) return null;
+  const farm = (await deliveringFarms([plan.farmer_id])).get(plan.farmer_id);
+  if (!farm) return null;
+  const m = member as any;
+  return {
+    summary: describeDelivery(farm),
+    window: deliveryWindow(farm),
+    address: m.delivery_address || null,
+    zip: m.delivery_zip || null,
+    note: m.delivery_note || '',
+    feeCents: m.delivery_zip ? await feeFor(farm, m.delivery_zip) : null,
+  };
+}
+
+async function feeFor(farm: DeliverySettings & { farmZip: string }, zip: string) {
+  const miles = await drivingMiles(farm.farmZip, zip);
+  return miles === null || miles > farm.radius_miles ? null : deliveryFeeCents(farm, miles);
+}
+
 async function listMemberships(buyerId: string, today: string) {
   const { data: members } = await supabaseAdmin
     .from('csa_members')
@@ -256,6 +317,9 @@ async function listMemberships(buyerId: string, today: string) {
         })),
       },
       farm: { id: plan.farmer_id, name: farm?.farm_name || 'Local Farm', slug: farm?.slug || null },
+      // Delivery: whether this Farm Box offers it, how the farm delivers, and
+      // the member's address if they chose it.
+      delivery: await membershipDelivery(plan, member),
       boxes: dates
         .map((date) => {
           const box = boxByDate.get(date);
