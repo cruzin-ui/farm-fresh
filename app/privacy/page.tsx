@@ -49,6 +49,18 @@ export default function PrivacyPolicyPage() {
               it or delete your account.
             </li>
             <li>
+              <strong>Delivery.</strong> If you choose delivery from a seller who delivers: the address, zip code
+              and note you give for it, kept with that order (and, for a Farm Box, with your membership until you
+              switch back to pickup or delete your account). If a seller delivers by leaving an order at your
+              door, the photo they take of it, which only you, that seller and we can see, kept in private storage.
+              If you deliver as a seller: your delivery area, days, times, fee and settings.
+            </li>
+            <li>
+              <strong>Wholesale accounts.</strong> If a business applies to buy wholesale: the business name,
+              type, address and phone number, and the resale certificate it uploads, which only we see and keep in
+              private storage.
+            </li>
+            <li>
               <strong>Messages.</strong> What you send us through the Contact Us form, problems you report
               with an order, and the messages buyers and sellers send each other through the site about an
               order.
@@ -100,7 +112,8 @@ export default function PrivacyPolicyPage() {
             <li>
               <strong>Sellers see</strong> what a buyer ordered from them, and any messages the buyer sends
               them through the site. A buyer&apos;s email address is shown to the seller only once the order has
-              been picked up or closed.
+              been picked up or closed. For an order the seller delivers, the seller sees the delivery address and
+              note the buyer gave for it.
             </li>
             <li>
               <strong>Buyers see</strong> a seller&apos;s farm name, photos, description, city and zip code on

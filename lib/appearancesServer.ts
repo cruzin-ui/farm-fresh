@@ -151,7 +151,7 @@ export async function publicAppearances(farmerId: string, limit = 8, ownPreview 
   return events.sort((x, y) => x.date.localeCompare(y.date) || x.times.localeCompare(y.times)).slice(0, limit);
 }
 
-export type MarketOption = { key: string; label: string; appearanceId: string; date: string; zip: string; address: string };
+export type MarketOption = { key: string; label: string; appearanceId: string; date: string; zip: string; address: string; kind: string };
 
 // Where each farm's buyers can order ahead for pickup, by farm.
 export async function marketOptionsFor(farmerIds: string[]) {
@@ -170,7 +170,7 @@ export async function marketOptionsFor(farmerIds: string[]) {
   for (const a of appearances) {
     for (const date of orderableDates(a, skips.get(a.id) || [])) {
       const list = options.get(a.farmer_id) || [];
-      list.push({ key: marketKey(a.id, date), label: pickupLabel(a, date), appearanceId: a.id, date, zip: a.zip, address: placeLine(a) });
+      list.push({ key: marketKey(a.id, date), label: pickupLabel(a, date), appearanceId: a.id, date, zip: a.zip, address: placeLine(a), kind: a.kind });
       options.set(a.farmer_id, list);
     }
   }

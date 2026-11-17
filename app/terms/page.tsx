@@ -5,6 +5,7 @@ import { WHOLESALE_FEE_LABEL } from '@/lib/wholesale';
 import { LEGAL_LAST_UPDATED, OPERATOR_DESCRIPTION } from '@/lib/legal';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
 import { CHARGE_DAYS_BEFORE } from '@/lib/csaSchedule';
+import { DELIVERY_RELEASE_HOURS } from '@/lib/delivery';
 
 export const metadata: Metadata = { title: 'Terms of Use' };
 
@@ -77,9 +78,11 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">4. Pickup and your pickup code</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">4. Pickup, delivery and your pickup code</h2>
           <p>
-            Orders are collected in person from the seller, once the seller tells you it is ready. Before
+            Orders are collected in person from the seller, once the seller tells you it is ready, unless the
+            seller delivers and you choose delivery (below). A seller may also offer pickup at a farmers market,
+            event or drop-off point, on the date you choose at checkout. Before
             then you are shown only the seller&apos;s city and zip code; the full pickup address is given to you
             when the order is marked ready. The seller has {SELLER_READY_DAYS} days to do that, counted from
             your order or from the listing&apos;s harvest date if that is later. You then have{' '}
@@ -96,6 +99,21 @@ export default function TermsPage() {
           <p className="mt-2">
             After a pickup, your order page asks you to confirm that you received each item. If an item has
             been marked as picked up and you did not receive it, tell us there straight away.
+          </p>
+          <p className="mt-2">
+            <strong>Delivery.</strong> Some sellers deliver, themselves, within an area and on days they set. If
+            you choose delivery, you give your address at checkout and pay the seller&apos;s delivery fee, which is
+            shown before you pay, is charged once per seller per checkout, is not subject to the service fee, and is
+            paid to the seller once the delivery is done. Your address is shown only to the sellers delivering to
+            you. If you are home, give the seller your pickup code when they hand the order over, as at a pickup.
+            If you are not, the seller may leave the order at your address and send you a photo of where they left
+            it; you then have {DELIVERY_RELEASE_HOURS} hours to report a problem on your order page, after which
+            the delivery counts as received and the seller is paid. Telling us you received it pays them straight
+            away. An order left at your address can no longer be cancelled; a problem with it is handled as in
+            section 5. Bring deliveries in promptly; the seller is responsible for the order until it is left, and
+            you are responsible for it after that. If every item in a delivery is cancelled before it is
+            delivered, the delivery fee is refunded too. Farm Fresh Direct does not deliver orders and is not a
+            carrier.
           </p>
         </section>
 

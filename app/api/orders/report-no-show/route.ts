@@ -62,6 +62,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
     }
 
+    // A delivery has no pickup to miss: if the buyer isn't home, the farm
+    // leaves it at the door with a photo.
+    if (order.fulfillment === 'delivery') {
+      return NextResponse.json(
+        { error: "This order is a delivery. If the buyer isn't home, use Left at the door and take a photo, or message the buyer." },
+        { status: 409 }
+      );
+    }
+
     // A buyer can only fail to show up for an order they were told was ready.
     if (order.status !== 'ready_for_pickup') {
       return NextResponse.json(

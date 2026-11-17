@@ -5,6 +5,9 @@ import { getRequestUser } from '@/lib/apiAuth';
 import { getPickupCodeRecord } from '@/lib/pickupCodes';
 import { escapeHtml } from '@/lib/email';
 import { alertAdmin, notifyAdmins } from '@/lib/alerts';
+import { completeOrderAndReleasePayout } from '@/lib/orderActions';
+import { deliveryPhotoLink } from '@/lib/deliveryServer';
+import { DELIVERY_RELEASE_HOURS } from '@/lib/delivery';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +56,22 @@ export async function POST(request: Request) {
 
     if (!isBuyer) {
       return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
+    }
+
+    // An order left at the door: "I got it" pays the farm now, rather than
+    // after the buyer's time to report a problem runs out.
+    const leftAtDoor = Boolean(order.delivered_at) && ['pending_pickup', 'ready_for_pickup'].includes(order.status);
+    if (received === true && leftAtDoor) {
+      const { data: deliveredListing } = await supabaseAdmin
+        .from('produce_listings')
+        .select('farmer_id')
+        .eq('id', order.listing_id)
+        .maybeSingle();
+      if (deliveredListing?.farmer_id) {
+        await completeOrderAndReleasePayout(order, deliveredListing.farmer_id, new URL(request.url).origin);
+      }
+      await supabaseAdmin.from('orders').update({ buyer_received_at: new Date().toISOString() }).eq('id', order.id);
+      return NextResponse.json({ success: true });
     }
 
     if (received !== null && order.status !== 'completed') {
@@ -116,6 +135,21 @@ export async function POST(request: Request) {
                 <strong>did not receive it</strong>.
               </p>`
             : `<p>The order is currently <strong>${escapeHtml(String(order.status).replace(/_/g, ' '))}</strong>.</p>`
+        }
+        ${
+          order.fulfillment === 'delivery'
+            ? `<p>This was a <strong>delivery</strong> to ${escapeHtml(order.delivery_address || 'the buyer')}.${
+                order.delivered_at
+                  ? ` The farmer marked it left at the door on ${new Date(order.delivered_at).toLocaleString('en-US', { timeZone: 'America/Phoenix' })}${
+                      order.status === 'completed' ? '.' : `, and its payment is now <strong>held</strong> (it is not released after ${DELIVERY_RELEASE_HOURS} hours while a problem is open). Complete it or refund it from the admin page.`
+                    }`
+                  : ''
+              }</p>${
+                order.delivery_photo_path
+                  ? `<p><a href="${await deliveryPhotoLink(order.delivery_photo_path)}">The farmer's delivery photo</a> (link works for 7 days)</p>`
+                  : ''
+              }`
+            : ''
         }
         <p><strong>What the buyer wrote:</strong></p>
         <p style="white-space: pre-wrap; padding: 12px; background: #f3f4f6;">${escapeHtml(note)}</p>

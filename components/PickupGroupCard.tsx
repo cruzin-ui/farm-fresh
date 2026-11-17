@@ -10,7 +10,8 @@ import {
   RESTOCKING_RATE,
   FREE_CANCELLATION_HOURS,
 } from '@/lib/pricing';
-import { MapPin, Store } from 'lucide-react';
+import { MapPin, Store, Truck } from 'lucide-react';
+import { DELIVERY_RELEASE_HOURS } from '@/lib/delivery';
 import ReviewForm from '@/components/ReviewForm';
 import OrderMessages from '@/components/OrderMessages';
 import { isOpenStatus, orderRef, type BuyerOrder, type PickupGroup } from '@/lib/pickupGroups';
@@ -39,8 +40,9 @@ function CancelItem({ item, token, label }: { item: BuyerOrder; token?: string |
   const [error, setError] = useState<string | null>(null);
 
   // Orders from before these amounts were recorded can't be previewed, so
-  // they are cancelled through support instead.
-  if (item.subtotal_amount <= 0) return null;
+  // they are cancelled through support instead. An order already left at
+  // the door can't be cancelled, only reported.
+  if (item.subtotal_amount <= 0 || item.delivered_at) return null;
 
   // The farmer missed their deadline, so this cancellation costs the buyer nothing.
   const sellerLate = isSellerLate(item);
@@ -263,6 +265,44 @@ function ItemFeedback({
   return null;
 }
 
+// An order the farm left at the buyer's door: "I got it" pays the farm now;
+// otherwise it is paid DELIVERY_RELEASE_HOURS after delivery unless the buyer
+// reports a problem.
+function GotIt({ item, token }: { item: BuyerOrder; token?: string | null }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const confirm = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await postWithAuth('/api/orders/feedback', { orderId: item.id, received: true, ...(token ? { token } : {}) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not send that.');
+      window.location.reload();
+    } catch (err: any) {
+      setError(err.message || 'Could not send that.');
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={confirm}
+        disabled={busy}
+        className="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white text-sm font-bold px-4 py-2.5 rounded-xl print:hidden"
+      >
+        {busy ? 'Sending...' : 'I Got It'}
+      </button>
+      {error && (
+        <p role="alert" className="text-xs font-semibold text-red-700">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Everything a buyer bought from one farm in one checkout: the pickup code
 // that covers it, what the code is for, and where each item stands. `token` is
 // the secret from a guest's order link; signed-in buyers don't need one.
@@ -293,8 +333,24 @@ export default function PickupGroupCard({
 
   // Where this order stands and what happens next, in one sentence. The rest
   // of the card only shows what matters at that stage.
+  // Delivered by the farm rather than picked up.
+  const isDelivery = first.fulfillment === 'delivery';
+  const leftAtDoor = openItems.find((item) => item.delivered_at);
+
   let stage: { text: string; tone: 'ready' | 'waiting' | 'late' | 'done' };
-  if (readyItems.length > 0) {
+  if (isDelivery && leftAtDoor) {
+    stage = {
+      text: `Delivered: left at your door ${shortDate(leftAtDoor.delivered_at!)}. Tap I Got It, or report a problem within ${DELIVERY_RELEASE_HOURS} hours if anything is wrong.`,
+      tone: 'ready',
+    };
+  } else if (isDelivery && open && lateItems.length === 0) {
+    stage = {
+      text: `The farmer will deliver it: ${first.delivery_window || 'see below'}. If you're home, show them your code below.`,
+      tone: 'waiting',
+    };
+  } else if (isDelivery && !open && completedItems.length > 0) {
+    stage = { text: 'Delivered. Thank you for buying local!', tone: 'done' };
+  } else if (readyItems.length > 0) {
     const pickupBy = earliest(readyItems.map((item) => item.pickup_by));
     const some = readyItems.length < openItems.length;
     stage = {
@@ -458,12 +514,25 @@ export default function PickupGroupCard({
         <p className="text-sm text-emerald-950 bg-emerald-50 border border-emerald-200 rounded-lg p-2 flex items-start gap-1.5">
           <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
           <span>
-            Pick up at the farm's stand: <strong>{first.market_label}</strong>. Bring your pickup code.
+            Pick up at: <strong>{first.market_label}</strong>. Bring your pickup code.
           </span>
         </p>
       )}
 
-      {open && addresses.length === 0 && !first.market_label && (
+      {open && isDelivery && (
+        <div className="text-sm text-blue-950 bg-blue-50 border border-blue-200 rounded-lg p-2.5 space-y-2">
+          <p className="flex items-start gap-1.5">
+            <Truck className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" aria-hidden="true" />
+            <span>
+              Delivery to <strong>{first.delivery_address}</strong>
+              {first.delivery_window ? <>: {first.delivery_window}</> : null}
+            </span>
+          </p>
+          {leftAtDoor && <GotIt item={leftAtDoor} token={token} />}
+        </div>
+      )}
+
+      {open && addresses.length === 0 && !first.market_label && !isDelivery && (
         <p className="text-xs text-gray-600 flex items-start gap-1.5">
           <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
           <span>
@@ -474,7 +543,7 @@ export default function PickupGroupCard({
 
       {/* The code is shown large, with its QR code, once there is something to
           collect. Before that it is one line; after pickup it is gone. */}
-      {open && code && readyItems.length > 0 && (
+      {open && code && (isDelivery ? !leftAtDoor : readyItems.length > 0) && (
         <div className="rounded-xl p-4 text-center border-2 border-emerald-500 bg-emerald-50">
           <p className="text-xs font-bold uppercase tracking-widest text-emerald-800">Your Pickup Code</p>
           <p className="text-4xl font-black tracking-wider font-mono text-emerald-900">{code}</p>
@@ -487,7 +556,7 @@ export default function PickupGroupCard({
         </div>
       )}
 
-      {open && code && readyItems.length === 0 && (
+      {open && code && readyItems.length === 0 && !isDelivery && (
         <p className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
           Your pickup code: <span className="font-mono font-black text-gray-900">{code}</span>
           <span className="block text-xs text-gray-500 mt-0.5">

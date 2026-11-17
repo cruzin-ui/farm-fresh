@@ -15,6 +15,7 @@ import { describeUsualPickup } from '@/lib/pickupRules';
 import FollowFarmButton from '@/components/FollowFarmButton';
 import DistanceFromYou from '@/components/DistanceFromYou';
 import ListingMarketPickup from '@/components/ListingMarketPickup';
+import FarmDeliveryNote from '@/components/FarmDeliveryNote';
 import WholesaleBuy from '@/components/WholesaleBuy';
 import Photo from '@/components/Photo';
 import PayoutsPreviewNotice from '@/components/PayoutsPreviewNotice';
@@ -335,6 +336,9 @@ export default function ListingDetailPage() {
           </dl>
 
           {listing.farmer_id && <ListingMarketPickup farmerId={listing.farmer_id} />}
+          {listing.farmer_id && (
+            <FarmDeliveryNote farmerId={listing.farmer_id} category={listing.category} pickupOnly={Boolean(listing.pickup_only)} />
+          )}
 
           {isCottageFood(listing.category) && (
             <p className="text-xs text-amber-950 bg-amber-50 border border-amber-300 rounded-xl p-3">

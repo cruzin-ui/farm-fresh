@@ -77,6 +77,13 @@ export async function POST(request: Request) {
     const charged = sum((o) => cents(o.original_total_amount ?? o.total_price));
     const refunded = sum((o) => cents(o.refunded_amount));
     const pickedUpDay = pickedUp.length ? arizonaDay(pickedUp.map((o) => o.completed_at).sort().pop()) : null;
+    // A delivery: its fee is charged on top of the items (and refunded on its
+    // own if everything in it is cancelled).
+    const { data: delivery } = order.delivery_id
+      ? await supabaseAdmin.from('order_deliveries').select('fee_cents, status').eq('id', order.delivery_id).maybeSingle()
+      : { data: null };
+    const deliveryCents = Number(delivery?.fee_cents) || 0;
+    const deliveryRefundedCents = delivery?.status === 'refunded' ? deliveryCents : 0;
 
     return NextResponse.json({
       invoice: {
@@ -95,7 +102,7 @@ export async function POST(request: Request) {
         orderedDay: arizonaDay(order.created_at),
         pickedUpDay,
         status: anyOpen ? 'Paid, awaiting pickup' : pickedUp.length ? 'Paid and picked up' : 'Cancelled',
-        pickup: order.market_label || null,
+        pickup: order.market_label || (order.delivery_address ? `Delivered to ${order.delivery_address}${order.delivery_window ? `, ${order.delivery_window}` : ''}` : null),
         taxExempt: orders.some((o) => o.tax_exempt_certificate_id),
         wholesale: orders.some((o) => o.wholesale_cases),
         lines,
@@ -104,8 +111,9 @@ export async function POST(request: Request) {
         // beyond the produce and its tax.
         serviceFeeCents: Math.max(0, charged - subtotal - tax),
         taxCents: tax,
-        chargedCents: charged,
-        refundedCents: refunded,
+        deliveryCents,
+        chargedCents: charged + deliveryCents,
+        refundedCents: refunded + deliveryRefundedCents,
         viewer: isSeller ? 'seller' : isBuyer ? 'buyer' : 'admin',
       },
     });

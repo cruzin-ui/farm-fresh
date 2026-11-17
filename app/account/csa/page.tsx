@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShoppingBag, CreditCard, Package, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, CreditCard, Package, AlertCircle, CheckCircle2, Truck } from 'lucide-react';
 import PurchasesTabs from '@/components/PurchasesTabs';
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
@@ -46,8 +46,132 @@ type Membership = {
     farms?: { name: string; contribution: string; role: string }[];
   };
   farm: { id: string; name: string; slug: string | null };
+  // Set when this Farm Box offers delivery: the farm's terms, and the
+  // member's address if they chose it.
+  delivery?: {
+    summary: string;
+    window: string;
+    address: string | null;
+    zip: string | null;
+    note: string;
+    feeCents: number | null;
+  } | null;
   boxes: Box[];
 };
+
+// Delivery for one membership: switch to it with an address, change the
+// address, or go back to pickup. Applies to boxes not charged yet.
+function BoxDelivery({ m, onChanged }: { m: Membership; onChanged: () => void }) {
+  const d = m.delivery!;
+  const [editing, setEditing] = useState(false);
+  const [address, setAddress] = useState(d.address || '');
+  const [zip, setZip] = useState(d.zip || '');
+  const [note, setNote] = useState(d.note || '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const send = async (body: Record<string, unknown>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await postWithAuth('/api/csa/membership', { memberId: m.id, ...body });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Something went wrong.');
+      setEditing(false);
+      onChanged();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 space-y-2 text-sm text-blue-950">
+      {d.address && !editing ? (
+        <>
+          <p className="flex items-start gap-1.5">
+            <Truck className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+            <span>
+              Delivered to <strong>{d.address}</strong>, {d.window}
+              {d.feeCents != null ? <> · {dollars(d.feeCents)} delivery per box</> : <> · <strong>outside the farm&apos;s delivery area now, so boxes are for pickup</strong></>}
+            </span>
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <button type="button" onClick={() => setEditing(true)} className="text-xs font-semibold border border-blue-300 bg-white rounded-lg px-3 py-1.5">
+              Change address
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => send({ action: 'clear_delivery' })}
+              className="text-xs font-semibold border border-gray-300 bg-white rounded-lg px-3 py-1.5 disabled:opacity-50"
+            >
+              Switch to pickup
+            </button>
+          </div>
+        </>
+      ) : !editing ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-start gap-1.5">
+            <Truck className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+            <span>
+              This Farm Box can be delivered. <span className="text-xs">{d.summary}</span>
+            </span>
+          </p>
+          <button type="button" onClick={() => setEditing(true)} className="text-xs font-bold bg-blue-600 text-white rounded-lg px-3 py-1.5">
+            Get it delivered
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold" htmlFor={`addr-${m.id}`}>
+            Street address
+          </label>
+          <input id={`addr-${m.id}`} value={address} maxLength={300} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-xs font-semibold" htmlFor={`zip-${m.id}`}>
+                Zip code
+              </label>
+              <input
+                id={`zip-${m.id}`}
+                inputMode="numeric"
+                maxLength={5}
+                value={zip}
+                onChange={(e) => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold" htmlFor={`note-${m.id}`}>
+                Note (optional)
+              </label>
+              <input id={`note-${m.id}`} value={note} maxLength={300} placeholder="Gate code, where to leave it" onChange={(e) => setNote(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
+            </div>
+          </div>
+          <p className="text-xs">
+            Starts with the next box that hasn&apos;t been charged. If you&apos;re not home, the farmer leaves it and sends a photo.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => send({ action: 'set_delivery', delivery: { address, zip, note } })}
+              className="text-xs font-bold bg-blue-600 text-white rounded-lg px-3 py-1.5 disabled:opacity-50"
+            >
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className="text-xs font-semibold border bg-white rounded-lg px-3 py-1.5">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {error && <p role="alert" className="text-xs font-semibold text-red-700">{error}</p>}
+    </div>
+  );
+}
 
 const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
@@ -226,6 +350,8 @@ export default function MyFarmSharesPage() {
                 <span className="text-xs font-bold bg-gray-100 text-gray-700 rounded-full px-3 py-1">Paused</span>
               )}
             </div>
+
+            {m.delivery && <BoxDelivery m={m} onChanged={() => call({ action: 'list' }, 'load')} />}
 
             <ul className="divide-y border rounded-lg">
               {m.boxes.length === 0 && <li className="p-3 text-sm text-gray-500">No more pickups this season.</li>}

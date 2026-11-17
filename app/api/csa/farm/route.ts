@@ -345,6 +345,8 @@ type PlanInput = {
   boxType?: string;
   // 'shared' to fill the box with nearby farms; set when the box is created.
   kind?: string;
+  // Members can choose delivery.
+  offersDelivery?: boolean;
   // Shared boxes: what the host puts in each box, eggs, where partners drop
   // off, and whether the host fills in for a missing part.
   hostContribution?: string;
@@ -371,6 +373,8 @@ async function savePlan(
   const frequency = input.frequency === 'biweekly' ? 'biweekly' : 'weekly';
   const weekday = Number(input.pickupWeekday);
   const pickupWindow = String(input.pickupWindow || '').trim().slice(0, 80);
+  // Members can choose delivery (using the farm's delivery settings).
+  const offersDelivery = input.offersDelivery === true;
   const seasonStart = String(input.seasonStart || '');
   const seasonEnd = String(input.seasonEnd || '');
   const maxRaw = input.maxMembers;
@@ -496,6 +500,7 @@ async function savePlan(
         max_members: maxMembers,
         // A shared box still forming stays so until the host opens it.
         status: existing.status === 'forming' ? 'forming' : status,
+        offers_delivery: offersDelivery,
         ...(shared ? { dropoff_note: dropoffNote, host_substitutes: everJoined ? existing.host_substitutes : hostSubstitutes } : {}),
         updated_at: now,
       })
@@ -597,6 +602,7 @@ async function savePlan(
         kind: shared ? 'shared' : 'solo',
         dropoff_note: shared ? dropoffNote : '',
         host_substitutes: shared && hostSubstitutes,
+        offers_delivery: offersDelivery,
       })
       .select('id')
       .single();
@@ -723,6 +729,7 @@ async function farmOverview(farmerId: string, today: string) {
       boxType: plan.box_type || 'food',
       dropoffNote: plan.dropoff_note || '',
       hostSubstitutes: Boolean(plan.host_substitutes),
+      offersDelivery: Boolean(plan.offers_delivery),
       imageUrl: photoByListing.get(plan.listing_id) || null,
       everJoined: members.length > 0,
       // For a shared box: the host's own part (what the form edits) and every farm.

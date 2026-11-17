@@ -50,7 +50,8 @@ export async function POST(request: Request) {
     if (new Set(orders.map((o) => o.checkout_id || o.id)).size > 1) {
       return NextResponse.json({ error: 'These items are from different orders.' }, { status: 400 });
     }
-    const open = orders.filter((o) => OPEN.includes(o.status));
+    // Items already left at the buyer's door can't be cancelled.
+    const open = orders.filter((o) => OPEN.includes(o.status) && !o.delivered_at);
     if (open.length === 0) return NextResponse.json({ error: 'There is nothing left in this order to cancel.' }, { status: 409 });
 
     const cancelled: { title: string; quantity: number; unitType: string }[] = [];

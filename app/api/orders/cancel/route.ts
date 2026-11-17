@@ -70,6 +70,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Already left at the buyer's door: there is nothing to cancel, only a
+    // problem to report.
+    if (order.delivered_at) {
+      return NextResponse.json(
+        { error: 'This order was already delivered. If something is wrong with it, use Report a problem.' },
+        { status: 409 }
+      );
+    }
+
     const sellerLate = isSellerLate(order);
 
     // Has this farm cancelled or reduced anything in the order this is part of?

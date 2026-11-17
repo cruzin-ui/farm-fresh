@@ -180,7 +180,7 @@ export default function FarmAppearancesEditor({ sellerTermsAccepted }: { sellerT
           }}
           className="border border-emerald-200 bg-emerald-50/40 rounded-2xl p-4 space-y-3"
         >
-          <h4 className="font-bold text-gray-900">{form.id ? 'Edit' : 'Add a market or event'}</h4>
+          <h4 className="font-bold text-gray-900">{form.id ? 'Edit' : 'Add a market, event or drop-off point'}</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label htmlFor="ap-kind" className="block text-xs font-semibold text-gray-700 mb-1">What is it? *</label>
@@ -189,6 +189,12 @@ export default function FarmAppearancesEditor({ sellerTermsAccepted }: { sellerT
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
+              {form.kind === 'dropoff' && (
+                <p className="text-xs text-gray-600 mt-1">
+                  A public spot you bring pre-orders to, like a church or school parking lot. Buyers choose it at
+                  checkout and collect with their code, the same as at a market.
+                </p>
+              )}
             </div>
             <div>
               <label htmlFor="ap-name" className="block text-xs font-semibold text-gray-700 mb-1">Name *</label>

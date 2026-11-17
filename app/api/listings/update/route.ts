@@ -140,6 +140,8 @@ export async function POST(request: Request) {
 
     if (typeof fields.description === 'string') update.description = fields.description;
     if (typeof fields.pickup_instructions === 'string') update.pickup_instructions = fields.pickup_instructions;
+    // Not offered for delivery.
+    if (typeof fields.pickup_only === 'boolean') update.pickup_only = fields.pickup_only;
     // Where it's picked up: `pickup` is an address of its own, or null to
     // go back to the farm's address. Left out, it stays where it is. Orders
     // already placed keep the address they were bought at.

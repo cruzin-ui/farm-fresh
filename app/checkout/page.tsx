@@ -17,7 +17,10 @@ import {
   Store,
   Trash2,
   Clock,
+  Truck,
 } from 'lucide-react';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
+import { DELIVERY_RELEASE_HOURS } from '@/lib/delivery';
 import Link from 'next/link';
 import { postWithAuth } from '@/lib/authedFetch';
 import BuyerGuidance from '@/components/BuyerGuidance';
@@ -60,6 +63,8 @@ type QuoteLine = {
   problem: string | null;
   // Set when this item is to be picked up at one of the farm's markets.
   market?: { key: string; label: string } | null;
+  // Set when the farm is delivering it.
+  delivery?: { key: string; date: string; label: string } | null;
   // Set when bought by the case; the price, quantity and unit are per case.
   wholesale?: { caseSize: number; minCases: number; listingUnit: string } | null;
 };
@@ -81,6 +86,18 @@ type Quote = {
   taxEnabled: boolean;
   // The farmers markets each farm's buyers can pick up at, by farm.
   marketOptions?: Record<string, { key: string; label: string }[]>;
+  // The farms that deliver: how, and on which dates, by farm.
+  deliveryOptions?: Record<string, { summary: string; note: string; options: { key: string; label: string }[] }>;
+  // The delivery fees for the address given, in total and by farm.
+  deliveryCents?: number;
+  deliveries?: { farmerId: string; feeCents: number; miles: number }[];
+};
+
+// Where deliveries go, as the buyer typed it.
+type DeliveryForm = { address: string; zip: string; note: string };
+const zipIn = (address: string) => {
+  const matches = address.match(/\b\d{5}\b/g);
+  return matches ? matches[matches.length - 1] : '';
 };
 
 const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -140,11 +157,14 @@ function PaymentForm({
   signedIn,
   guestEmail,
   buyerName,
+  delivery,
   onCartRejected,
 }: {
   items: CartItem[];
   // Where the buyer picks up from each farm that isn't at the farm itself.
   pickups: Record<string, string>;
+  // Where deliveries go, when any farm is delivering.
+  delivery: DeliveryForm | null;
   grandTotal: number;
   signedIn: boolean;
   guestEmail: string;
@@ -182,6 +202,7 @@ function PaymentForm({
       const intentRes = await postWithAuth('/api/checkout', {
         items,
         pickups,
+        ...(delivery ? { delivery } : {}),
         ...(signedIn ? { buyerName } : { guestEmail }),
         ...(captchaSiteKey ? { captchaToken } : {}),
       });
@@ -302,7 +323,13 @@ function CheckoutContent() {
   // For each farm with farmers markets, where the buyer chose to pick up:
   // farm id to a market, or nothing for the farm itself.
   const [pickups, setPickups] = useState<Record<string, string>>({});
-  const cartKey = JSON.stringify({ items, pickups });
+  // The delivery address, used only when a farm is chosen for delivery. It
+  // is sent for pricing once it has a zip code.
+  const [deliveryForm, setDeliveryForm] = useState<DeliveryForm>({ address: '', zip: '', note: '' });
+  const wantsDelivery = Object.values(pickups).some((key) => key.startsWith('delivery@'));
+  const delivery =
+    wantsDelivery && deliveryForm.address.trim().length >= 5 && /^\d{5}$/.test(deliveryForm.zip) ? deliveryForm : null;
+  const cartKey = JSON.stringify({ items, pickups, delivery });
 
   const [authChecked, setAuthChecked] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
@@ -345,7 +372,7 @@ function CheckoutContent() {
       try {
         // Sent with the sign-in, if there is one, so the server can spot a
         // seller trying to buy their own listing.
-        const res = await postWithAuth('/api/checkout/quote', { items, pickups });
+        const res = await postWithAuth('/api/checkout/quote', { items, pickups, ...(delivery ? { delivery } : {}) });
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok) throw new Error(data.error || 'Could not price this order.');
@@ -471,10 +498,19 @@ function CheckoutContent() {
               {farm.farmName}
               {farm.locationName && <span className="text-xs font-medium text-gray-500">· Pickup in {farm.locationName}</span>}
             </h2>
-            {farm.farmerId && (quote?.marketOptions?.[farm.farmerId] || []).length > 0 && (
+            {farm.farmerId &&
+              ((quote?.marketOptions?.[farm.farmerId] || []).length > 0 ||
+                (quote?.deliveryOptions?.[farm.farmerId]?.options || []).length > 0) && (
               <fieldset className="border border-emerald-200 bg-emerald-50/50 rounded-lg p-3 space-y-1.5">
-                <legend className="px-1 text-xs font-bold text-gray-900">Where will you pick up?</legend>
-                {[{ key: '', label: `At the farm${farm.locationName ? `, in ${farm.locationName}` : ''}` }, ...(quote?.marketOptions?.[farm.farmerId] || [])].map((option) => (
+                <legend className="px-1 text-xs font-bold text-gray-900">How will you get it?</legend>
+                {[
+                  { key: '', label: `Pick up at the farm${farm.locationName ? `, in ${farm.locationName}` : ''}`, prefix: '' },
+                  ...(quote?.marketOptions?.[farm.farmerId] || []).map((o: { key: string; label: string; kind?: string }) => ({
+                    ...o,
+                    prefix: o.kind === 'dropoff' ? 'At their drop-off point: ' : 'At their market stand: ',
+                  })),
+                  ...(quote?.deliveryOptions?.[farm.farmerId]?.options || []).map((o) => ({ ...o, prefix: 'Deliver to me: ' })),
+                ].map((option) => (
                   <label key={option.key || 'farm'} className="flex items-start gap-2 text-sm text-gray-800">
                     <input
                       type="radio"
@@ -490,10 +526,19 @@ function CheckoutContent() {
                       }
                       className="mt-1"
                     />
-                    <span>{option.key ? <>At their market stand: <strong>{option.label}</strong></> : option.label}</span>
+                    <span>{option.key ? <>{option.prefix}<strong>{option.label}</strong></> : option.label}</span>
                   </label>
                 ))}
-                <p className="text-xs text-gray-600">Ordering ahead for a market closes the evening before it.</p>
+                {quote?.deliveryOptions?.[farm.farmerId] && (
+                  <p className="text-xs text-gray-600 flex items-start gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+                    <span>
+                      {quote.deliveryOptions[farm.farmerId].summary}
+                      {quote.deliveryOptions[farm.farmerId].note ? `. ${quote.deliveryOptions[farm.farmerId].note}` : ''}
+                    </span>
+                  </p>
+                )}
+                <p className="text-xs text-gray-600">Ordering ahead for a date closes at 6 pm the evening before.</p>
               </fieldset>
             )}
             {/* How far the pickup is, before the buyer pays. */}
@@ -572,6 +617,61 @@ function CheckoutContent() {
           <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Back to Browsing — Add More Produce
         </Link>
 
+        {wantsDelivery && (
+          <div className="bg-white border rounded-xl p-4 shadow-sm space-y-3">
+            <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <Truck className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" /> Delivery address
+            </h2>
+            <div>
+              <label htmlFor="delivery-address" className="block text-xs font-semibold text-gray-700 mb-1">
+                Street address *
+              </label>
+              <AddressAutocomplete
+                id="delivery-address"
+                required
+                placeholder="Start typing, then pick your address from the list"
+                value={deliveryForm.address}
+                verified={false}
+                onChange={(text) => setDeliveryForm((f) => ({ ...f, address: text, zip: zipIn(text) || f.zip }))}
+                onSelect={(s) => setDeliveryForm((f) => ({ ...f, address: s.address, zip: (s.zip || '').slice(0, 5) || zipIn(s.address) }))}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label htmlFor="delivery-zip" className="block text-xs font-semibold text-gray-700 mb-1">
+                  Zip code *
+                </label>
+                <input
+                  id="delivery-zip"
+                  inputMode="numeric"
+                  maxLength={5}
+                  value={deliveryForm.zip}
+                  onChange={(e) => setDeliveryForm((f) => ({ ...f, zip: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+              <div className="col-span-2">
+                <label htmlFor="delivery-note" className="block text-xs font-semibold text-gray-700 mb-1">
+                  Note for the farmer (optional)
+                </label>
+                <input
+                  id="delivery-note"
+                  maxLength={300}
+                  value={deliveryForm.note}
+                  placeholder="Gate code, apartment, where to leave it"
+                  onChange={(e) => setDeliveryForm((f) => ({ ...f, note: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-600">
+              Only the farms delivering to you see this address. If you&apos;re home, give the farmer your code when they
+              hand it over; if not, they leave it and send you a photo, and you have {DELIVERY_RELEASE_HOURS} hours to tell us
+              if anything is wrong.
+            </p>
+          </div>
+        )}
+
         {quote && (
           <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-5 space-y-3 text-sm">
             <div className="flex justify-between items-center text-gray-700">
@@ -597,6 +697,14 @@ function CheckoutContent() {
                     : `Platform & Processing Fee (${BUYER_FEE_LABEL}, once per checkout):`}
                 </span>
                 <span className="font-semibold">{quoteReady ? dollars(quote.feeCents) : pending}</span>
+              </div>
+            )}
+            {wantsDelivery && (
+              <div className="flex justify-between items-center text-gray-700">
+                <span>Delivery:</span>
+                <span className="font-semibold">
+                  {!delivery ? 'Add your address' : quoteReady ? dollars(quote.deliveryCents || 0) : pending}
+                </span>
               </div>
             )}
             {quote.taxEnabled && (
@@ -687,6 +795,10 @@ function CheckoutContent() {
           <p role="alert" className="bg-white border border-red-200 rounded-xl p-5 shadow-sm text-sm text-red-700 text-center">
             Some items in your cart can't be bought as they are. Fix the ones marked in red above to continue.
           </p>
+        ) : wantsDelivery && !delivery ? (
+          <p className="bg-white border rounded-xl p-5 shadow-sm text-sm text-gray-700 text-center">
+            Add your delivery address and zip code above to continue.
+          </p>
         ) : totalCents < MIN_CHARGE_CENTS ? (
           <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-gray-500 text-center">
             Order total must be at least $0.50 to check out online.
@@ -704,6 +816,7 @@ function CheckoutContent() {
             <PaymentForm
               items={items}
               pickups={pickups}
+              delivery={delivery}
               signedIn={signedIn}
               guestEmail={guestEmail}
               buyerName={buyerName}

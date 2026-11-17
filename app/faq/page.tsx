@@ -8,6 +8,7 @@ import { BUYER_FEE_LABEL, SELLER_KEEPS_PERCENT, PLATFORM_KEEPS_CENTS_PER_DOLLAR,
 import { PRODUCE_ONLY_NOTICE } from '@/lib/categories';
 import { SELLER_READY_DAYS, BUYER_PICKUP_DAYS, AUTO_CANCEL_DAYS } from '@/lib/pickupRules';
 import { CHARGE_DAYS_BEFORE, CONFIRM_DAYS_BEFORE } from '@/lib/csaSchedule';
+import { DELIVERY_RELEASE_HOURS, EGG_DELIVERY_RULE } from '@/lib/delivery';
 import { HOST_PACKING_LABEL, SHARED_BOX_CANCEL_LIMIT, SHARED_BOX_MAX_PARTNERS, SHARED_BOX_MILES, SHARED_BOX_WINDOW_DAYS } from '@/lib/sharedBoxTerms';
 
 export const metadata: Metadata = { title: 'FAQ' };
@@ -60,7 +61,7 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'When does the farmer get my money?',
     answer:
-      "Not until you've picked up your order. We hold your payment and only release it to the farmer when they enter the pickup code you give them at pickup.",
+      `Not until you've got your order. We hold your payment and only release it to the farmer when they enter the pickup code you give them at pickup (or at your door), or, for a delivery left at your door, when you tap I Got It or ${DELIVERY_RELEASE_HOURS} hours after it was left, unless you report a problem.`,
   },
   {
     question: 'What is the pickup code?',
@@ -92,7 +93,25 @@ const BUYER_FAQS: Faq[] = [
   {
     question: 'Can I pick up my order at a farmers market?',
     answer:
-      "Yes, if the farm sells at one and takes orders there. Farms list where they'll be on their farm page, and listings show their next market dates. At checkout, choose the market under \"Where will you pick up?\", then collect your order at their stand during the market and give them your pickup code. Ordering for a market closes the evening before. If the farm can't make it after all, your order is cancelled and refunded in full.",
+      "Yes, if the farm sells at one and takes orders there. Farms list where they'll be on their farm page, and listings show their next market dates. At checkout, choose the market under \"How will you get it?\", then collect your order at their stand during the market and give them your pickup code. Ordering for a market closes the evening before. If the farm can't make it after all, your order is cancelled and refunded in full.",
+  },
+  {
+    question: 'Can I get my order delivered?',
+    answer: `From farms that deliver, yes. Their farm page and listings say "This farm delivers", with how far, which days and times, and the fee. At checkout, choose "Deliver to me" and a date for that farm, then enter your address. The delivery fee is shown before you pay, is charged once per farm, and goes to the farm. Only the farms delivering to you see your address. Some items are pickup only, such as eggs from a farm that hasn't confirmed it keeps them cold.`,
+  },
+  {
+    question: "What if I'm not home when my delivery comes?",
+    answer: `If you're home, give the farmer your pickup code when they hand it over, as at a pickup. If you're not, the farmer leaves it at your door and we email you their photo of where it was left. Tap I Got It on your order once you have it. If anything is wrong or missing, use Report a problem within ${DELIVERY_RELEASE_HOURS} hours and we'll hold the farmer's payment while we sort it out; otherwise the farmer is paid after ${DELIVERY_RELEASE_HOURS} hours. Please bring deliveries in soon, especially anything that needs to stay cold.`,
+  },
+  {
+    question: 'What is a drop-off point?',
+    answer:
+      'A public spot, like a church or school parking lot, that a farm brings pre-orders to on a set day and time. If a farm has one, choose it at checkout under "How will you get it?", then collect your order there and give the farmer your pickup code, just like at a market. It can be much closer to you than the farm.',
+  },
+  {
+    question: 'Can my Farm Box be delivered?',
+    answer:
+      'If the Farm Box offers delivery, yes. Under My Purchases → Farm Boxes, choose Get it delivered and enter your address. It starts with the next box that hasn’t been charged, and the farm’s delivery fee is added to each delivered box. You can switch back to pickup at any time.',
   },
   {
     question: 'Can I get an email when a farm will be at a market?',
@@ -372,6 +391,24 @@ const SELLER_FAQS: Faq[] = [
     question: 'How do I tell buyers which farmers markets I’m at?',
     answer:
       "In your Seller Dashboard, open Farm Profile and use Where to find us. Add each market or event with its address, date and times; for a weekly market, tick Every week and set the last date. It shows on your farm page, and followers who asked to hear about your markets get an email. If you allow it, buyers can order ahead and pick up at your stand: bring their orders, mark them ready there, and take their pickup code as usual. Can't make a date? Mark it as not there; any orders for it are refunded and count as cancellations by you.",
+  },
+  {
+    question: 'Can I deliver orders?',
+    answer: `Yes, if you want to. In your Seller Dashboard, open Farm Profile & Photo and turn on Delivery: set how far you go (miles by road), your delivery days and time window, a fee (flat, plus an optional amount per mile) and a smallest order. Buyers inside your area can then choose delivery at checkout. You deliver yourself; Farm Fresh Direct doesn't arrange drivers. At the door, scan the buyer's code; if they aren't home, leave the order somewhere sheltered and use Left at the Door to take a photo, and you're paid ${DELIVERY_RELEASE_HOURS} hours later unless the buyer reports a problem. The delivery fee is paid to you, less the ${SELLER_FEE} seller fee, once the delivery is done. Mark anything that doesn't travel well as pickup only when you edit the listing. The full rules are in section 9 of the Seller Terms.`,
+  },
+  {
+    question: 'Can I deliver eggs?',
+    answer: `Only if you keep them cold. ${EGG_DELIVERY_RULE} Tick "I deliver eggs" in your delivery settings to confirm it; until you do, your eggs are pickup only even when you deliver everything else.`,
+  },
+  {
+    question: 'What is a drop-off point, and how do I set one up?',
+    answer:
+      "A public spot you bring pre-orders to on a schedule, like a church or school parking lot, so buyers who live far from your farm can collect closer to home. Add it under Where to find us in Farm Profile, as a Drop-off point, with its address, day and times. Buyers choose it at checkout, and you hand each order over for their pickup code, just like at a market. Make sure you're allowed to hand out orders there, and never use a buyer's home: that's a delivery.",
+  },
+  {
+    question: 'Can I deliver my Farm Box?',
+    answer:
+      'Yes. Turn on Delivery in Farm Profile & Photo first, then tick "Members can choose delivery" on the Farm Box. Members who choose it give their address in My Farm Boxes, your delivery fee is added to each of their boxes, and each delivered box shows in your orders with the address, on the box’s pickup day.',
   },
   {
     question: 'Is there a quick way to list something I’ve sold before?',

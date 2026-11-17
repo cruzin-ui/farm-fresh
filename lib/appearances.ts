@@ -14,6 +14,10 @@ export const APPEARANCE_KINDS = {
   festival: 'Festival or fair',
   popup: 'Pop-up stand',
   open_farm: 'Open farm day',
+  // A spot the farm brings pre-orders to on a schedule (a church or school
+  // parking lot, a neighbor's porch), where buyers collect them with their
+  // code. Never a buyer's home: that is delivery (see lib/delivery).
+  dropoff: 'Drop-off point',
   other: 'Other event',
 } as const;
 export type AppearanceKind = keyof typeof APPEARANCE_KINDS;

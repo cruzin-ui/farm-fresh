@@ -11,6 +11,7 @@ import {
   MessageCircle,
   UserCheck,
   Package,
+  Truck,
 } from 'lucide-react';
 import { BUYER_FEE_LABEL, FREE_CANCELLATION_HOURS } from '@/lib/pricing';
 import { Reasons, DetailBox, OtherSide, type Reason } from '@/components/WhyReasons';
@@ -47,6 +48,11 @@ const FOR_BUYERS: Reason[] = [
     icon: ShoppingCart,
     title: 'One basket, several farms',
     body: 'Fill your cart from as many growers as you like and pay once. The service fee is charged once per checkout, not per farm.',
+  },
+  {
+    icon: Truck,
+    title: 'Pickup, drop-off or delivery',
+    body: 'Collect at the farm or at their market stand, at a drop-off point nearer you, or, from farms that deliver, have it brought to your door. You see each option and any delivery fee before you pay.',
   },
   {
     icon: MessageCircle,

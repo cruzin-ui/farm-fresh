@@ -16,6 +16,7 @@ import {
   Flower2,
   Repeat,
   Leaf,
+  Truck,
 } from 'lucide-react';
 import {
   SELLER_FEE_RATE,
@@ -66,6 +67,12 @@ const FOR_SELLERS: Reason[] = [
     icon: CalendarDays,
     title: 'Sell more at your farmers market',
     body: "Post the markets and events you'll be at, and they show on your farm page. Buyers can order ahead and pay online, then collect at your stand: fewer wasted trips, nothing to make change for, and you know what's sold before you load the truck. Followers who ask are emailed where you'll be.",
+    wide: true,
+  },
+  {
+    icon: Truck,
+    title: 'Deliver, or meet buyers halfway',
+    body: "Want to reach buyers who won't drive out to you? Turn on delivery: you choose how far, which days and the fee, and the fee comes to you. Not home? Leave it at the door with a photo. Or set up a drop-off point, like a church parking lot, where everyone nearby collects at once.",
     wide: true,
   },
   {

@@ -10,6 +10,8 @@ import { isBuyerBlocked } from '@/lib/accountBlocks';
 import { bumpDailyCount } from '@/lib/dailyCounts';
 import { BUYER_NAME_KEY, cleanBuyerName } from '@/lib/buyerName';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { readDeliveryAddress } from '@/lib/delivery';
+import { saveUnpaidDeliveries } from '@/lib/deliveryServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,11 +88,15 @@ export async function POST(request: Request) {
 
     // Totals are always computed server-side from the listing prices — never
     // trusted from the client.
-    const cart = await priceCart(items, user?.id, parsePickupChoices(body.pickups));
+    const deliveryAddress = readDeliveryAddress(body.delivery);
+    const cart = await priceCart(items, user?.id, parsePickupChoices(body.pickups), deliveryAddress);
 
     const blocked = cart.lines.find((line) => line.problem);
     if (blocked) {
       return NextResponse.json({ error: `${blocked.title}: ${blocked.problem}` }, { status: 409 });
+    }
+    if (cart.lines.some((line) => line.delivery) && !deliveryAddress) {
+      return NextResponse.json({ error: 'Enter your delivery address, with its zip code.' }, { status: 400 });
     }
 
     if (cart.totalCents < MIN_CHARGE_CENTS) {
@@ -115,7 +121,7 @@ export async function POST(request: Request) {
         line.feeCents,
         line.taxCents,
         cart.manualTaxCalculationByListing.get(line.listingId) || '',
-        line.market?.key || '',
+        line.market?.key || line.delivery?.key || '',
         line.wholesale ? line.quantity : '',
       ].join(':');
     });
@@ -124,6 +130,18 @@ export async function POST(request: Request) {
       cart.lines.length === 1
         ? `Farm Fresh Direct — ${cart.lines[0].quantity} x ${cart.lines[0].title}`
         : `Farm Fresh Direct — ${cart.lines.length} items`;
+
+    // Deliveries are saved now, unpaid, and become real when the payment
+    // succeeds (see lib/orders). The address stays off the payment itself.
+    if (deliveryAddress && cart.deliveries.length > 0) {
+      await saveUnpaidDeliveries({
+        checkoutId,
+        buyerId: user?.id || null,
+        buyerEmail,
+        address: deliveryAddress,
+        deliveries: cart.deliveries,
+      });
+    }
 
     // The shopper has pressed Pay: counted for the admin page's checkout figures.
     await bumpDailyCount('payment_started');

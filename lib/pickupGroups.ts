@@ -35,6 +35,12 @@ export type BuyerOrder = {
   pickup_area: string;
   // Picked up at a farmers market instead of the farm: where and when.
   market_label?: string | null;
+  // Delivered by the farm instead: where, when, and when it was left at the
+  // door (if it was).
+  fulfillment?: string | null;
+  delivery_address?: string | null;
+  delivery_window?: string | null;
+  delivered_at?: string | null;
   pickup_code: string | null;
   reviewed: boolean;
   listing_title: string;

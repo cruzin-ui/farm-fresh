@@ -16,6 +16,11 @@ import { recordOrderShares, SHARES_METADATA_KEY } from '@/lib/orderShares';
 import { casesText } from '@/lib/wholesale';
 import { appearanceEnd, parseMarketKey, pickupLabel, placeLine, type Appearance } from '@/lib/appearances';
 import { sendPush } from '@/lib/push';
+import { attachDeliveries, type DeliveryRow } from '@/lib/deliveryServer';
+import { DELIVERY_RELEASE_HOURS } from '@/lib/delivery';
+
+// A delivery as the emails describe it.
+type DeliveryText = { label: string; address: string; note: string; feeCents: number };
 
 // One item of a checkout, as saved on the payment by /api/checkout.
 type CheckoutLine = {
@@ -104,8 +109,10 @@ async function sendSellerNotification(params: {
   csaBoxDate?: string | null;
   // True for a Farm Box bought on its own rather than by a member.
   csaSingle?: boolean;
+  // Set when the farm delivers this order.
+  delivery?: DeliveryText | null;
 }) {
-  const { sellerEmail, items, orderNumber, csaBoxDate, csaSingle, buyerName } = params;
+  const { sellerEmail, items, orderNumber, csaBoxDate, csaSingle, buyerName, delivery } = params;
   const itemTotal = items.reduce((sum, item) => sum + item.subtotalCents, 0) / 100;
 
   await sendEmail({
@@ -120,10 +127,20 @@ async function sendSellerNotification(params: {
         <h2 style="color: #059669;">${csaBoxDate ? `${csaSingle ? 'A one-off Farm Box' : "A member's box"} for ${formatBoxDate(csaBoxDate, { long: true })} is paid` : "You've got a new reservation!"}</h2>
         ${buyerName ? `<p style="font-size: 16px;">For: <strong>${escapeHtml(buyerName)}</strong></p>` : ''}
         <p>Order number: <strong style="font-family: monospace; font-size: 16px;">${orderNumber}</strong> (the buyer has the same number, so you can match them to their bag at pickup)</p>
-        <ul>${items.map((item) => (item.readyBy.startsWith('pickup at ') ? `<li><strong>${itemText(item)}</strong> — the buyer will collect it at your stand: <strong>${escapeHtml(item.readyBy.slice(10))}</strong>. Bring it with you and mark it ready there.</li>` : `<li><strong>${itemText(item)}</strong> — mark it ready by <strong>${item.readyBy}</strong></li>`)).join('')}</ul>
+        ${
+          delivery
+            ? `<div style="padding: 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;">
+                <p style="margin: 0 0 6px;"><strong>Deliver it: ${escapeHtml(delivery.label)}</strong></p>
+                <p style="margin: 0 0 6px;">To: <strong>${escapeHtml(delivery.address)}</strong></p>
+                ${delivery.note ? `<p style="margin: 0 0 6px;">The buyer's note: ${escapeHtml(delivery.note)}</p>` : ''}
+                <p style="margin: 0;">At the door, scan the buyer's code if they are home. If not, use <strong>Left at the door</strong> on the order and take a photo; you are paid ${DELIVERY_RELEASE_HOURS} hours later unless the buyer reports a problem. Keep eggs and anything perishable cold until it is handed over.${delivery.feeCents > 0 ? ` The delivery fee of $${(delivery.feeCents / 100).toFixed(2)} is paid to you, less the seller fee, once the delivery is done.` : ''}</p>
+              </div>`
+            : ''
+        }
+        <ul>${items.map((item) => (delivery ? `<li><strong>${itemText(item)}</strong></li>` : item.readyBy.startsWith('pickup at ') ? `<li><strong>${itemText(item)}</strong> — the buyer will collect it at your stand: <strong>${escapeHtml(item.readyBy.slice(10))}</strong>. Bring it with you and mark it ready there.</li>` : `<li><strong>${itemText(item)}</strong> — mark it ready by <strong>${item.readyBy}</strong></li>`)).join('')}</ul>
         <p>Need to reach the buyer? Use <strong>Message Buyer</strong> on the order in your Seller Dashboard.</p>
         <p>Item total: $${itemTotal.toFixed(2)}</p>
-        <p>
+        ${delivery ? '' : `<p>
           At pickup, ask the buyer for their pickup code and enter it in your Seller Dashboard
           to complete the order and release your payout.${
             items.length > 1
@@ -139,7 +156,7 @@ async function sendSellerNotification(params: {
         </p>
         <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">
           Visit your Seller Dashboard to mark ${items.length > 1 ? 'each item' : 'this order'} ready for pickup.
-        </p>
+        </p>`}
       </div>
     `,
   });
@@ -156,6 +173,7 @@ async function sendBuyerConfirmation(params: {
     code: string;
     pickupArea: string;
     market?: string | null;
+    delivery?: DeliveryText | null;
     items: { quantity: number; unitType: string; title: string; readyBy: string; cases?: number | null }[];
   }[];
   orderLink: string | null;
@@ -171,9 +189,12 @@ async function sendBuyerConfirmation(params: {
       (farm) => `
         <div style="margin: 16px 0; padding: 14px; border: 1px solid #a7f3d0; border-radius: 8px;">
           <p style="margin: 0 0 6px;"><strong>${escapeHtml(farm.farmName)}</strong></p>
-          <ul style="margin: 0 0 8px; padding-left: 20px;">${farm.items.map((item) => (farm.market ? `<li>${itemText(item)}</li>` : `<li>${itemText(item)} — the farmer should have it ready by ${item.readyBy}</li>`)).join('')}</ul>
+          <ul style="margin: 0 0 8px; padding-left: 20px;">${farm.items.map((item) => (farm.market || farm.delivery ? `<li>${itemText(item)}</li>` : `<li>${itemText(item)} — the farmer should have it ready by ${item.readyBy}</li>`)).join('')}</ul>
           ${
-            farm.market
+            farm.delivery
+              ? `<p style="margin: 0 0 8px;">Delivered to <strong>${escapeHtml(farm.delivery.address)}</strong>: <strong>${escapeHtml(farm.delivery.label)}</strong>${farm.delivery.feeCents > 0 ? ` (delivery fee $${(farm.delivery.feeCents / 100).toFixed(2)})` : ''}.</p>
+                 <p style="margin: 0 0 8px;">If you're home, give the farmer your code when they hand it over. If you're not, they'll leave it and send you a photo; tell us within ${DELIVERY_RELEASE_HOURS} hours if anything is wrong.</p>`
+              : farm.market
               ? `<p style="margin: 0 0 8px;">Pick up at <strong>${escapeHtml(farm.market)}</strong>. Find the farm's stand and give them your pickup code.</p>`
               : `<p style="margin: 0 0 8px;">Pickup${farm.pickupArea ? ` in <strong>${escapeHtml(farm.pickupArea)}</strong>` : ''}. We'll send the exact address when the farmer marks your order ready.</p>`
           }
@@ -412,6 +433,23 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
   await saveShares(orders);
   const result = await finish(orders);
 
+  // Deliveries: the address, date and fee saved when the buyer started
+  // paying, put on the orders they cover.
+  let deliveryByFarm = new Map<string, DeliveryRow>();
+  try {
+    deliveryByFarm = await attachDeliveries({
+      checkoutId,
+      paymentIntentId: paymentIntent.id,
+      orders: orders.map((order) => ({ id: order.id, farmerId: (listingById.get(order.listing_id)?.farmer_id as string) || '' })),
+    });
+  } catch (deliveryError) {
+    await alertAdmin('paid order saved without its delivery details', deliveryError, { payment: paymentIntent.id });
+  }
+  const deliveryTextFor = (farmerId: string): DeliveryText | null => {
+    const d = deliveryByFarm.get(farmerId);
+    return d ? { label: d.window_label, address: d.address, note: d.note || '', feeCents: Number(d.fee_cents) || 0 } : null;
+  };
+
   // Only the caller that saved the orders gets this far, so a payment is
   // counted once however many times it is reported.
   // (CSA boxes are charged by the daily job, not through checkout.)
@@ -500,6 +538,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     pickupArea: string;
     // Picked up at a farmers market: where and when.
     market: string | null;
+    delivery: DeliveryText | null;
     items: { quantity: number; unitType: string; title: string; subtotalCents: number; readyBy: string; cases?: number | null }[];
   }[] = [];
 
@@ -516,6 +555,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
         code: (order && result.codeByOrderId.get(order.id)) || pickupCodeForFarm(checkoutKey, farmerId),
         pickupArea: [listing?.location_name, listing?.zip_code].filter(Boolean).join(' '),
         market: null,
+        delivery: deliveryTextFor(farmerId),
         items: [],
       };
       farms.push(farm);
@@ -556,14 +596,14 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
     if (sellerLookupError) {
       console.error('Failed to look up seller email:', sellerLookupError);
     } else if (sellerUser?.user?.email) {
-      await sendSellerNotification({ sellerEmail: sellerUser.user.email, items: farm.items, buyerEmail, buyerName, orderNumber, csaBoxDate, csaSingle });
+      await sendSellerNotification({ sellerEmail: sellerUser.user.email, items: farm.items, buyerEmail, buyerName, orderNumber, csaBoxDate, csaSingle, delivery: farm.delivery });
     }
 
     // And on the seller's phone, if they use the app.
     const first = farm.items[0];
     const more = farm.items.length > 1 ? ` and ${farm.items.length - 1} more` : '';
     await sendPush([farm.farmerId], {
-      title: csaBoxDate ? 'Farm Box paid' : 'New order',
+      title: csaBoxDate ? 'Farm Box paid' : farm.delivery ? 'New delivery order' : 'New order',
       body: first ? `${first.quantity} ${first.unitType} of ${first.title}${more}. Order ${orderNumber}.` : `Order ${orderNumber}.`,
       url: '/dashboard?tab=orders',
     });
