@@ -20,10 +20,22 @@ export const LISTING_TAG_OPTIONS = [
   'No Synthetic Fertilizers',
   'Hand Harvested',
   'Picked to Order',
+  'Baked to Order',
   'Regenerative',
   'Hydroponic',
   'Raw & Unfiltered',
 ];
+
+// Ready-made highlights that only make sense for one category, offered only
+// there (a farmer can still type any highlight themselves).
+const CATEGORY_ONLY_TAGS: Record<string, string> = {
+  'Baked to Order': 'Baked Goods',
+};
+
+// The ready-made highlights to offer for a category.
+export function tagOptionsFor(category: string | null | undefined) {
+  return LISTING_TAG_OPTIONS.filter((tag) => !CATEGORY_ONLY_TAGS[tag] || CATEGORY_ONLY_TAGS[tag] === category);
+}
 
 // Tidies one highlight a farmer typed. Returns the cleaned text, or a reason
 // it can't be used. A highlight is a few plain words about the produce, so

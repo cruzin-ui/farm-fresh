@@ -10,6 +10,7 @@ import {
   MAX_LISTING_TAG_LENGTH,
   CARD_LISTING_TAGS,
   cleanListingTag,
+  tagOptionsFor,
 } from '@/lib/listingTags';
 
 // Pieces of the listing form shared by posting a new listing (step by step)
@@ -196,11 +197,15 @@ export function HighlightsPicker({
   tags,
   onChange,
   idPrefix,
+  category,
 }: {
   tags: string[];
   onChange: (tags: string[]) => void;
   idPrefix: string;
+  // Some ready-made highlights are only offered for one category.
+  category?: string;
 }) {
+  const options = tagOptionsFor(category);
   const [customTag, setCustomTag] = useState('');
   const [customTagError, setCustomTagError] = useState<string | null>(null);
   const full = tags.length >= MAX_LISTING_TAGS;
@@ -226,7 +231,7 @@ export function HighlightsPicker({
         Highlights ({tags.length}/{MAX_LISTING_TAGS})
       </p>
       <div role="group" aria-labelledby={`${idPrefix}-highlights-label`} className="flex flex-wrap gap-2">
-        {LISTING_TAG_OPTIONS.map((tag) => {
+        {options.map((tag) => {
           const selected = tags.includes(tag);
           const atLimit = !selected && full;
           return (
@@ -249,10 +254,10 @@ export function HighlightsPicker({
           );
         })}
       </div>
-      {tags.some((tag) => !LISTING_TAG_OPTIONS.includes(tag)) && (
+      {tags.some((tag) => !options.includes(tag)) && (
         <div className="flex flex-wrap gap-2 mt-2">
           {tags
-            .filter((tag) => !LISTING_TAG_OPTIONS.includes(tag))
+            .filter((tag) => !options.includes(tag))
             .map((tag) => (
               <button
                 key={tag}

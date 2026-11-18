@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     const user = await getRequestUser(request);
-    const cart = await priceCart(items, user?.id, parsePickupChoices(body.pickups), readDeliveryAddress(body.delivery));
+    const cart = await priceCart(items, user?.id, parsePickupChoices(body.pickups), readDeliveryAddress(body.delivery), user?.email || null);
 
     return NextResponse.json({
       lines: cart.lines,

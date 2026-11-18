@@ -28,6 +28,28 @@ export const COTTAGE_FOOD_CATEGORIES = ['Jams & Preserves', 'Baked Goods'];
 export const isCottageFood = (category: string | null | undefined) =>
   COTTAGE_FOOD_CATEGORIES.includes(category || '');
 
+// Made to order: a listing for something the seller makes when it's ordered
+// (bread, jam) rather than a harvest that runs out. It never sells out and
+// stays on sale until the seller takes it down; its quantity is the most one
+// order can be for. Only for things made in a kitchen, not grown.
+export const MADE_TO_ORDER_CATEGORIES = COTTAGE_FOOD_CATEGORIES;
+export const canMakeToOrder = (category: string | null | undefined) =>
+  MADE_TO_ORDER_CATEGORIES.includes(category || '');
+export const MADE_TO_ORDER_HELP =
+  "Stays on sale until you take it down, and never sells out, so you don't have to post it again. Only take what you can make within the ready-by time for each order.";
+
+// A made-to-order listing's available_quantity is either the most one
+// customer can have on order at once (the seller chose a limit), or this
+// number, meaning no limit.
+export const MADE_TO_ORDER_UNLIMITED = 999;
+
+// The per-customer limit of a made-to-order listing, or null for none.
+export const madeToOrderLimit = (listing: { made_to_order?: boolean | null; available_quantity?: unknown }) => {
+  if (!listing.made_to_order) return null;
+  const quantity = Math.floor(Number(listing.available_quantity ?? 0));
+  return quantity >= MADE_TO_ORDER_UNLIMITED ? null : quantity;
+};
+
 // Everything else: things grown or raised. Used for "what we're growing".
 export const GROWN_CATEGORIES = LISTING_CATEGORIES.filter((category) => !isCottageFood(category));
 

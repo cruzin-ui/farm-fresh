@@ -664,7 +664,7 @@ export default function BrowsePage() {
                     {item.category || 'Local'}
                   </span>
                   <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-emerald-900 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
-                    {availableQty} {item.unit_type || 'lbs'} left
+                    {item.made_to_order ? 'Made to order' : `${availableQty} ${item.unit_type || 'lbs'} left`}
                   </span>
                 </Link>
 
