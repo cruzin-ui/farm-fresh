@@ -393,6 +393,10 @@ const SELLER_FAQS: Faq[] = [
       "In your Seller Dashboard, open Farm Profile and use Where to find us. Add each market or event with its address, date and times; for a weekly market, tick Every week and set the last date. It shows on your farm page, and followers who asked to hear about your markets get an email. If you allow it, buyers can order ahead and pick up at your stand: bring their orders, mark them ready there, and take their pickup code as usual. Can't make a date? Mark it as not there; any orders for it are refunded and count as cancellations by you.",
   },
   {
+    question: 'Can I keep a listing up for things I bake or make to order?',
+    answer: `Yes, for baked goods and jams and preserves. Tick Made to order when you post or edit the listing. It then stays on sale until you take it down and never sells out, so you don't have to post it again. It takes any number of orders unless you also tick Limit how many one customer can order and set a number: then each customer can have at most that many on order at once. You still have ${SELLER_READY_DAYS} days to have each order ready, so only leave it up while you can keep up, and take it down (or edit it) when you need a break. You can add the "Baked to Order" highlight too.`,
+  },
+  {
     question: 'Can I deliver orders?',
     answer: `Yes, if you want to. In your Seller Dashboard, open Farm Profile & Photo and turn on Delivery: set how far you go (miles by road), your delivery days and time window, a fee (flat, plus an optional amount per mile) and a smallest order. Buyers inside your area can then choose delivery at checkout. You deliver yourself; Farm Fresh Direct doesn't arrange drivers. At the door, scan the buyer's code; if they aren't home, leave the order somewhere sheltered and use Left at the Door to take a photo, and you're paid ${DELIVERY_RELEASE_HOURS} hours later unless the buyer reports a problem. The delivery fee is paid to you, less the ${SELLER_FEE} seller fee, once the delivery is done. Mark anything that doesn't travel well as pickup only when you edit the listing. The full rules are in section 9 of the Seller Terms.`,
   },

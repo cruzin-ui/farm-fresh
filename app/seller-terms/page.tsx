@@ -150,7 +150,10 @@ export default function SellerTermsPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">5. Fulfilling orders</h2>
           <p>
             You agree to have the items you list available for pickup at the address and times you give the
-            buyer (or, for an order you deliver, to deliver it as section 9 sets out). You must mark each order ready for pickup within {SELLER_READY_DAYS} days of the order, or of
+            buyer (or, for an order you deliver, to deliver it as section 9 sets out). A listing you mark
+            made to order (baked goods, jams and preserves only) stays on sale until you take it down, and takes any
+            number of orders unless you set a limit per customer: keep it up only while you can have every order
+            ready in time. You must mark each order ready for pickup within {SELLER_READY_DAYS} days of the order, or of
             your listing&apos;s harvest date if that is later. If you do not, the buyer may cancel for a full
             refund, and an order still not marked ready after {AUTO_CANCEL_DAYS} days is cancelled and refunded
             automatically; you are not paid for it. Once you mark an order ready, the buyer has{' '}

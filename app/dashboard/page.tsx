@@ -27,7 +27,7 @@ import { MAX_LISTING_TAGS } from '@/lib/listingTags';
 import SellerEarnings from '@/components/SellerEarnings';
 import { orderRef } from '@/lib/pickupGroups';
 import { announceAccountChange } from '@/lib/accountEvents';
-import { LISTING_CATEGORIES, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
+import { LISTING_CATEGORIES, PRODUCE_ONLY_NOTICE, canMakeToOrder, MADE_TO_ORDER_HELP, MADE_TO_ORDER_UNLIMITED, madeToOrderLimit } from '@/lib/categories';
 import CottageFoodSection from '@/components/CottageFoodSection';
 import DeliverySettings from '@/components/DeliverySettings';
 import LeftAtDoor from '@/components/LeftAtDoor';
@@ -327,6 +327,12 @@ export default function SellerDashboardPage() {
   const [harvestEndDate, setHarvestEndDate] = useState('');
   // Offered for pickup only, never delivered (it doesn't travel well).
   const [pickupOnly, setPickupOnly] = useState(false);
+  // Made to order (baked goods, jams): never sells out; the quantity is the
+  // most one order can be for.
+  const [madeToOrder, setMadeToOrder] = useState(false);
+  // Made to order with a limit per customer (the quantity box is the limit);
+  // unticked, there is no limit.
+  const [limitPerCustomer, setLimitPerCustomer] = useState(false);
   const [locationName, setLocationName] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [pickupAddress, setPickupAddress] = useState('');
@@ -673,6 +679,8 @@ export default function SellerDashboardPage() {
     setHarvestReadyDate('');
     setHarvestEndDate('');
     setPickupOnly(false);
+    setMadeToOrder(false);
+    setLimitPerCustomer(false);
     setPickupAddress(defaultPickupAddress);
     setPickupAddressVerified(Boolean(defaultPickupAddress));
     setListingTags([]);
@@ -711,6 +719,8 @@ export default function SellerDashboardPage() {
     setHarvestReadyDate(item.harvest_ready_date || '');
     setHarvestEndDate(item.harvest_end_date || '');
     setPickupOnly(Boolean(item.pickup_only));
+    setMadeToOrder(Boolean(item.made_to_order));
+    setLimitPerCustomer(Boolean(item.made_to_order) && Number(item.available_quantity) < MADE_TO_ORDER_UNLIMITED);
     setPickupAddress(item.pickup_address || '');
     setPickupAddressVerified(Boolean(item.pickup_address));
     setListingTags(Array.isArray(item.tags) ? item.tags.slice(0, MAX_LISTING_TAGS) : []);
@@ -1369,10 +1379,15 @@ export default function SellerDashboardPage() {
               : { title, variety, category, unit_type: unitType }),
             description,
             price_per_unit: parseFloat(pricePerUnit),
-            available_quantity: parseFloat(availableQuantity),
+            // Made to order with no limit is stored as MADE_TO_ORDER_UNLIMITED.
+            available_quantity:
+              madeToOrder && canMakeToOrder(category) && !limitPerCustomer
+                ? MADE_TO_ORDER_UNLIMITED
+                : parseFloat(availableQuantity),
             harvest_ready_date: harvestReadyDate,
             harvest_end_date: harvestEndDate || null,
             pickup_only: pickupOnly,
+            made_to_order: madeToOrder && canMakeToOrder(category),
             tags: listingTags,
             ...plantPayload,
             ...(cropImageUrl ? { image_url: cropImageUrl } : {}),
@@ -1999,7 +2014,11 @@ export default function SellerDashboardPage() {
                               qty <= 0 ? 'text-red-600' : 'text-emerald-700'
                             }`}
                           >
-                            {qty <= 0 ? 'Sold out or taken down — edit the quantity to restock' : `${qty} ${item.unit_type} left`}
+                            {qty <= 0
+                              ? 'Sold out or taken down — edit the quantity to restock'
+                              : item.made_to_order
+                                ? madeToOrderLimit(item) === null ? 'Made to order · no limit per customer' : `Made to order · up to ${qty} ${item.unit_type} per customer`
+                                : `${qty} ${item.unit_type} left`}
                           </p>
                           {!stripeOnboardingComplete && qty > 0 && (
                             <p className="text-xs font-bold text-amber-700">Not visible to buyers yet</p>
@@ -2206,7 +2225,7 @@ export default function SellerDashboardPage() {
                     />
                   </div>
 
-                  <HighlightsPicker idPrefix="dash" tags={listingTags} onChange={setListingTags} />
+                  <HighlightsPicker idPrefix="dash" category={category} tags={listingTags} onChange={setListingTags} />
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
                     <div>
@@ -2246,15 +2265,15 @@ export default function SellerDashboardPage() {
                       </p>
                     </div>
 
-                    <div>
+                    <div className={madeToOrder && canMakeToOrder(category) && !limitPerCustomer ? 'hidden' : ''}>
                       <label htmlFor="dash-est-total" className="block text-xs font-semibold text-gray-700 mb-1">
-                        Est. Total {unitType} *
+                        {madeToOrder && canMakeToOrder(category) ? `Most ${unitType} per customer` : `Est. Total ${unitType}`} *
                       </label>
                       <input id="dash-est-total"
                         type="number"
                         step="1"
                         min={editingListingId ? 0 : 1}
-                        required
+                        required={!(madeToOrder && canMakeToOrder(category) && !limitPerCustomer)}
                         placeholder="25"
                         value={availableQuantity}
                         onChange={(e) => setAvailableQuantity(e.target.value)}
@@ -2266,6 +2285,39 @@ export default function SellerDashboardPage() {
                       </p>
                     </div>
                   </div>
+                  {canMakeToOrder(category) && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-gray-800 space-y-2">
+                      <label className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          checked={madeToOrder}
+                          onChange={(e) => setMadeToOrder(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 shrink-0"
+                        />
+                        <span>
+                          <span className="font-semibold text-gray-900">Made to order.</span> {MADE_TO_ORDER_HELP}
+                        </span>
+                      </label>
+                      {madeToOrder && (
+                        <label className="flex items-start gap-2 pl-6">
+                          <input
+                            type="checkbox"
+                            checked={limitPerCustomer}
+                            onChange={(e) => {
+                              setLimitPerCustomer(e.target.checked);
+                              // Coming from "no limit", start from an empty box rather than 999.
+                              if (e.target.checked && Number(availableQuantity) >= MADE_TO_ORDER_UNLIMITED) setAvailableQuantity('');
+                            }}
+                            className="mt-0.5 w-4 h-4 shrink-0"
+                          />
+                          <span>
+                            Limit how many one customer can order.{' '}
+                            <span className="text-gray-600">Leave this unticked to take any number of orders.</span>
+                          </span>
+                        </label>
+                      )}
+                    </div>
+                  )}
 
                   <WholesaleFields
                     value={wholesale}

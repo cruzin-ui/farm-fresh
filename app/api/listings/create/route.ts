@@ -5,7 +5,7 @@ import { checkListingAllowed, saveListingPickupAddress } from '@/lib/listingRule
 import { cleanListingTags } from '@/lib/listingTags';
 import { isSellerSuspended } from '@/lib/accountBlocks';
 import { getFarmPickup } from '@/lib/farmPickupAddress';
-import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
+import { isAllowedCategory, PRODUCE_ONLY_NOTICE, canMakeToOrder } from '@/lib/categories';
 import { cottageFoodProblem } from '@/lib/cottageFood';
 import { SELLER_TERMS_VERSION } from '@/lib/sellerTerms';
 import { geocodeZip } from '@/lib/geo';
@@ -163,6 +163,8 @@ export async function POST(request: Request) {
           available_quantity: quantity,
           harvest_ready_date: fields.harvest_ready_date,
           harvest_end_date: fields.harvest_end_date || null,
+          // Made to order: never sells out (baked goods and jams only).
+          made_to_order: fields.made_to_order === true && canMakeToOrder(fields.category),
           ...place,
           pickup_instructions: typeof fields.pickup_instructions === 'string' ? fields.pickup_instructions : '',
           tags: cleanListingTags(fields.tags),

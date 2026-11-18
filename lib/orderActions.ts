@@ -33,6 +33,13 @@ export const NO_SHOW_RESTOCKING_RATE = RESTOCKING_RATE;
 // routes (which first check the pickup code / ownership) and the admin
 // override routes (which skip those checks).
 
+// A made-to-order listing never sells out, so a cancelled order doesn't put
+// anything back on it (its quantity is the most per order, not a stock).
+async function isMadeToOrder(listingId: string) {
+  const { data } = await supabaseAdmin.from('produce_listings').select('made_to_order').eq('id', listingId).maybeSingle();
+  return Boolean(data?.made_to_order);
+}
+
 // An error whose message is safe to show the caller, with the HTTP status to
 // send it with.
 export class OrderActionError extends Error {
@@ -644,7 +651,7 @@ export async function refundOrderQuantity(params: {
     reason: `qty-${currentQuantity}-to-${newQuantity}`,
   });
 
-  if (restock) {
+  if (restock && !(await isMadeToOrder(order.listing_id))) {
     const { error: restockError } = await supabaseAdmin
       .from('produce_listings')
       .update({
@@ -831,10 +838,12 @@ export async function resolveNoShow(params: {
     reason: 'no-show',
   });
 
-  const { error: restockError } = await supabaseAdmin
-    .from('produce_listings')
-    .update({ available_quantity: Number(listing.available_quantity ?? 0) + currentQuantity })
-    .eq('id', order.listing_id);
+  const { error: restockError } = (await isMadeToOrder(order.listing_id))
+    ? { error: null }
+    : await supabaseAdmin
+        .from('produce_listings')
+        .update({ available_quantity: Number(listing.available_quantity ?? 0) + currentQuantity })
+        .eq('id', order.listing_id);
 
   if (restockError) {
     console.error('Failed to restock listing after no-show:', restockError);

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { friendlyDate, pickupAvailability } from '@/lib/dates';
-import { isCottageFood } from '@/lib/categories';
+import { isCottageFood, madeToOrderLimit } from '@/lib/categories';
 import { SELLER_READY_DAYS } from '@/lib/pickupRules';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchSuspendedSellerIds } from '@/lib/suspendedSellers';
@@ -220,7 +220,11 @@ export default function ListingDetailPage() {
               <span className="text-sm text-gray-500 font-medium"> / {unitType}</span>
             </p>
             <p className={`text-sm font-bold mt-1 ${soldOut ? 'text-red-600' : 'text-emerald-700'}`}>
-              {soldOut ? 'Sold Out' : `${availableQty} ${unitType} available`}
+              {soldOut
+                ? 'Sold Out'
+                : listing.made_to_order
+                  ? madeToOrderLimit(listing) === null ? 'Made to order' : `Made to order · up to ${availableQty} ${unitType} per customer`
+                  : `${availableQty} ${unitType} available`}
             </p>
             <ShareButton
               className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 border border-gray-300 bg-white rounded-lg px-3 py-1.5 hover:bg-gray-50"

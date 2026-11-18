@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, Camera, ImageIcon, X, MapPin, Calendar, Sprout, 
 import { supabase } from '@/lib/supabaseClient';
 import { postWithAuth } from '@/lib/authedFetch';
 import { resizeImage } from '@/lib/resizeImage';
-import { COTTAGE_FOOD_CATEGORIES, isCottageFood, LISTING_CATEGORIES } from '@/lib/categories';
+import { COTTAGE_FOOD_CATEGORIES, isCottageFood, LISTING_CATEGORIES, canMakeToOrder, MADE_TO_ORDER_HELP, MADE_TO_ORDER_UNLIMITED } from '@/lib/categories';
 import { PLANTS_CATEGORY, plantDetailLabels } from '@/lib/plants';
 import { SELLER_FEE_RATE } from '@/lib/pricing';
 import { pickupAvailability, friendlyDate } from '@/lib/dates';
@@ -67,6 +67,12 @@ type Draft = {
   // Started from an earlier listing ("post again"): the quick screen is the
   // way back from the preview.
   quick?: boolean;
+  // Made to order (baked goods, jams): never sells out, and `quantity` is the
+  // most one order can be for. See lib/categories.
+  madeToOrder?: boolean;
+  // Made to order with a limit on how many one customer can have on order
+  // (then `quantity` is that limit); without one, there is no limit.
+  limitPerCustomer?: boolean;
 };
 
 const EMPTY: Draft = {
@@ -89,6 +95,8 @@ const EMPTY: Draft = {
   ownPickup: null,
   wholesale: NO_WHOLESALE,
   quick: false,
+  madeToOrder: false,
+  limitPerCustomer: false,
 };
 
 // How many earlier listings "post again" offers.
@@ -145,6 +153,40 @@ export default function NewListingWizard({
 
   const set = (fields: Partial<Draft>) => setD((current) => ({ ...current, ...fields }));
   const isPlant = d.category === PLANTS_CATEGORY;
+  // Made to order only counts for a category that can be.
+  const madeToOrder = Boolean(d.madeToOrder) && canMakeToOrder(d.category);
+  // Made to order with no limit: there is no quantity to ask for.
+  const unlimited = madeToOrder && !d.limitPerCustomer;
+  // The made-to-order switch and its optional per-customer limit.
+  const madeToOrderFields = canMakeToOrder(d.category) && (
+    <div className="text-sm text-gray-800 bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+      <label className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          className="w-4 h-4 mt-0.5 shrink-0"
+          checked={madeToOrder}
+          onChange={(e) => set({ madeToOrder: e.target.checked })}
+        />
+        <span>
+          <span className="font-semibold">Made to order.</span> {MADE_TO_ORDER_HELP}
+        </span>
+      </label>
+      {madeToOrder && (
+        <label className="flex items-start gap-2 pl-6">
+          <input
+            type="checkbox"
+            className="w-4 h-4 mt-0.5 shrink-0"
+            checked={Boolean(d.limitPerCustomer)}
+            onChange={(e) => set({ limitPerCustomer: e.target.checked })}
+          />
+          <span>
+            Limit how many one customer can order.{' '}
+            <span className="text-gray-600">Leave this unticked to take any number of orders.</span>
+          </span>
+        </label>
+      )}
+    </div>
+  );
   const stepIndex = STEPS.indexOf(d.step);
 
   // A listing left part-way on this device is offered back (unless the
@@ -228,6 +270,10 @@ export default function NewListingWizard({
       waterNeeds: previous.water_needs || '',
       isNative: Boolean(previous.native_state),
       reusedImageUrl: previous.image_url || null,
+      madeToOrder: Boolean(previous.made_to_order) && canMakeToOrder(category),
+      ...(previous.made_to_order && Number(previous.available_quantity) < MADE_TO_ORDER_UNLIMITED
+        ? { limitPerCustomer: true, quantity: String(Math.floor(Number(previous.available_quantity))) }
+        : {}),
       ownPickup:
         previous.pickup_address && farmPickup && previous.pickup_address !== farmPickup.address
           ? { address: previous.pickup_address, zip: String(previous.zip_code || ''), city: previous.location_name || '' }
@@ -289,7 +335,14 @@ export default function NewListingWizard({
       const price = Number(d.price);
       const quantity = Number(d.quantity);
       if (d.price === '' || !Number.isFinite(price) || price < 0) return 'Enter a price.';
-      if (!Number.isInteger(quantity) || quantity < 1) return 'Enter how many you have, as a whole number of at least 1.';
+      if (!unlimited && (!Number.isInteger(quantity) || quantity < 1)) {
+        return madeToOrder
+          ? 'Enter the most one customer can order, as a whole number of at least 1.'
+          : 'Enter how many you have, as a whole number of at least 1.';
+      }
+      if (madeToOrder && quantity >= MADE_TO_ORDER_UNLIMITED) {
+        return `Enter a limit below ${MADE_TO_ORDER_UNLIMITED}, or untick the limit to take any number.`;
+      }
       const wholesale = readWholesaleOffer(d.wholesale);
       if ('error' in wholesale) return wholesale.error;
     }
@@ -347,9 +400,10 @@ export default function NewListingWizard({
           description: d.description,
           unit_type: d.unitType,
           price_per_unit: parseFloat(d.price),
-          available_quantity: parseFloat(d.quantity),
+          available_quantity: unlimited ? MADE_TO_ORDER_UNLIMITED : parseFloat(d.quantity),
           harvest_ready_date: d.readyDate,
           harvest_end_date: d.endDate || null,
+          made_to_order: madeToOrder,
           tags: d.tags,
           pot_size: d.potSize,
           sun_needs: d.sunNeeds || null,
@@ -559,9 +613,10 @@ export default function NewListingWizard({
                 />
               </div>
             )}
+            {madeToOrderFields}
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                {label(d.unitType === 'units' ? 'How many this time?' : `How many ${d.unitType} this time?`, 'quick-quantity')}
+              <div className={unlimited ? 'hidden' : ''}>
+                {label(madeToOrder ? 'Most per customer' : d.unitType === 'units' ? 'How many this time?' : `How many ${d.unitType} this time?`, 'quick-quantity')}
                 <input
                   id="quick-quantity"
                   autoFocus
@@ -755,8 +810,8 @@ export default function NewListingWizard({
                   className={input}
                 />
               </div>
-              <div>
-                {label(d.unitType === 'units' ? 'How many?' : `How many ${d.unitType}?`, 'wiz-quantity')}
+              <div className={unlimited ? 'hidden' : ''}>
+                {label(madeToOrder ? 'Most per customer' : d.unitType === 'units' ? 'How many?' : `How many ${d.unitType}?`, 'wiz-quantity')}
                 <input
                   id="wiz-quantity"
                   type="number"
@@ -770,6 +825,7 @@ export default function NewListingWizard({
                 />
               </div>
             </div>
+            {madeToOrderFields}
             <p className="text-sm text-gray-700 bg-gray-50 border rounded-xl p-3">
               {keepsPerUnit !== null ? (
                 <>
@@ -874,7 +930,7 @@ export default function NewListingWizard({
                 className={input}
               />
             </div>
-            <HighlightsPicker idPrefix="wiz" tags={d.tags} onChange={(tags) => set({ tags })} />
+            <HighlightsPicker idPrefix="wiz" category={d.category} tags={d.tags} onChange={(tags) => set({ tags })} />
           </>
         )}
 
@@ -896,7 +952,7 @@ export default function NewListingWizard({
                   {d.category}
                 </span>
                 <span className="absolute top-3 right-3 bg-white/90 text-emerald-900 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
-                  {d.quantity} {d.unitType} left
+                  {madeToOrder ? 'Made to order' : `${d.quantity} ${d.unitType} left`}
                 </span>
               </div>
               <div className="p-5 space-y-2">
@@ -942,7 +998,7 @@ export default function NewListingWizard({
                   ['category', 'Category', d.category],
                   ['name', isPlant ? 'Plant' : 'Crop', `${d.title} · ${d.variety}`],
                   ['photo', 'Photo', photo ? 'Added' : 'None'],
-                  ['price', 'Price and amount', `$${Number(d.price || 0).toFixed(2)} / ${d.unitType} · ${d.quantity} available`],
+                  ['price', 'Price and amount', `$${Number(d.price || 0).toFixed(2)} / ${d.unitType} · ${unlimited ? 'made to order' : madeToOrder ? `made to order, up to ${d.quantity} per customer` : `${d.quantity} available`}`],
                   ['when', 'Ready', `${friendlyDate(d.readyDate)}${d.endDate ? `, until ${friendlyDate(d.endDate)}` : ''}`],
                   ['when', 'Pickup', d.ownPickup ? d.ownPickup.address : `Your farm’s address in ${farmPickup?.city || 'your area'}`],
                   ['extras', 'Description and highlights', d.description || d.tags.length ? 'Added' : 'None'],

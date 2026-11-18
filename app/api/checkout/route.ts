@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     // Totals are always computed server-side from the listing prices — never
     // trusted from the client.
     const deliveryAddress = readDeliveryAddress(body.delivery);
-    const cart = await priceCart(items, user?.id, parsePickupChoices(body.pickups), deliveryAddress);
+    const cart = await priceCart(items, user?.id, parsePickupChoices(body.pickups), deliveryAddress, buyerEmail);
 
     const blocked = cart.lines.find((line) => line.problem);
     if (blocked) {

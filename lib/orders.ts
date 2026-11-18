@@ -259,7 +259,7 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
 
   const { data: listings } = await supabaseAdmin
     .from('produce_listings')
-    .select('id, available_quantity, title, unit_type, farmer_id, harvest_ready_date, location_name, zip_code')
+    .select('id, available_quantity, title, unit_type, farmer_id, harvest_ready_date, location_name, zip_code, made_to_order')
     .in('id', listingIds);
   const listingById = new Map((listings || []).map((l) => [l.id as string, l]));
 
@@ -505,7 +505,9 @@ export async function recordOrderForPaymentIntent(paymentIntent: Stripe.PaymentI
   // Decrement each listing's available quantity now that payment succeeded.
   for (const line of lines) {
     const listing = listingById.get(line.listingId);
-    if (!listing) continue;
+    // A made-to-order listing never sells out: its quantity is the most per
+    // order, not a stock that goes down.
+    if (!listing || listing.made_to_order) continue;
 
     const newAvailable = Math.max(0, Number(listing.available_quantity ?? 0) - line.quantity);
     const { error: updateError } = await supabaseAdmin

@@ -7,7 +7,7 @@ import { cleanPlantFields } from '@/lib/plantFields';
 import { isAllowedUnit, unitRuleText } from '@/lib/units';
 import { getFarmPickup } from '@/lib/farmPickupAddress';
 import { readPickupInput, setListingPickup } from '@/lib/listingPickup';
-import { isAllowedCategory, PRODUCE_ONLY_NOTICE } from '@/lib/categories';
+import { isAllowedCategory, PRODUCE_ONLY_NOTICE, canMakeToOrder } from '@/lib/categories';
 import { cottageFoodProblem } from '@/lib/cottageFood';
 import { alertAdmin } from '@/lib/alerts';
 import { readWholesaleOffer } from '@/lib/wholesale';
@@ -142,6 +142,11 @@ export async function POST(request: Request) {
     if (typeof fields.pickup_instructions === 'string') update.pickup_instructions = fields.pickup_instructions;
     // Not offered for delivery.
     if (typeof fields.pickup_only === 'boolean') update.pickup_only = fields.pickup_only;
+    // Made to order (never sells out): only for categories that can be, so a
+    // listing moved to another category stops being made to order.
+    if (typeof fields.made_to_order === 'boolean' || !canMakeToOrder(category)) {
+      update.made_to_order = fields.made_to_order === true && canMakeToOrder(category);
+    }
     // Where it's picked up: `pickup` is an address of its own, or null to
     // go back to the farm's address. Left out, it stays where it is. Orders
     // already placed keep the address they were bought at.

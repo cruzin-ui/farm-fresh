@@ -2,7 +2,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { suspendedSellerIds } from '@/lib/accountBlocks';
 import { calculateCartTotals } from '@/lib/pricing';
 import { calculateCartTax } from '@/lib/tax';
-import { isAllowedCategory } from '@/lib/categories';
+import { isAllowedCategory, madeToOrderLimit } from '@/lib/categories';
 import { describeUsualPickup } from '@/lib/pickupRules';
 import { marketOptionsFor, type MarketOption } from '@/lib/appearancesServer';
 import { parseMarketKey } from '@/lib/appearances';
@@ -122,13 +122,16 @@ export async function priceCart(
   items: CartRequestItem[],
   buyerId?: string | null,
   pickups: PickupChoices = {},
-  deliveryAddress: DeliveryAddress | null = null
+  deliveryAddress: DeliveryAddress | null = null,
+  // The buyer's email, for a guest: used with `buyerId` to count what they
+  // already have on order from a made-to-order listing with a limit.
+  buyerEmail: string | null = null
 ) {
   const listingIds = items.map((item) => item.listingId);
 
   const { data: listings } = await supabaseAdmin
     .from('produce_listings')
-    .select('id, title, unit_type, price_per_unit, available_quantity, farmer_id, category, zip_code, location_name, status, harvest_ready_date, harvest_end_date, pickup_only')
+    .select('id, title, unit_type, price_per_unit, available_quantity, farmer_id, category, zip_code, location_name, status, harvest_ready_date, harvest_end_date, pickup_only, made_to_order')
     .in('id', listingIds);
   const listingById = new Map((listings || []).map((l) => [l.id as string, l]));
 
@@ -152,6 +155,25 @@ export async function priceCart(
     : { data: [] as any[] };
   const sellerById = new Map((sellers || []).map((s: any) => [s.id as string, s]));
   const suspended = await suspendedSellerIds(farmerIds as string[]);
+  // Made-to-order listings with a limit per customer: how much this buyer
+  // already has on order (not yet picked up or cancelled) from each.
+  const alreadyOnOrder = new Map<string, number>();
+  const limitedIds = (listings || []).filter((l) => madeToOrderLimit(l) !== null).map((l) => l.id as string);
+  if (limitedIds.length > 0 && (buyerId || buyerEmail)) {
+    let query = supabaseAdmin
+      .from('orders')
+      .select('listing_id, reserved_quantity, quantity')
+      .in('listing_id', limitedIds)
+      .in('status', ['pending_pickup', 'ready_for_pickup']);
+    query = buyerId
+      ? query.eq('buyer_id', buyerId)
+      : query.ilike('buyer_email', String(buyerEmail).replace(/[\\%_]/g, (c) => `\\${c}`));
+    const { data: openOrders } = await query;
+    for (const o of openOrders || []) {
+      const amount = Number(o.reserved_quantity ?? o.quantity ?? 0);
+      alreadyOnOrder.set(o.listing_id, (alreadyOnOrder.get(o.listing_id) || 0) + amount);
+    }
+  }
   // The markets each farm's buyers can order ahead for.
   const marketOptions = await marketOptionsFor(farmerIds as string[]);
   // The farms that deliver, and the dates each can deliver on.
@@ -189,6 +211,11 @@ export async function priceCart(
       problem = 'This kind of item is no longer sold on Farm Fresh Direct. Please remove it.';
     } else if (available < 1) {
       problem = offer ? 'Not enough left for a full case. Please remove it.' : 'Sold out. Please remove it.';
+    } else if (!offer && madeToOrderLimit(listing) !== null && item.quantity + (alreadyOnOrder.get(listing.id) || 0) > available) {
+      const already = alreadyOnOrder.get(listing.id) || 0;
+      problem = already > 0
+        ? `The farm takes up to ${available} per customer, and you already have ${already} on order. ${available > already ? `You can add up to ${available - already} more.` : 'Please remove it for now.'}`
+        : `The farm takes up to ${available} per customer. Please lower the quantity.`;
     } else if (item.quantity > available) {
       problem = `Only ${available}${offer ? ` case${available === 1 ? '' : 's'}` : ''} left. Please lower the quantity.`;
     } else if (suspended.has(listing.farmer_id)) {
