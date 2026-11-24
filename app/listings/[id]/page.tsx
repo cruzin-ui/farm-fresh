@@ -6,7 +6,7 @@ import { isCottageFood, madeToOrderLimit } from '@/lib/categories';
 import { SELLER_READY_DAYS } from '@/lib/pickupRules';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchSuspendedSellerIds } from '@/lib/suspendedSellers';
-import { Sprout, MapPin, Calendar, Clock, ShoppingBag, ShoppingCart, CheckCircle2, ArrowLeft, User, ChevronRight } from 'lucide-react';
+import { Sprout, MapPin, Calendar, ShoppingBag, ShoppingCart, CheckCircle2, ArrowLeft, User, ChevronRight, Info } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { BUYER_FEE_LABEL } from '@/lib/pricing';
@@ -134,6 +134,10 @@ export default function ListingDetailPage() {
 
   const availability = pickupAvailability(listing.harvest_ready_date);
   const usualPickup = describeUsualPickup(seller?.pickup_days, seller?.pickup_times);
+  // The registration as a number, even if the seller typed "Registration number CF-1".
+  const cottageReg = String(seller?.cottage_food_reg || '')
+    .replace(/^(#|\b(registration|reg|number|no)\b\.?|\s)+/i, '')
+    .trim();
 
   const handleAddToCart = () => {
     if (roomLeft < 1) return;
@@ -313,21 +317,21 @@ export default function ListingDetailPage() {
             </div>
           )}
 
-          {/* The things a shopper needs to decide: when, where, and what times. */}
+          {/* Getting it, in one card: when it's ready, pickup, and any market or delivery option. */}
           <dl className="bg-white border border-gray-200 rounded-2xl divide-y divide-gray-100">
             <div className="flex items-start gap-3 p-4">
               <Calendar className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <dt className="sr-only">When</dt>
                 <dd>
-                  <span className={`inline-block text-base font-bold px-2.5 py-0.5 rounded-lg ${availability.tagClass}`}>
+                  <span className={`inline-block text-sm font-bold px-2.5 py-0.5 rounded-lg ${availability.tagClass}`}>
                     {availability.label}
                   </span>
                 </dd>
-                <dd className="text-xs text-gray-500 mt-1.5">
+                <dd className="text-xs text-gray-600 mt-1">
                   {availability.availableNow
-                    ? `The farmer has up to ${SELLER_READY_DAYS} days after you order to get it ready, and emails you when it is.`
-                    : `${listing.category === PLANTS_CATEGORY ? 'Ready date' : 'Harvest date'}: ${friendlyDate(listing.harvest_ready_date)}. You can order now, and the farmer emails you when it is ready.`}
+                    ? `Ready within ${SELLER_READY_DAYS} days. You get an email when it is.`
+                    : `${listing.category === PLANTS_CATEGORY ? 'Ready' : 'Harvest'} ${friendlyDate(listing.harvest_ready_date)}. Order now; you get an email when it's ready.`}
                   {listing.harvest_end_date ? ` On sale until ${friendlyDate(listing.harvest_end_date)}.` : ''}
                 </dd>
               </div>
@@ -335,15 +339,13 @@ export default function ListingDetailPage() {
             <div className="flex items-start gap-3 p-4">
               <MapPin className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
               <div>
-                <dt className="sr-only">Where</dt>
-                <dd className="text-base font-bold text-gray-900">
+                <dt className="text-sm font-bold text-gray-900">
                   Pickup in {listing.location_name || seller?.location || 'the local area'}
                   {listing.zip_code ? ` (${listing.zip_code})` : ''}
-                </dd>
-                <dd className="text-xs text-gray-500 mt-0.5">
-                  You get the exact address when your order is ready.
-                </dd>
-                <dd className="mt-2">
+                </dt>
+                {usualPickup && <dd className="text-xs text-gray-600">{usualPickup}</dd>}
+                <dd className="text-xs text-gray-500">Exact address sent when it&apos;s ready.</dd>
+                <dd className="mt-1.5">
                   <DistanceFromYou
                     farmZip={listing.zip_code}
                     farmCoordinates={
@@ -355,28 +357,25 @@ export default function ListingDetailPage() {
                 </dd>
               </div>
             </div>
-            {usualPickup && (
-              <div className="flex items-start gap-3 p-4">
-                <Clock className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
-                <div>
-                  <dt className="text-xs text-gray-500">Usual pickup times</dt>
-                  <dd className="text-base font-bold text-gray-900">{usualPickup}</dd>
-                </div>
-              </div>
+            {listing.farmer_id && <ListingMarketPickup farmerId={listing.farmer_id} row />}
+            {listing.farmer_id && (
+              <FarmDeliveryNote
+                farmerId={listing.farmer_id}
+                category={listing.category}
+                pickupOnly={Boolean(listing.pickup_only)}
+                row
+              />
             )}
           </dl>
 
-          {listing.farmer_id && <ListingMarketPickup farmerId={listing.farmer_id} />}
-          {listing.farmer_id && (
-            <FarmDeliveryNote farmerId={listing.farmer_id} category={listing.category} pickupOnly={Boolean(listing.pickup_only)} />
-          )}
-
           {isCottageFood(listing.category) && (
-            <p className="text-xs text-amber-950 bg-amber-50 border border-amber-300 rounded-xl p-3">
-              Made in a home kitchen under Arizona&apos;s cottage food rules
-              {seller?.cottage_food_reg ? ` (registration #${seller.cottage_food_reg})` : ''}. It isn&apos;t
-              inspected by the health department or by Farm Fresh Direct. Check the label for ingredients and
-              allergens, such as wheat, milk, eggs and nuts.
+            <p className="text-xs text-gray-600 flex items-start gap-1.5 px-1">
+              <Info className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
+              <span>
+                Made in a home kitchen under Arizona&apos;s cottage food rules
+                {cottageReg ? ` (reg. ${cottageReg})` : ''}, not inspected by the health department. Check the
+                label for allergens.
+              </span>
             </p>
           )}
 
@@ -465,8 +464,7 @@ export default function ListingDetailPage() {
               </>
             )}
             <p className="text-xs text-gray-400 text-center">
-              No account needed — check out as a guest or sign in. Paid in full online, plus a {BUYER_FEE_LABEL} service
-              fee — exact pickup details are sent once the farmer marks your order ready.
+              No account needed. Paid online, plus a {BUYER_FEE_LABEL} service fee.
             </p>
           </div>
 

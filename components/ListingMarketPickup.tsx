@@ -5,7 +5,8 @@ import { CalendarDays } from 'lucide-react';
 
 // On a listing: the farm's next markets where buyers can pick up an order
 // placed ahead (chosen at checkout). Nothing shows when there aren't any.
-export default function ListingMarketPickup({ farmerId }: { farmerId: string }) {
+// With `row`, it's one row of the listing's "getting it" list (a <dl>).
+export default function ListingMarketPickup({ farmerId, row = false }: { farmerId: string; row?: boolean }) {
   const [events, setEvents] = useState<{ id: string; date: string; name: string; dateLabel: string; times: string; takesOrders: boolean }[]>([]);
 
   useEffect(() => {
@@ -20,6 +21,21 @@ export default function ListingMarketPickup({ farmerId }: { farmerId: string }) 
   }, [farmerId]);
 
   if (events.length === 0) return null;
+  if (row) {
+    return (
+      <div className="flex items-start gap-3 p-4">
+        <CalendarDays className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+        <div>
+          <dt className="text-sm font-bold text-gray-900">Or at their market stand</dt>
+          {events.map((e) => (
+            <dd key={`${e.id}-${e.date}`} className="text-xs text-gray-600">
+              {e.name} · {e.dateLabel}, {e.times}
+            </dd>
+          ))}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="text-sm text-emerald-950 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-start gap-2">
       <CalendarDays className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />

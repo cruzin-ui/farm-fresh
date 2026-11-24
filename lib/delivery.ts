@@ -94,10 +94,21 @@ export function parseDeliveryKey(value: unknown) {
 
 // "Mon, Wed and Sat".
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// Three or more days in a row read as a range: "Mon–Sat"; all seven as "Every day".
 export function describeDeliveryDays(weekdays: number[]) {
-  const days = [...weekdays].sort((a, b) => a - b).map((d) => SHORT_DAYS[d]);
-  if (days.length <= 1) return days.join('');
-  return `${days.slice(0, -1).join(', ')} and ${days[days.length - 1]}`;
+  const sorted = [...new Set(weekdays)].filter((d) => d >= 0 && d <= 6).sort((a, b) => a - b);
+  if (sorted.length === 7) return 'Every day';
+  const runs: number[][] = [];
+  for (const day of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && last[last.length - 1] === day - 1) last.push(day);
+    else runs.push([day]);
+  }
+  const parts = runs.flatMap((run) =>
+    run.length >= 3 ? [`${SHORT_DAYS[run[0]]}–${SHORT_DAYS[run[run.length - 1]]}`] : run.map((d) => SHORT_DAYS[d])
+  );
+  if (parts.length <= 1) return parts.join('');
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
 // "Delivers within 10 miles, Sat, 9:00 am – 12:00 pm, $5.00".

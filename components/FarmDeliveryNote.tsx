@@ -14,10 +14,13 @@ export default function FarmDeliveryNote({
   farmerId,
   category,
   pickupOnly,
+  row = false,
 }: {
   farmerId: string;
   category?: string | null;
   pickupOnly?: boolean;
+  // One row of the listing's "getting it" list (a <dl>).
+  row?: boolean;
 }) {
   const [delivery, setDelivery] = useState<Delivery | null>(null);
 
@@ -34,6 +37,21 @@ export default function FarmDeliveryNote({
 
   if (!delivery) return null;
   const notThisOne = pickupOnly || (category === EGG_CATEGORY && !delivery.deliversEggs);
+
+  if (row) {
+    return (
+      <div className="flex items-start gap-3 p-4">
+        <Truck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+        <div>
+          <dt className="text-sm font-bold text-gray-900">{notThisOne ? 'Delivery' : 'Or have it delivered'}</dt>
+          <dd className="text-xs text-gray-600">
+            {notThisOne ? 'This farm delivers, but this item is pickup only.' : delivery.summary.replace(/^Delivers within/, 'Within')}
+          </dd>
+          {!notThisOne && delivery.note && <dd className="text-xs text-gray-500 mt-0.5">{delivery.note}</dd>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <p className="text-sm text-blue-950 bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2">
