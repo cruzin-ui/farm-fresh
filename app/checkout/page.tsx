@@ -567,210 +567,206 @@ function CheckoutContent() {
           <p className="bg-white border rounded-xl p-5 shadow-sm text-sm text-gray-500 text-center">Loading your cart...</p>
         )}
 
-        {farms.length > 1 && (
-          <p className="text-sm text-gray-700 bg-amber-50 border border-amber-300 rounded-xl p-3">
-            Your cart has produce from <strong>{farms.length} farms</strong>. You pay once, but each farm is a
-            separate pickup at its own address, with its own pickup code.
-          </p>
-        )}
-
-        {farms.map((farm) => (
-          <div key={farm.key} className="bg-white border rounded-xl p-4 shadow-sm space-y-3">
-            <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-              <Store className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
-              {farm.farmName}
-              {farm.locationName && <span className="text-xs font-medium text-gray-500">· Pickup in {farm.locationName}</span>}
-            </h2>
-            {farm.farmerId &&
-              ((quote?.marketOptions?.[farm.farmerId] || []).length > 0 ||
-                (quote?.deliveryOptions?.[farm.farmerId]?.options || []).length > 0) && (
-              <FulfillmentChoice
-                farmerId={farm.farmerId}
-                locationName={farm.locationName}
-                markets={quote?.marketOptions?.[farm.farmerId] || []}
-                delivery={quote?.deliveryOptions?.[farm.farmerId]}
-                value={pickups[farm.farmerId] || ''}
-                onChange={(key) =>
-                  setPickups((current) => {
-                    const next = { ...current };
-                    if (key) next[farm.farmerId!] = key;
-                    else delete next[farm.farmerId!];
-                    return next;
-                  })
-                }
-              />
-            )}
-            {/* How far the pickup is, before the buyer pays. */}
-            {!pickups[farm.farmerId || ''] && <DistanceFromYou farmZip={farm.zipCode} remindIfFar />}
-            {farm.usualPickup && !pickups[farm.farmerId || ''] && (
-              <p className="text-xs text-gray-600 flex items-start gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
-                <span>Usual pickup: {farm.usualPickup}</span>
+        {/* The whole order in one card: each farm's items and how to get them,
+            the delivery address if any, then the totals. */}
+        {farms.length > 0 && (
+          <div className="bg-white border rounded-xl shadow-sm divide-y">
+            {farms.length > 1 && (
+              <p className="text-xs text-gray-700 px-4 py-3">
+                Produce from <strong>{farms.length} farms</strong>: you pay once, but each farm is a separate pickup
+                with its own code.
               </p>
             )}
 
-            <ul className="divide-y divide-gray-100">
-              {farm.lines.map((line) => (
-                <li key={line.listingId} className="py-3 first:pt-0 last:pb-0 space-y-2">
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="min-w-0">
-                      <Link href={`/listings/${line.listingId}`} className="font-bold text-gray-900 hover:underline break-words">
-                        {line.title}
-                      </Link>
-                      {line.wholesale && (
-                        <span className="ml-2 align-middle text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-900 border border-amber-300 rounded px-1.5 py-0.5">
-                          Wholesale
-                        </span>
+            {farms.map((farm) => (
+              <section key={farm.key} className="p-4 space-y-3">
+                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Store className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
+                  {farm.farmName}
+                  {farm.locationName && <span className="text-xs font-medium text-gray-500">· {farm.locationName}</span>}
+                </h2>
+
+                <ul className="space-y-3">
+                  {farm.lines.map((line) => (
+                    <li key={line.listingId} className="space-y-1.5">
+                      <div className="flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <Link href={`/listings/${line.listingId}`} className="text-sm font-bold text-gray-900 hover:underline break-words">
+                            {line.title}
+                          </Link>
+                          {line.wholesale && (
+                            <span className="ml-2 align-middle text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-900 border border-amber-300 rounded px-1.5 py-0.5">
+                              Wholesale
+                            </span>
+                          )}
+                          <p className="text-xs text-gray-500">
+                            ${line.pricePerUnit.toFixed(2)} {line.wholesale ? 'per case' : line.unitType === 'units' ? 'each' : `per ${line.unitType}`}
+                            {line.wholesale && line.wholesale.minCases > 1 && <> · min {line.wholesale.minCases} cases</>}
+                          </p>
+                        </div>
+                        <label htmlFor={`qty-${line.listingId}`} className="sr-only">
+                          Quantity of {line.title}
+                        </label>
+                        <QuantityInput
+                          id={`qty-${line.listingId}`}
+                          value={line.quantity}
+                          max={line.available}
+                          onChange={(quantity) => setCartQuantity(line.listingId, quantity)}
+                        />
+                        <p className="w-16 text-right text-sm font-bold text-gray-900 shrink-0">
+                          ${(line.pricePerUnit * line.quantity).toFixed(2)}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(line.listingId)}
+                          className="p-1.5 -mr-1.5 text-gray-400 hover:text-red-600 rounded-lg"
+                          title="Remove"
+                        >
+                          <Trash2 className="w-4 h-4" aria-hidden="true" />
+                          <span className="sr-only">Remove {line.title}</span>
+                        </button>
+                      </div>
+                      {line.problem && quoteReady && (
+                        <p role="alert" className="text-xs text-red-700 bg-red-50 border border-red-200 p-2 rounded-lg flex items-center gap-1.5 font-medium">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> {line.problem}
+                        </p>
                       )}
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        ${line.pricePerUnit.toFixed(2)} per {line.unitType} · {line.available} available
-                        {line.wholesale && line.wholesale.minCases > 1 && <> · minimum {line.wholesale.minCases} cases</>}
+                    </li>
+                  ))}
+                </ul>
+
+                {farm.farmerId &&
+                  ((quote?.marketOptions?.[farm.farmerId] || []).length > 0 ||
+                    (quote?.deliveryOptions?.[farm.farmerId]?.options || []).length > 0) && (
+                  <FulfillmentChoice
+                    farmerId={farm.farmerId}
+                    locationName={farm.locationName}
+                    markets={quote?.marketOptions?.[farm.farmerId] || []}
+                    delivery={quote?.deliveryOptions?.[farm.farmerId]}
+                    value={pickups[farm.farmerId] || ''}
+                    onChange={(key) =>
+                      setPickups((current) => {
+                        const next = { ...current };
+                        if (key) next[farm.farmerId!] = key;
+                        else delete next[farm.farmerId!];
+                        return next;
+                      })
+                    }
+                  />
+                )}
+                {!pickups[farm.farmerId || ''] && (
+                  <div className="space-y-1.5">
+                    {farm.usualPickup && (
+                      <p className="text-xs text-gray-600 flex items-start gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+                        <span>Usual pickup: {farm.usualPickup}</span>
                       </p>
-                    </div>
-                    <p className="text-sm font-bold text-gray-900 shrink-0">
-                      ${(line.pricePerUnit * line.quantity).toFixed(2)}
-                    </p>
+                    )}
+                    {/* How far the pickup is, before the buyer pays. */}
+                    <DistanceFromYou farmZip={farm.zipCode} remindIfFar />
                   </div>
+                )}
+              </section>
+            ))}
 
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 bg-gray-50 border px-3 py-1.5 rounded-lg">
-                      <label htmlFor={`qty-${line.listingId}`} className="text-xs text-gray-600 font-semibold">
-                        Qty<span className="sr-only"> of {line.title}</span>:
-                      </label>
-                      <QuantityInput
-                        id={`qty-${line.listingId}`}
-                        value={line.quantity}
-                        max={line.available}
-                        onChange={(quantity) => setCartQuantity(line.listingId, quantity)}
-                      />
-                      <span className="text-xs text-gray-600">{line.wholesale ? 'cases' : line.unitType}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFromCart(line.listingId)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:underline px-2 py-2"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" /> Remove
-                      <span className="sr-only"> {line.title}</span>
-                    </button>
-                  </div>
-
-                  {line.problem && quoteReady && (
-                    <p role="alert" className="text-xs text-red-700 bg-red-50 border border-red-200 p-2 rounded-lg flex items-center gap-1.5 font-medium">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> {line.problem}
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-
-        {wantsDelivery && (
-          <div className="bg-white border rounded-xl p-4 shadow-sm space-y-3">
-            <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-              <Truck className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" /> Delivery address
-            </h2>
-            <div>
-              <label htmlFor="delivery-address" className="block text-xs font-semibold text-gray-700 mb-1">
-                Street address *
-              </label>
-              <AddressAutocomplete
-                id="delivery-address"
-                required
-                placeholder="Start typing, then pick your address from the list"
-                value={deliveryForm.address}
-                verified={false}
-                onChange={(text) => setDeliveryForm((f) => ({ ...f, address: text, zip: zipIn(text) || f.zip }))}
-                onSelect={(s) => setDeliveryForm((f) => ({ ...f, address: s.address, zip: (s.zip || '').slice(0, 5) || zipIn(s.address) }))}
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label htmlFor="delivery-zip" className="block text-xs font-semibold text-gray-700 mb-1">
-                  Zip code *
-                </label>
-                <input
-                  id="delivery-zip"
-                  inputMode="numeric"
-                  maxLength={5}
-                  value={deliveryForm.zip}
-                  onChange={(e) => setDeliveryForm((f) => ({ ...f, zip: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
-                />
-              </div>
-              <div className="col-span-2">
-                <label htmlFor="delivery-note" className="block text-xs font-semibold text-gray-700 mb-1">
-                  Note for the farmer (optional)
-                </label>
-                <input
-                  id="delivery-note"
-                  maxLength={300}
-                  value={deliveryForm.note}
-                  placeholder="Gate code, apartment, where to leave it"
-                  onChange={(e) => setDeliveryForm((f) => ({ ...f, note: e.target.value }))}
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
-                />
-              </div>
-            </div>
-            <p className="text-xs text-gray-600">
-              Only the farm delivering to you sees this. Not home? They leave it with a photo, and you have{' '}
-              {DELIVERY_RELEASE_HOURS} hours to report a problem.
-            </p>
-          </div>
-        )}
-
-        {quote && (
-          <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-5 space-y-3 text-sm">
-            <div className="flex justify-between items-center text-gray-700">
-              <span>Produce Subtotal:</span>
-              <span className="font-semibold">{quoteReady ? dollars(quote.subtotalCents) : pending}</span>
-            </div>
-            {(quote.wholesaleFeeCents || 0) > 0 && (quote.retailFeeCents || 0) > 0 ? (
-              <>
-                <div className="flex justify-between items-center text-gray-700">
-                  <span>Platform & Processing Fee, retail items ({BUYER_FEE_LABEL}):</span>
-                  <span className="font-semibold">{quoteReady ? dollars(quote.retailFeeCents!) : pending}</span>
-                </div>
-                <div className="flex justify-between items-center text-gray-700">
-                  <span>Wholesale Fee ({WHOLESALE_FEE_LABEL}):</span>
-                  <span className="font-semibold">{quoteReady ? dollars(quote.wholesaleFeeCents!) : pending}</span>
-                </div>
-              </>
-            ) : (
-              <div className="flex justify-between items-center text-gray-700">
-                <span>
-                  {(quote.wholesaleFeeCents || 0) > 0
-                    ? `Wholesale Fee (${WHOLESALE_FEE_LABEL}):`
-                    : `Platform & Processing Fee (${BUYER_FEE_LABEL}, once per checkout):`}
-                </span>
-                <span className="font-semibold">{quoteReady ? dollars(quote.feeCents) : pending}</span>
-              </div>
-            )}
             {wantsDelivery && (
-              <div className="flex justify-between items-center text-gray-700">
-                <span>Delivery:</span>
-                <span className="font-semibold">
-                  {!delivery ? 'Add your address' : quoteReady ? dollars(quote.deliveryCents || 0) : pending}
-                </span>
+              <section className="p-4 space-y-3">
+                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" /> Delivery address
+                </h2>
+                <div>
+                  <label htmlFor="delivery-address" className="block text-xs font-semibold text-gray-700 mb-1">
+                    Street address *
+                  </label>
+                  <AddressAutocomplete
+                    id="delivery-address"
+                    required
+                    placeholder="Start typing, then pick your address from the list"
+                    value={deliveryForm.address}
+                    verified={false}
+                    onChange={(text) => setDeliveryForm((f) => ({ ...f, address: text, zip: zipIn(text) || f.zip }))}
+                    onSelect={(s) => setDeliveryForm((f) => ({ ...f, address: s.address, zip: (s.zip || '').slice(0, 5) || zipIn(s.address) }))}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label htmlFor="delivery-zip" className="block text-xs font-semibold text-gray-700 mb-1">
+                      Zip code *
+                    </label>
+                    <input
+                      id="delivery-zip"
+                      inputMode="numeric"
+                      maxLength={5}
+                      value={deliveryForm.zip}
+                      onChange={(e) => setDeliveryForm((f) => ({ ...f, zip: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label htmlFor="delivery-note" className="block text-xs font-semibold text-gray-700 mb-1">
+                      Note for the farmer (optional)
+                    </label>
+                    <input
+                      id="delivery-note"
+                      maxLength={300}
+                      value={deliveryForm.note}
+                      placeholder="Gate code, apartment, where to leave it"
+                      onChange={(e) => setDeliveryForm((f) => ({ ...f, note: e.target.value }))}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Only the farm delivering to you sees this. Not home? They leave it with a photo, and you have{' '}
+                  {DELIVERY_RELEASE_HOURS} hours to report a problem.
+                </p>
+              </section>
+            )}
+
+            {quote && (
+              <div className="p-4 space-y-1.5 text-sm bg-emerald-50/60 rounded-b-xl">
+                <div className="flex justify-between gap-3 text-gray-700">
+                  <span>Subtotal</span>
+                  <span className="font-semibold">{quoteReady ? dollars(quote.subtotalCents) : pending}</span>
+                </div>
+                {(quote.wholesaleFeeCents || 0) > 0 && (quote.retailFeeCents || 0) > 0 ? (
+                  <>
+                    <div className="flex justify-between gap-3 text-gray-700">
+                      <span>Service fee, retail items ({BUYER_FEE_LABEL})</span>
+                      <span className="font-semibold">{quoteReady ? dollars(quote.retailFeeCents!) : pending}</span>
+                    </div>
+                    <div className="flex justify-between gap-3 text-gray-700">
+                      <span>Wholesale fee ({WHOLESALE_FEE_LABEL})</span>
+                      <span className="font-semibold">{quoteReady ? dollars(quote.wholesaleFeeCents!) : pending}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between gap-3 text-gray-700">
+                    <span>{(quote.wholesaleFeeCents || 0) > 0 ? `Wholesale fee (${WHOLESALE_FEE_LABEL})` : `Service fee (${BUYER_FEE_LABEL})`}</span>
+                    <span className="font-semibold">{quoteReady ? dollars(quote.feeCents) : pending}</span>
+                  </div>
+                )}
+                {wantsDelivery && (
+                  <div className="flex justify-between gap-3 text-gray-700">
+                    <span>Delivery</span>
+                    <span className="font-semibold">{!delivery ? 'Add your address' : quoteReady ? dollars(quote.deliveryCents || 0) : pending}</span>
+                  </div>
+                )}
+                {quote.taxEnabled && (
+                  <div className="flex justify-between gap-3 text-gray-700">
+                    <span>Sales tax{quote.taxExempt ? ' (wholesale items exempt)' : ''}</span>
+                    <span className="font-semibold">{quoteReady ? dollars(quote.taxCents) : pending}</span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-3 font-bold text-lg text-emerald-950 border-t border-emerald-200 pt-2 mt-1">
+                  <span>Total</span>
+                  <span>{quoteReady ? dollars(totalCents) : pending}</span>
+                </div>
+                <p className="text-xs text-emerald-800 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> Paid in full online. Nothing to pay at pickup.
+                </p>
               </div>
             )}
-            {quote.taxEnabled && (
-              <div className="flex justify-between items-center text-gray-700">
-                <span>Sales Tax{quote.taxExempt ? ' (wholesale items exempt: resale certificate on file)' : ''}:</span>
-                <span className="font-semibold">{quoteReady ? dollars(quote.taxCents) : pending}</span>
-              </div>
-            )}
-            <div className="flex justify-between items-center font-bold text-lg text-emerald-950 border-t border-emerald-200 pt-2">
-              <span>Total Due Today (100% Online):</span>
-              <span>{quoteReady ? dollars(totalCents) : pending}</span>
-            </div>
-            <div className="flex justify-between items-center text-xs font-semibold text-emerald-800 bg-white border px-3 py-2 rounded-lg">
-              <span className="flex items-center gap-1">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" /> Balance Due at Farm Stand:
-              </span>
-              <span>$0.00 (Pre-Paid)</span>
-            </div>
           </div>
         )}
 
