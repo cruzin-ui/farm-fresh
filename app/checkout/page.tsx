@@ -666,13 +666,6 @@ function CheckoutContent() {
           </div>
         ))}
 
-        <Link
-          href="/browse"
-          className="w-full inline-flex items-center justify-center gap-2 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 font-bold py-3 rounded-xl text-sm"
-        >
-          <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Back to Browsing — Add More Produce
-        </Link>
-
         {wantsDelivery && (
           <div className="bg-white border rounded-xl p-4 shadow-sm space-y-3">
             <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
@@ -808,26 +801,6 @@ function CheckoutContent() {
           </div>
         )}
 
-        {signedIn && (
-          <div className="bg-white border rounded-xl p-4 shadow-sm">
-            <label htmlFor="checkout-buyer-name" className="font-bold text-gray-900 text-base">
-              Name for your order <span className="text-sm font-normal text-gray-500">(optional)</span>
-            </label>
-            <p className="text-xs text-gray-500 mt-0.5 mb-2">So the farmer can label your bag.</p>
-            <input
-              id="checkout-buyer-name"
-              form={PAYMENT_FORM_ID}
-              type="text"
-              autoComplete="name"
-              maxLength={BUYER_NAME_MAX}
-              placeholder="e.g., Jane Smith"
-              value={buyerName}
-              onChange={(e) => setBuyerName(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
-          </div>
-        )}
-
         {!stripePromise ? (
           <p className="bg-white border rounded-xl p-5 shadow-sm text-xs text-red-500 text-center">
             Payment configuration is missing. Please contact support.
@@ -875,7 +848,34 @@ function CheckoutContent() {
           </Elements>
         )}
 
+        {signedIn && (
+          <div className="bg-white border rounded-xl p-4 shadow-sm">
+            <label htmlFor="checkout-buyer-name" className="font-bold text-gray-900 text-base">
+              Name for your order <span className="text-sm font-normal text-gray-500">(optional)</span>
+            </label>
+            <p className="text-xs text-gray-500 mt-0.5 mb-2">So the farmer can label your bag.</p>
+            <input
+              id="checkout-buyer-name"
+              form={PAYMENT_FORM_ID}
+              type="text"
+              autoComplete="name"
+              maxLength={BUYER_NAME_MAX}
+              placeholder="e.g., Jane Smith"
+              value={buyerName}
+              onChange={(e) => setBuyerName(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+        )}
+
         <BuyerGuidance />
+
+        <Link
+          href="/browse"
+          className="w-full inline-flex items-center justify-center gap-2 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 font-bold py-3 rounded-xl text-sm"
+        >
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Back to Browsing — Add More Produce
+        </Link>
       </div>
     </div>
   );
