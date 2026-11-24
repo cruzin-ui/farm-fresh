@@ -56,16 +56,16 @@ export default function WholesaleBuy({
 
   if (!info.approved || !info.offer) {
     return (
-      <p className="text-xs text-gray-700 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
-        <Briefcase className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
+      <p className="text-xs text-gray-600 flex items-center justify-center gap-1.5">
+        <Briefcase className="w-3.5 h-3.5 text-amber-700 shrink-0" aria-hidden="true" />
         <span>
           {info.applied === 'pending' ? (
-            <>This farm also sells by the case. Your wholesale application is being reviewed.</>
+            <>Sold by the case too. Your wholesale application is being reviewed.</>
           ) : (
             <>
-              Buying for a business? This farm also sells by the case to approved wholesale accounts.{' '}
+              Buying for a business?{' '}
               <Link href="/account#wholesale" className="font-semibold text-emerald-800 underline">
-                Apply for wholesale pricing
+                Get case pricing
               </Link>
             </>
           )}
