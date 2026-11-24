@@ -157,6 +157,7 @@ function PaymentForm({
   signedIn,
   guestEmail,
   buyerName,
+  onBuyerNameChange,
   delivery,
   onCartRejected,
 }: {
@@ -170,6 +171,7 @@ function PaymentForm({
   guestEmail: string;
   // A signed-in buyer's name for the farmer (optional).
   buyerName: string;
+  onBuyerNameChange: (name: string) => void;
   // Called when the server turns the cart down (something sold out in the
   // meantime), so the page can look the cart up again and show what changed.
   onCartRejected: () => void;
@@ -259,6 +261,24 @@ function PaymentForm({
       <div className="min-h-[100px]">
         <PaymentElement />
       </div>
+
+      {signedIn && (
+        <div>
+          <label htmlFor="checkout-buyer-name" className="block text-sm font-bold text-gray-900">
+            Name for your order <span className="font-normal text-gray-500">(optional, so the farmer can label your bag)</span>
+          </label>
+          <input
+            id="checkout-buyer-name"
+            type="text"
+            autoComplete="name"
+            maxLength={BUYER_NAME_MAX}
+            placeholder="e.g., Jane Smith"
+            value={buyerName}
+            onChange={(e) => onBuyerNameChange(e.target.value)}
+            className="mt-1 w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 outline-none"
+          />
+        </div>
+      )}
 
       <label className="flex items-start gap-2 text-sm text-gray-700">
         <input type="checkbox" required className="mt-0.5 w-4 h-4 shrink-0" />
@@ -838,30 +858,11 @@ function CheckoutContent() {
               signedIn={signedIn}
               guestEmail={guestEmail}
               buyerName={buyerName}
+              onBuyerNameChange={setBuyerName}
               grandTotal={totalCents / 100}
               onCartRejected={() => setRefreshCount((count) => count + 1)}
             />
           </Elements>
-        )}
-
-        {signedIn && (
-          <div className="bg-white border rounded-xl p-4 shadow-sm">
-            <label htmlFor="checkout-buyer-name" className="font-bold text-gray-900 text-base">
-              Name for your order <span className="text-sm font-normal text-gray-500">(optional)</span>
-            </label>
-            <p className="text-xs text-gray-500 mt-0.5 mb-2">So the farmer can label your bag.</p>
-            <input
-              id="checkout-buyer-name"
-              form={PAYMENT_FORM_ID}
-              type="text"
-              autoComplete="name"
-              maxLength={BUYER_NAME_MAX}
-              placeholder="e.g., Jane Smith"
-              value={buyerName}
-              onChange={(e) => setBuyerName(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
-          </div>
         )}
 
         <BuyerGuidance />
