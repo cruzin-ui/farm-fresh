@@ -65,7 +65,7 @@ export default function ListingDetailPage() {
       if (listingData?.farmer_id) {
         const { data: sellerData } = await supabase
           .from('seller_profiles')
-          .select('id, farm_name, avatar_url, location, bio, growing_practices, pickup_days, pickup_times, stripe_onboarding_complete, cottage_food_reg')
+          .select('id, farm_name, avatar_url, location, bio, growing_practices, pickup_days, pickup_times, stripe_onboarding_complete, cottage_food_reg, slug')
           .eq('id', listingData.farmer_id)
           .maybeSingle();
 
@@ -187,7 +187,34 @@ export default function ListingDetailPage() {
       </Link>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-emerald-50 rounded-2xl border border-gray-200 overflow-hidden flex items-center justify-center min-h-64 md:min-h-96">
+        <div className="relative bg-emerald-50 rounded-2xl border border-gray-200 overflow-hidden flex items-center justify-center min-h-64 md:min-h-96">
+          {/* Who sells it, over the photo: one tap to the farm and its other listings. */}
+          {seller && (
+            <Link
+              href={seller.slug ? `/${seller.slug}` : `/sellers/${seller.id}`}
+              className="absolute top-3 left-3 right-3 z-10 flex items-center gap-2 bg-white/90 backdrop-blur-md rounded-full pl-1.5 pr-3 py-1.5 shadow-md hover:bg-white transition-colors w-fit max-w-[calc(100%-1.5rem)]"
+            >
+              {seller.avatar_url ? (
+                <Photo
+                  src={seller.avatar_url}
+                  alt=""
+                  sizes="32px"
+                  className="w-8 h-8 rounded-full object-cover border border-emerald-200 shrink-0"
+                />
+              ) : (
+                <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <User className="w-4 h-4" aria-hidden="true" />
+                </span>
+              )}
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-gray-900 truncate leading-tight">{seller.farm_name || 'Local Farm'}</span>
+                <span className="block text-[11px] font-semibold text-emerald-700 leading-tight">
+                  {seller.review_count > 0 ? `★ ${seller.average_rating.toFixed(1)} · ` : ''}See all their listings
+                </span>
+              </span>
+              <ChevronRight className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
+            </Link>
+          )}
           {listing.image_url ? (
             <Photo
               src={listing.image_url}
@@ -445,7 +472,7 @@ export default function ListingDetailPage() {
 
           {seller && (
             <Link
-              href={`/sellers/${seller.id}`}
+              href={seller.slug ? `/${seller.slug}` : `/sellers/${seller.id}`}
               className="flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-2xl shadow-sm hover:border-emerald-300 hover:shadow-md transition-all"
             >
               {seller.avatar_url ? (
