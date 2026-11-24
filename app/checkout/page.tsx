@@ -312,6 +312,89 @@ function PaymentForm({
   );
 }
 
+type DeliveryChoices = { options: { key: string; label: string }[]; summary: string; note?: string | null };
+
+// "How will you get it?" for one farm: pick up at the farm, at one of its
+// markets or drop-off points, or delivery, with the date chosen from a list
+// (so a farm delivering six days a week is one option, not eight).
+function FulfillmentChoice({
+  farmerId,
+  locationName,
+  markets,
+  delivery,
+  value,
+  onChange,
+}: {
+  farmerId: string;
+  locationName?: string | null;
+  markets: { key: string; label: string; kind?: string }[];
+  delivery?: DeliveryChoices;
+  value: string;
+  onChange: (key: string) => void;
+}) {
+  const dates = delivery?.options || [];
+  const delivering = value.startsWith('delivery@');
+  const radio = (checked: boolean, onPick: () => void, children: React.ReactNode, key: string) => (
+    <label key={key} className="flex items-start gap-2 text-sm text-gray-800">
+      <input type="radio" name={`pickup-${farmerId}`} checked={checked} onChange={onPick} className="mt-1" />
+      <span>{children}</span>
+    </label>
+  );
+
+  return (
+    <fieldset className="border border-emerald-200 bg-emerald-50/50 rounded-lg p-3 space-y-1.5">
+      <legend className="px-1 text-xs font-bold text-gray-900">How will you get it?</legend>
+      {radio(value === '', () => onChange(''), <>Pick up at the farm{locationName ? `, in ${locationName}` : ''}</>, 'farm')}
+      {markets.map((o) =>
+        radio(
+          value === o.key,
+          () => onChange(o.key),
+          <>
+            {o.kind === 'dropoff' ? 'Drop-off point: ' : 'Market stand: '}
+            <strong>{o.label}</strong>
+          </>,
+          o.key
+        )
+      )}
+      {dates.length > 0 &&
+        radio(
+          delivering,
+          () => !delivering && onChange(dates[0].key),
+          <>
+            Deliver to me
+            {delivery?.summary && (
+              <span className="block text-xs text-gray-600">{delivery.summary.replace(/^Delivers within/, 'Within')}</span>
+            )}
+          </>,
+          'delivery'
+        )}
+      {delivering && (
+        <div className="pl-6 space-y-1">
+          <label htmlFor={`delivery-date-${farmerId}`} className="sr-only">
+            Delivery date
+          </label>
+          <select
+            id={`delivery-date-${farmerId}`}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full sm:w-auto px-3 py-2 border rounded-lg text-sm bg-white font-semibold"
+          >
+            {dates.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          {delivery?.note && <p className="text-xs text-gray-600">{delivery.note}</p>}
+        </div>
+      )}
+      {(markets.length > 0 || dates.length > 0) && (
+        <p className="text-[11px] text-gray-500">Orders for a set date close at 6 pm the evening before.</p>
+      )}
+    </fieldset>
+  );
+}
+
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -501,55 +584,28 @@ function CheckoutContent() {
             {farm.farmerId &&
               ((quote?.marketOptions?.[farm.farmerId] || []).length > 0 ||
                 (quote?.deliveryOptions?.[farm.farmerId]?.options || []).length > 0) && (
-              <fieldset className="border border-emerald-200 bg-emerald-50/50 rounded-lg p-3 space-y-1.5">
-                <legend className="px-1 text-xs font-bold text-gray-900">How will you get it?</legend>
-                {[
-                  { key: '', label: `Pick up at the farm${farm.locationName ? `, in ${farm.locationName}` : ''}`, prefix: '' },
-                  ...(quote?.marketOptions?.[farm.farmerId] || []).map((o: { key: string; label: string; kind?: string }) => ({
-                    ...o,
-                    prefix: o.kind === 'dropoff' ? 'At their drop-off point: ' : 'At their market stand: ',
-                  })),
-                  ...(quote?.deliveryOptions?.[farm.farmerId]?.options || []).map((o) => ({ ...o, prefix: 'Deliver to me: ' })),
-                ].map((option) => (
-                  <label key={option.key || 'farm'} className="flex items-start gap-2 text-sm text-gray-800">
-                    <input
-                      type="radio"
-                      name={`pickup-${farm.farmerId}`}
-                      checked={(pickups[farm.farmerId!] || '') === option.key}
-                      onChange={() =>
-                        setPickups((current) => {
-                          const next = { ...current };
-                          if (option.key) next[farm.farmerId!] = option.key;
-                          else delete next[farm.farmerId!];
-                          return next;
-                        })
-                      }
-                      className="mt-1"
-                    />
-                    <span>{option.key ? <>{option.prefix}<strong>{option.label}</strong></> : option.label}</span>
-                  </label>
-                ))}
-                {quote?.deliveryOptions?.[farm.farmerId] && (
-                  <p className="text-xs text-gray-600 flex items-start gap-1.5">
-                    <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
-                    <span>
-                      {quote.deliveryOptions[farm.farmerId].summary}
-                      {quote.deliveryOptions[farm.farmerId].note ? `. ${quote.deliveryOptions[farm.farmerId].note}` : ''}
-                    </span>
-                  </p>
-                )}
-                <p className="text-xs text-gray-600">Ordering ahead for a date closes at 6 pm the evening before.</p>
-              </fieldset>
+              <FulfillmentChoice
+                farmerId={farm.farmerId}
+                locationName={farm.locationName}
+                markets={quote?.marketOptions?.[farm.farmerId] || []}
+                delivery={quote?.deliveryOptions?.[farm.farmerId]}
+                value={pickups[farm.farmerId] || ''}
+                onChange={(key) =>
+                  setPickups((current) => {
+                    const next = { ...current };
+                    if (key) next[farm.farmerId!] = key;
+                    else delete next[farm.farmerId!];
+                    return next;
+                  })
+                }
+              />
             )}
             {/* How far the pickup is, before the buyer pays. */}
             {!pickups[farm.farmerId || ''] && <DistanceFromYou farmZip={farm.zipCode} remindIfFar />}
             {farm.usualPickup && !pickups[farm.farmerId || ''] && (
-              <p className="text-xs text-gray-700 flex items-start gap-1.5">
+              <p className="text-xs text-gray-600 flex items-start gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
-                <span>
-                  Usual pickup times: <span className="font-semibold">{farm.usualPickup}</span>. The farmer confirms
-                  the exact days when your order is ready.
-                </span>
+                <span>Usual pickup: {farm.usualPickup}</span>
               </p>
             )}
 
@@ -665,9 +721,8 @@ function CheckoutContent() {
               </div>
             </div>
             <p className="text-xs text-gray-600">
-              Only the farms delivering to you see this address. If you&apos;re home, give the farmer your code when they
-              hand it over; if not, they leave it and send you a photo, and you have {DELIVERY_RELEASE_HOURS} hours to tell us
-              if anything is wrong.
+              Only the farm delivering to you sees this. Not home? They leave it with a photo, and you have{' '}
+              {DELIVERY_RELEASE_HOURS} hours to report a problem.
             </p>
           </div>
         )}
@@ -726,17 +781,13 @@ function CheckoutContent() {
           </div>
         )}
 
-        <BuyerGuidance />
-
         {!signedIn && (
           <div className="bg-white border-2 border-emerald-600 rounded-xl p-5 shadow-sm">
             <h2 className="font-bold text-gray-900 text-base flex items-center gap-1.5">
               <Mail className="w-5 h-5 text-emerald-600" aria-hidden="true" />
               <label htmlFor="checkout-guest-email">Your email address *</label>
             </h2>
-            <p className="text-sm text-gray-600 mt-1 mb-3">
-              No account needed. We send your receipt and pickup code here, so double-check the spelling.
-            </p>
+            <p className="text-sm text-gray-600 mt-1 mb-3">No account needed. Your receipt and pickup code go here.</p>
             <input
               id="checkout-guest-email"
               form={PAYMENT_FORM_ID}
@@ -758,13 +809,11 @@ function CheckoutContent() {
         )}
 
         {signedIn && (
-          <div className="bg-white border rounded-xl p-5 shadow-sm">
+          <div className="bg-white border rounded-xl p-4 shadow-sm">
             <label htmlFor="checkout-buyer-name" className="font-bold text-gray-900 text-base">
               Name for your order <span className="text-sm font-normal text-gray-500">(optional)</span>
             </label>
-            <p className="text-sm text-gray-600 mt-1 mb-3">
-              The farmer sees it on your order, so they can label your bag. We&apos;ll remember it for next time.
-            </p>
+            <p className="text-xs text-gray-500 mt-0.5 mb-2">So the farmer can label your bag.</p>
             <input
               id="checkout-buyer-name"
               form={PAYMENT_FORM_ID}
@@ -774,7 +823,7 @@ function CheckoutContent() {
               placeholder="e.g., Jane Smith"
               value={buyerName}
               onChange={(e) => setBuyerName(e.target.value)}
-              className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 outline-none"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 outline-none"
             />
           </div>
         )}
@@ -825,6 +874,8 @@ function CheckoutContent() {
             />
           </Elements>
         )}
+
+        <BuyerGuidance />
       </div>
     </div>
   );

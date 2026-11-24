@@ -1,41 +1,41 @@
 import Link from 'next/link';
-import { ShieldAlert, ListChecks } from 'lucide-react';
+import { ShieldAlert, ChevronDown } from 'lucide-react';
 import { HOW_PICKUP_WORKS, SAFETY_TIPS } from '@/lib/buyerGuidance';
 
-// Shown to buyers at checkout: how pickup works, and how to stay safe.
+// Shown to buyers at checkout, below the pay button: the one safety rule that
+// matters most, with how pickup works and the other tips a tap away.
 export default function BuyerGuidance() {
   return (
-    <div className="space-y-4">
-      <section className="bg-white border rounded-xl p-4 shadow-sm">
-        <h2 className="font-bold text-gray-900 text-sm flex items-center gap-2 mb-2">
-          <ListChecks className="w-5 h-5 text-emerald-700" aria-hidden="true" /> How pickup works
-        </h2>
-        <ol className="list-decimal pl-5 space-y-1.5 text-sm text-gray-700">
-          {HOW_PICKUP_WORKS.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="bg-amber-50 border border-amber-300 rounded-xl p-4">
-        <h2 className="font-bold text-amber-950 text-sm flex items-center gap-2 mb-2">
-          <ShieldAlert className="w-5 h-5 text-amber-700" aria-hidden="true" /> Staying safe
-        </h2>
-        <ul className="list-disc pl-5 space-y-1.5 text-sm text-amber-950">
-          {SAFETY_TIPS.map((tip, index) => (
-            <li key={tip} className={index === 0 ? 'font-semibold' : ''}>
-              {tip}
-            </li>
-          ))}
-        </ul>
-        <p className="text-sm text-amber-950 mt-2">
-          Questions or concerns?{' '}
-          <Link href="/contact" className="font-semibold underline">
-            Contact us
-          </Link>
-          .
-        </p>
-      </section>
-    </div>
+    <section className="bg-white border rounded-xl shadow-sm text-sm">
+      <p className="flex items-start gap-2 p-4 text-gray-800">
+        <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
+        <span className="font-semibold">{SAFETY_TIPS[0]}</span>
+      </p>
+      <details className="group border-t">
+        <summary className="flex items-center justify-between gap-2 px-4 py-3 cursor-pointer font-semibold text-emerald-800 list-none [&::-webkit-details-marker]:hidden">
+          How pickup works and staying safe
+          <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <div className="px-4 pb-4 space-y-3 text-gray-700">
+          <ol className="list-decimal pl-5 space-y-1.5">
+            {HOW_PICKUP_WORKS.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          <ul className="list-disc pl-5 space-y-1.5">
+            {SAFETY_TIPS.slice(1).map((tip) => (
+              <li key={tip}>{tip}</li>
+            ))}
+          </ul>
+          <p>
+            Questions or concerns?{' '}
+            <Link href="/contact" className="font-semibold text-emerald-800 underline">
+              Contact us
+            </Link>
+            .
+          </p>
+        </div>
+      </details>
+    </section>
   );
 }
